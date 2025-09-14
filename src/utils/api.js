@@ -1,68 +1,94 @@
 import axios from 'axios'
-import { API_BASE_URL, STORAGE_KEYS } from '../utils/constants'
+import { API_BASE_URL, STORAGE_KEYS, API_ENDPOINTS } from '../utils/constants'
 
-// Create axios instance
 const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json',
-  }
+  headers: { 'Content-Type': 'application/json' }
 })
 
-// Request interceptor untuk menambahkan auth token
+let isRefreshing = false
+let failedQueue = []
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach(prom => error ? prom.reject(error) : prom.resolve(token))
+  failedQueue = []
+}
+
+// Request interceptor
 api.interceptors.request.use(
   (config) => {
-    console.log(`Making ${config.method?.toUpperCase()} request to:`, config.baseURL + config.url)
-
     const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN)
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
+    if (token) config.headers.Authorization = `Bearer ${token}`
     return config
   },
-  (error) => {
-    console.error('Request interceptor error:', error)
-    return Promise.reject(error)
-  }
+  (error) => Promise.reject(error)
 )
 
-// Response interceptor untuk handle errors
+// Response interceptor dengan auto refresh
 api.interceptors.response.use(
-  (response) => {
-    console.log('API Response:', response.status, response.data)
-    return response
-  },
-  (error) => {
-    console.error('API Error:', error)
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config
 
     // Handle network errors
-    if (error.code === 'ECONNREFUSED') {
-      console.error('Connection refused - server might be down')
-      error.message = 'Tidak dapat terhubung ke server. Pastikan backend berjalan di http://localhost:8080'
-    } else if (error.code === 'ENOTFOUND') {
-      console.error('Host not found')
-      error.message = 'Server tidak ditemukan'
-    } else if (error.code === 'ECONNABORTED') {
-      console.error('Request timeout')
-      error.message = 'Koneksi timeout'
-    } else if (!error.response) {
-      console.error('Network error - no response')
+    if (!error.response) {
       error.message = 'Tidak dapat terhubung ke server'
+      return Promise.reject(error)
     }
 
-    // Handle 401 unauthorized
-    if (error.response?.status === 401) {
-      console.log('Unauthorized - clearing auth data')
-      localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN)
-      localStorage.removeItem(STORAGE_KEYS.USER_DATA)
-      // Only redirect if not already on login page
-      if (!window.location.pathname.includes('/auth') && !window.location.pathname.includes('/login')) {
-        window.location.href = '/auth'
+    // Handle 401 dengan auto refresh
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      if (originalRequest.url?.includes('/refresh-token')) {
+        localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN)
+        localStorage.removeItem('refreshToken')
+        localStorage.removeItem(STORAGE_KEYS.USER_DATA)
+        window.location.href = '/login'
+        return Promise.reject(error)
+      }
+
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject })
+        }).then(token => {
+          originalRequest.headers.Authorization = `Bearer ${token}`
+          return api(originalRequest)
+        })
+      }
+
+      originalRequest._retry = true
+      isRefreshing = true
+
+      try {
+        const refreshToken = localStorage.getItem('refreshToken')
+        if (!refreshToken) throw new Error('No refresh token')
+
+        const refreshResponse = await axios.post(`${API_BASE_URL}${API_ENDPOINTS.REFRESH_TOKEN}`, {
+          refreshToken
+        })
+
+        const { token: newToken } = refreshResponse.data.data
+        localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, newToken)
+
+        processQueue(null, newToken)
+        originalRequest.headers.Authorization = `Bearer ${newToken}`
+        return api(originalRequest)
+
+      } catch (refreshError) {
+        processQueue(refreshError, null)
+        localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN)
+        localStorage.removeItem('refreshToken')
+        localStorage.removeItem(STORAGE_KEYS.USER_DATA)
+
+        if (!window.location.pathname.includes('/login')) {
+          window.location.href = '/login'
+        }
+        return Promise.reject(refreshError)
+      } finally {
+        isRefreshing = false
       }
     }
 
-    // Handle 500 server errors
     if (error.response?.status >= 500) {
       error.message = 'Terjadi kesalahan pada server'
     }

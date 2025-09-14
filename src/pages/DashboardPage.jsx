@@ -46,6 +46,11 @@ const DashboardPage = () => {
           value={`${dashboardData?.readingProgress || 0}%`}
           icon="📊"
         />
+        <StatsCard
+          title="Favorit"
+          value={dashboardData?.favoriteBooks || 0}
+          icon="❤️"
+        />
       </div>
 
       <div className="card">

@@ -28,7 +28,7 @@ function App() {
           <Route path="/books" element={<BooksPage />} />
           <Route path="/books/:slug" element={<BookDetailPage />} />
           <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/reader/:slug" element={<ReaderPage />} />
+          <Route path=":slug/read" element={<ReaderPage />} />
         </Routes>
       </main>
     </div>

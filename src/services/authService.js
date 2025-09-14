@@ -1,82 +1,93 @@
+// authService.js - Fixed Google Auth
 import api from '../utils/api'
 import { API_ENDPOINTS, STORAGE_KEYS } from '../utils/constants'
 
 export const authService = {
-  // Login with username
   async login(credentials) {
     const response = await api.post(API_ENDPOINTS.LOGIN, credentials)
-    const { token, user } = response.data.data
+    const responseData = response.data.data
 
-    // Store token and user data
+    const token = responseData.token
+    const refreshToken = responseData.refreshToken
+    const user = responseData
+
     localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token)
+    localStorage.setItem('refreshToken', refreshToken)
     localStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(user))
 
-    return { token, user }
+    return { token, user, refreshToken }
   },
 
-  // Register
   async register(userData) {
     const response = await api.post(API_ENDPOINTS.REGISTER, userData)
     return response.data
   },
 
-  // Logout
   async logout() {
     try {
       await api.post(API_ENDPOINTS.LOGOUT)
     } catch (error) {
       console.error('Logout error:', error)
     } finally {
-      // Always clear local storage
-      localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN)
-      localStorage.removeItem(STORAGE_KEYS.USER_DATA)
+      this.clearAuthData()
     }
   },
 
-  // Google Auth
-  async googleAuth(googleToken) {
-    const response = await api.post(API_ENDPOINTS.GOOGLE_AUTH, { token: googleToken })
-    const { token, user } = response.data.data
+  // FIXED: Menggunakan field 'idToken' sesuai backend expectation
+  async googleAuth(googleIdToken) {
+    const response = await api.post(API_ENDPOINTS.GOOGLE_AUTH, {
+      idToken: googleIdToken  // Changed from 'token' to 'idToken'
+    })
+    const responseData = response.data.data
+
+    const token = responseData.token
+    const refreshToken = responseData.refreshToken
+    const user = responseData
 
     localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token)
+    localStorage.setItem('refreshToken', refreshToken)
     localStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(user))
 
-    return { token, user }
+    return { token, user, refreshToken }
   },
 
-  // Forgot Password
   async forgotPassword(username) {
     const response = await api.post(API_ENDPOINTS.FORGOT_PASSWORD, { username })
     return response.data
   },
 
-  // Reset Password
   async resetPassword(resetData) {
     const response = await api.post(API_ENDPOINTS.RESET_PASSWORD, resetData)
     return response.data
   },
 
-  // Refresh Token
-  async refreshToken(refreshToken) {
-    const response = await api.post(API_ENDPOINTS.REFRESH_TOKEN, { refreshToken })
-    const { token } = response.data.data
+  async refreshToken() {
+    const refreshToken = localStorage.getItem('refreshToken')
+    if (!refreshToken) throw new Error('No refresh token available')
 
-    localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token)
-    return token
+    const response = await api.post(API_ENDPOINTS.REFRESH_TOKEN, { refreshToken })
+    const { token: newToken } = response.data.data
+
+    localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, newToken)
+    return newToken
   },
 
-  // Get current user from localStorage safely
+  clearAuthData() {
+    localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN)
+    localStorage.removeItem('refreshToken')
+    localStorage.removeItem(STORAGE_KEYS.USER_DATA)
+  },
+
   getCurrentUser() {
     try {
       const userData = localStorage.getItem(STORAGE_KEYS.USER_DATA)
-      return userData ? JSON.parse(userData) : null
+      return userData && userData !== 'undefined' ? JSON.parse(userData) : null
     } catch (err) {
-      console.error('Error parsing user data from localStorage', err)
+      localStorage.removeItem(STORAGE_KEYS.USER_DATA)
       return null
     }
   },
 
-  // Check if user is authenticated
   isAuthenticated() {
     return !!localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN)
   }

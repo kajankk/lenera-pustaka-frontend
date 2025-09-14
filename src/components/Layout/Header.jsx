@@ -11,8 +11,8 @@ const Header = () => {
   const navigate = useNavigate()
 
   const handleLogout = async () => {
-    navigate(ROUTES.HOME) // redirect ke beranda
-    await logout()        // bersihkan session
+    navigate(ROUTES.HOME)
+    await logout()
   }
 
   return (
@@ -32,11 +32,6 @@ const Header = () => {
             {isAuthenticated ? (
               <>
                 <Link to={ROUTES.DASHBOARD} className="nav-link">Dashboard</Link>
-                {user && (
-                  <div className="username-display">
-                    {user.name || user.username}
-                  </div>
-                )}
                 <span
                   className="nav-link cursor-pointer"
                   onClick={handleLogout}

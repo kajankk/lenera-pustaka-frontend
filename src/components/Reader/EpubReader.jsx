@@ -261,9 +261,15 @@ const EpubReader = ({ bookData }) => {
       <div style={{ width: '100%' }}>
         {/* Reader Controls */}
         <div className="card mb-1">
-          <div className="flex justify-between items-center">
+          <div style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '0.5rem',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
             {/* Table of Contents Dropdown */}
-            <div style={{ position: 'relative' }} ref={dropdownRef}>
+            <div style={{ position: 'relative', flexShrink: 0 }} ref={dropdownRef}>
               <button
                 onClick={() => setTocOpen(!tocOpen)}
                 className="btn btn-secondary"
@@ -359,21 +365,33 @@ const EpubReader = ({ bookData }) => {
               )}
             </div>
 
-            <div className="flex items-center gap-1">
+            {/* Control Buttons */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              flexShrink: 0,
+              minWidth: 'fit-content'
+            }}>
               <button
                 onClick={() => handleFontSizeChange(-2)}
                 className="btn btn-secondary"
-                style={{ padding: '0.5rem', minWidth: '40px' }}
+                style={{ padding: '0.5rem', minWidth: '36px', fontSize: '0.85rem' }}
               >
                 A-
               </button>
-              <span className="text-sm" style={{ minWidth: '60px', textAlign: 'center' }}>
+              <span className="text-sm" style={{
+                minWidth: '50px',
+                textAlign: 'center',
+                fontSize: '0.8rem',
+                whiteSpace: 'nowrap'
+              }}>
                 {fontSize}px
               </span>
               <button
                 onClick={() => handleFontSizeChange(2)}
                 className="btn btn-secondary"
-                style={{ padding: '0.5rem', minWidth: '40px' }}
+                style={{ padding: '0.5rem', minWidth: '36px', fontSize: '0.85rem' }}
               >
                 A+
               </button>
@@ -381,8 +399,9 @@ const EpubReader = ({ bookData }) => {
                 onClick={() => setReadingMode(readingMode === 'cream' ? 'default' : 'cream')}
                 className="btn btn-secondary"
                 style={{
-                  padding: '0.5rem',
-                  minWidth: '40px',
+                  padding: '0.5rem 0.75rem',
+                  minWidth: '60px',
+                  fontSize: '0.85rem',
                   backgroundColor: readingMode === 'cream' ? (theme === 'dark' ? 'var(--primary-pink)' : 'var(--primary-green)') : 'transparent',
                   color: readingMode === 'cream' ? 'white' : (theme === 'dark' ? 'var(--primary-pink)' : 'var(--primary-green)')
                 }}

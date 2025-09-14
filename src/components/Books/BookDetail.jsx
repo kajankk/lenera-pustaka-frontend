@@ -8,7 +8,7 @@ const BookDetail = ({ book }) => {
   const { theme } = useTheme()
 
   const handleStartReading = () => {
-    navigate(`/reader/${book.slug}`)
+    navigate(`/${book.slug}/read`)
   }
 
   const handleDownload = async () => {
@@ -58,7 +58,7 @@ const BookDetail = ({ book }) => {
       {/* Navigation */}
       <div className="book-detail-navigation">
         <button className="btn btn-secondary" onClick={handleBack}>
-          ← Kembali ke Koleksi
+          ← Kembali
         </button>
       </div>
 
