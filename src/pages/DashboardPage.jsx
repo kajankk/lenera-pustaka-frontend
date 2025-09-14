@@ -18,8 +18,9 @@ const DashboardPage = () => {
       } catch (error) {
         setError('Gagal memuat data dashboard')
         console.error('Error fetching dashboard:', error)
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
     }
 
     fetchDashboard()
@@ -28,76 +29,58 @@ const DashboardPage = () => {
   if (loading) return <div className="loading">Memuat dashboard...</div>
   if (error) return <div className="error">{error}</div>
 
+  const stats = [
+    { title: 'Total Ebook', value: dashboardData?.totalBooks || 0, icon: '📚' },
+    { title: 'Ebook Dibaca', value: dashboardData?.booksRead || 0, icon: '📖' },
+    { title: 'Progress Bacaan', value: `${dashboardData?.readingProgress || 0}%`, icon: '📊' },
+    { title: 'Favorit', value: dashboardData?.favoriteBooks || 0, icon: '❤️' }
+  ]
+
   return (
-    <div>
+    <div className="dashboard-page">
       <div className="books-grid">
-        <StatsCard
-          title="Total Ebook"
-          value={dashboardData?.totalBooks || 0}
-          icon="📚"
-        />
-        <StatsCard
-          title="Ebook Dibaca"
-          value={dashboardData?.booksRead || 0}
-          icon="📖"
-        />
-        <StatsCard
-          title="Progress Bacaan"
-          value={`${dashboardData?.readingProgress || 0}%`}
-          icon="📊"
-        />
-        <StatsCard
-          title="Favorit"
-          value={dashboardData?.favoriteBooks || 0}
-          icon="❤️"
-        />
+        {stats.map((stat, index) => (
+          <StatsCard key={index} {...stat} />
+        ))}
       </div>
 
       <div className="card">
-        <h3 className="mb-1" style={{
-          color: theme === 'dark' ? 'var(--primary-pink)' : 'var(--primary-green)'
-        }}>
-          Aktivitas Terbaru
-        </h3>
+        <h3 className="section-title">Aktivitas Terbaru</h3>
         {dashboardData?.recentActivity?.length > 0 ? (
-          <div>
+          <div className="activity-list">
             {dashboardData.recentActivity.map((activity, index) => (
-              <div key={index} className="mb-1">
-                <strong>{activity.title}</strong>
-                <p style={{ opacity: '0.8', fontSize: '0.9rem' }}>
-                  {activity.description}
-                </p>
-                <small style={{ opacity: '0.6' }}>
+              <div key={index} className="activity-item">
+                <strong className="activity-title">{activity.title}</strong>
+                <p className="activity-description">{activity.description}</p>
+                <small className="activity-date">
                   {new Date(activity.date).toLocaleDateString('id-ID')}
                 </small>
               </div>
             ))}
           </div>
         ) : (
-          <p>Belum ada aktivitas terbaru.</p>
+          <p className="empty-state">Belum ada aktivitas terbaru.</p>
         )}
       </div>
 
       <div className="card">
-        <h3 className="mb-1" style={{
-          color: theme === 'dark' ? 'var(--primary-pink)' : 'var(--primary-green)'
-        }}>
-          Rekomendasi Ebook
-        </h3>
+        <h3 className="section-title">Rekomendasi Ebook</h3>
         {dashboardData?.recommendations?.length > 0 ? (
           <div className="books-grid">
             {dashboardData.recommendations.map((book) => (
-              <div key={book.id} className="card">
+              <div key={book.id} className="card recommendation-card">
                 <h4 className="book-title">{book.title}</h4>
-                <p style={{ opacity: '0.8' }}>{book.author}</p>
-                <p style={{ fontSize: '0.9rem' }}>
+                <p className="book-author">{book.author}</p>
+                <p className="book-excerpt">
                   {book.description?.substring(0, 100)}...
                 </p>
               </div>
             ))}
           </div>
         ) : (
-          <p>Rekomendasi akan muncul berdasarkan riwayat bacaan Anda.</p>
+          <p className="empty-state">
+            Rekomendasi akan muncul berdasarkan riwayat bacaan Anda.
+          </p>
         )}
       </div>
     </div>

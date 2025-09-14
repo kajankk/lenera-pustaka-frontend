@@ -21,33 +21,41 @@ const ReaderPage = () => {
       } catch (error) {
         setError('Gagal memuat ebook. Pastikan format file adalah EPUB.')
         console.error('Error loading book:', error)
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
     }
 
     loadBook()
   }, [slug])
 
-  const handleBackToBooks = () => {
-    navigate('/books')
-  }
-
   if (loading) return <div className="loading">Memuat ebook...</div>
 
-  if (error) return (
-    <div>
-      <div className="error">{error}</div>
-      <button className="btn btn-secondary" onClick={handleBackToBooks}>
-        ← Kembali
-      </button>
-    </div>
-  )
+  if (error) {
+    return (
+      <div className="reader-error">
+        <div className="error">{error}</div>
+        <button className="btn btn-secondary" onClick={() => navigate('/books')}>
+          ← Kembali
+        </button>
+      </div>
+    )
+  }
 
-  if (!bookData) return <div className="error">Ebook tidak ditemukan</div>
+  if (!bookData) {
+    return (
+      <div className="reader-error">
+        <div className="error">Ebook tidak ditemukan</div>
+        <button className="btn btn-secondary" onClick={() => navigate('/books')}>
+          ← Kembali
+        </button>
+      </div>
+    )
+  }
 
   return (
-    <div>
-      <button className="btn btn-secondary mb-2" onClick={handleBackToBooks}>
+    <div className="reader-page">
+      <button className="btn btn-secondary back-button" onClick={() => navigate('/books')}>
         ← Kembali
       </button>
       <EpubReader bookData={bookData} />

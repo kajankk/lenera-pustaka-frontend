@@ -1,5 +1,4 @@
-// AuthContext.jsx - Fixed with proper Google Auth
-import React, { createContext, useContext, useState, useEffect } from 'react'
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { authService } from '../services/authService'
 import { STORAGE_KEYS } from '../utils/constants'
 
@@ -19,24 +18,17 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
 
   useEffect(() => {
-    const initializeAuth = () => {
-      const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN)
-      const currentUser = authService.getCurrentUser()
+    const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN)
+    const currentUser = authService.getCurrentUser()
 
-      if (token && currentUser) {
-        setUser(currentUser)
-        setIsAuthenticated(true)
-      } else {
-        setUser(null)
-        setIsAuthenticated(false)
-      }
-      setLoading(false)
+    if (token && currentUser) {
+      setUser(currentUser)
+      setIsAuthenticated(true)
     }
-
-    initializeAuth()
+    setLoading(false)
   }, [])
 
-  const login = async (credentials) => {
+  const login = useCallback(async (credentials) => {
     try {
       const { user } = await authService.login(credentials)
       setUser(user)
@@ -48,9 +40,9 @@ export const AuthProvider = ({ children }) => {
         error: error.response?.data?.message || 'Gagal masuk'
       }
     }
-  }
+  }, [])
 
-  const register = async (userData) => {
+  const register = useCallback(async (userData) => {
     try {
       const response = await authService.register(userData)
       return { success: true, data: response }
@@ -60,9 +52,9 @@ export const AuthProvider = ({ children }) => {
         error: error.response?.data?.message || 'Gagal mendaftar'
       }
     }
-  }
+  }, [])
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await authService.logout()
     } catch (error) {
@@ -71,12 +63,10 @@ export const AuthProvider = ({ children }) => {
       setUser(null)
       setIsAuthenticated(false)
     }
-  }
+  }, [])
 
-  // ADDED: Google Sign-In with proper implementation
-  const loginWithGoogle = async () => {
+  const loginWithGoogle = useCallback(async () => {
     return new Promise((resolve) => {
-      // Check if Google API is loaded
       if (typeof window.google === 'undefined') {
         resolve({
           success: false,
@@ -87,7 +77,7 @@ export const AuthProvider = ({ children }) => {
 
       try {
         window.google.accounts.id.initialize({
-          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID, // Add this to your .env file
+          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
           callback: async (response) => {
             try {
               const { user } = await authService.googleAuth(response.credential)
@@ -106,10 +96,8 @@ export const AuthProvider = ({ children }) => {
           cancel_on_tap_outside: true
         })
 
-        // Trigger the sign-in popup
         window.google.accounts.id.prompt((notification) => {
           if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-            // Fallback to renderButton method
             const buttonContainer = document.createElement('div')
             buttonContainer.style.position = 'absolute'
             buttonContainer.style.top = '-9999px'
@@ -123,7 +111,6 @@ export const AuthProvider = ({ children }) => {
               logo_alignment: 'left'
             })
 
-            // Programmatically click the button
             setTimeout(() => {
               const googleButton = buttonContainer.querySelector('div[role="button"]')
               if (googleButton) {
@@ -146,16 +133,16 @@ export const AuthProvider = ({ children }) => {
         })
       }
     })
-  }
+  }, [])
 
   const value = {
     user,
     loading,
+    isAuthenticated,
     login,
     register,
     logout,
-    loginWithGoogle, // Changed from googleAuth to loginWithGoogle
-    isAuthenticated
+    loginWithGoogle
   }
 
   return (

@@ -3,14 +3,13 @@ export const API_BASE_URL = 'https://lentera-pustaka.up.railway.app'
 export const ROUTES = {
   HOME: '/',
   LOGIN: '/login',
-  REGISTER: '/register',
   BOOKS: '/books',
   DASHBOARD: '/dashboard',
-  READER: '/reader'
+  READER: '/read'
 }
 
 export const API_ENDPOINTS = {
-  // Auth endpoints
+  // Auth
   LOGIN: '/api/auth/login',
   LOGOUT: '/api/auth/logout',
   REGISTER: '/api/auth/register',
@@ -19,13 +18,13 @@ export const API_ENDPOINTS = {
   RESET_PASSWORD: '/api/auth/reset-password',
   REFRESH_TOKEN: '/api/auth/refresh-token',
 
-  // Books endpoints
+  // Books
   BOOKS: '/api/books',
   BOOK_DETAIL: (slug) => `/api/books/${slug}`,
   BOOK_READ: (slug) => `/api/books/${slug}/read`,
   BOOK_DOWNLOAD: '/api/books/download',
 
-  // Dashboard endpoints
+  // Dashboard
   DASHBOARD: '/api/dashboard'
 }
 
@@ -45,11 +44,4 @@ export const PAGINATION_DEFAULTS = {
   LIMIT: 12,
   SORT_FIELD: 'updateAt',
   SORT_ORDER: 'DESC'
-}
-
-export const FONT_SIZES = {
-  MIN: 12,
-  MAX: 24,
-  DEFAULT: 16,
-  STEP: 2
 }

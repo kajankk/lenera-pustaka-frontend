@@ -19,10 +19,7 @@ const BookDetailPage = () => {
       }
 
       try {
-        setLoading(true)
-        setError('')
         const response = await bookService.getBookDetail(slug)
-
         if (response.result === 'Success' && response.data) {
           setBook(response.data)
         } else {
@@ -42,51 +39,26 @@ const BookDetailPage = () => {
   if (loading) {
     return (
       <div className="loading">
-        <div style={{ textAlign: 'center', padding: '3rem' }}>
-          <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>📚</div>
-          <p>Memuat detail ebook...</p>
-        </div>
+        <div className="loading-icon">📚</div>
+        <p>Memuat detail ebook...</p>
       </div>
     )
   }
 
-  if (error) {
+  if (error || !book) {
     return (
-      <div className="error" style={{ textAlign: 'center', padding: '3rem' }}>
-        <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>❌</div>
-        <h3>Terjadi Kesalahan</h3>
-        <p>{error}</p>
-        <button
-          className="btn btn-primary mt-2"
-          onClick={() => navigate('/books')}
-        >
+      <div className="error-page">
+        <div className="error-icon">{error ? '❌' : '📖'}</div>
+        <h3>{error ? 'Terjadi Kesalahan' : 'Ebook Tidak Ditemukan'}</h3>
+        <p>{error || 'Ebook yang Anda cari tidak tersedia.'}</p>
+        <button className="btn btn-primary" onClick={() => navigate('/books')}>
           Kembali
         </button>
       </div>
     )
   }
 
-  if (!book) {
-    return (
-      <div style={{ textAlign: 'center', padding: '3rem' }}>
-        <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>📖</div>
-        <h3>Ebook Tidak Ditemukan</h3>
-        <p>Ebook yang Anda cari tidak tersedia.</p>
-        <button
-          className="btn btn-primary mt-2"
-          onClick={() => navigate('/books')}
-        >
-          Kembali
-        </button>
-      </div>
-    )
-  }
-
-  return (
-    <div>
-      <BookDetail book={book} />
-    </div>
-  )
+  return <BookDetail book={book} />
 }
 
 export default BookDetailPage

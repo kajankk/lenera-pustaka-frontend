@@ -6,7 +6,7 @@ import { ROUTES } from '../../utils/constants'
 import logo from '../../assets/logo.png'
 
 const Header = () => {
-  const { user, logout, isAuthenticated } = useAuth()
+  const { isAuthenticated, logout } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const navigate = useNavigate()
 
@@ -20,10 +20,7 @@ const Header = () => {
       <div className="container">
         <nav className="nav">
           <Link to={ROUTES.HOME} className="logo">
-            <img
-              src={logo}
-              alt="Lentera Pustaka Logo"
-            />
+            <img src={logo} alt="Lentera Pustaka Logo" />
           </Link>
 
           <div className="nav-links">
@@ -32,10 +29,7 @@ const Header = () => {
             {isAuthenticated ? (
               <>
                 <Link to={ROUTES.DASHBOARD} className="nav-link">Dashboard</Link>
-                <span
-                  className="nav-link cursor-pointer"
-                  onClick={handleLogout}
-                >
+                <span className="nav-link cursor-pointer" onClick={handleLogout}>
                   Keluar
                 </span>
               </>
@@ -43,7 +37,7 @@ const Header = () => {
               <Link to={ROUTES.LOGIN} className="nav-link">Masuk</Link>
             )}
 
-            <button className="theme-toggle" onClick={toggleTheme}>
+            <button className="theme-toggle" onClick={toggleTheme} aria-label="Toggle theme">
               {theme === 'dark' ? '☀️' : '🌙'}
             </button>
           </div>

@@ -1,4 +1,3 @@
-// AuthPage.jsx - Fixed with proper Google integration
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
@@ -17,11 +16,11 @@ const AuthPage = () => {
   const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
+
   const { login, register, loginWithGoogle } = useAuth()
   const { theme } = useTheme()
   const navigate = useNavigate()
 
-  // Load Google API
   useEffect(() => {
     const loadGoogleAPI = () => {
       if (document.getElementById('google-auth-script')) return
@@ -38,12 +37,7 @@ const AuthPage = () => {
   }, [])
 
   const resetForm = () => {
-    setFormData({
-      name: '',
-      email: '',
-      password: '',
-      confirmPassword: ''
-    })
+    setFormData({ name: '', email: '', password: '', confirmPassword: '' })
     setError('')
     setSuccess('')
   }
@@ -53,15 +47,12 @@ const AuthPage = () => {
     resetForm()
   }
 
-  // FIXED: Proper Google login implementation
   const handleGoogleLogin = async () => {
     setGoogleLoading(true)
     setError('')
-    setSuccess('')
 
     try {
       const result = await loginWithGoogle()
-
       if (result.success) {
         navigate(ROUTES.DASHBOARD)
       } else {
@@ -82,9 +73,8 @@ const AuthPage = () => {
     setSuccess('')
 
     if (isLogin) {
-      // For login, accept both email and username
       const result = await login({
-        username: formData.email, // FIXED: Changed from 'email' to 'username' to match backend
+        username: formData.email,
         password: formData.password
       })
 
@@ -100,7 +90,6 @@ const AuthPage = () => {
         return
       }
 
-      // Validate email format
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
       if (!emailRegex.test(formData.email)) {
         setError('Format email tidak valid')
@@ -108,23 +97,17 @@ const AuthPage = () => {
         return
       }
 
-      // FIXED: Match backend RegisterRequest fields
       const result = await register({
-        username: formData.email.split('@')[0], // Generate username from email
-        fullName: formData.name, // Changed from 'name' to 'fullName'
+        username: formData.email.split('@')[0],
+        fullName: formData.name,
         email: formData.email,
         password: formData.password,
-        bio: null // Add bio field for backend compatibility
+        bio: null
       })
 
       if (result.success) {
         setSuccess('Akun berhasil dibuat! Silakan masuk.')
-        setFormData({
-          name: '',
-          email: '',
-          password: '',
-          confirmPassword: ''
-        })
+        resetForm()
         setTimeout(() => {
           setIsLogin(true)
           setSuccess('')
@@ -146,31 +129,29 @@ const AuthPage = () => {
   return (
     <div className="auth-container">
       <div className="card">
-        <div className="text-center mb-2">
+        <div className="text-center" style={{ marginBottom: '2rem' }}>
           <h2 style={{
             fontSize: '2rem',
             fontWeight: 'bold',
-            color: theme === 'dark' ? 'var(--primary-pink)' : 'var(--primary-green)'
+            color: theme === 'dark' ? 'var(--primary-pink)' : 'var(--primary-green)',
+            marginBottom: '1rem'
           }}>
             {isLogin ? 'Masuk ke Akun' : 'Daftar Akun Baru'}
           </h2>
           <p style={{ fontSize: '0.9rem', opacity: 0.8 }}>
-            {isLogin
-              ? 'Masuk untuk mengakses ebook'
-              : 'Buat akun untuk mulai membaca'
-            }
+            {isLogin ? 'Masuk untuk mengakses ebook' : 'Buat akun untuk mulai membaca'}
           </p>
         </div>
 
-        {error && <div className="error mb-1">{error}</div>}
-        {success && <div className="success mb-1">{success}</div>}
+        {error && <div className="error">{error}</div>}
+        {success && <div className="success">{success}</div>}
 
-        {/* Google Login Button */}
+        {/* Google Login */}
         <button
           type="button"
           onClick={handleGoogleLogin}
           disabled={googleLoading || loading}
-          className="btn"
+          className="btn google-btn"
           style={{
             width: '100%',
             padding: '0.75rem',
@@ -178,29 +159,9 @@ const AuthPage = () => {
             backgroundColor: '#4285f4',
             color: 'white',
             border: 'none',
-            borderRadius: '8px',
-            fontSize: '0.95rem',
-            fontWeight: '500',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '0.5rem',
-            cursor: googleLoading ? 'not-allowed' : 'pointer',
             opacity: googleLoading ? 0.7 : 1,
-            transition: 'all 0.2s ease'
-          }}
-          onMouseEnter={(e) => {
-            if (!googleLoading && !loading) {
-              e.target.style.backgroundColor = '#357ae8';
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (!googleLoading && !loading) {
-              e.target.style.backgroundColor = '#4285f4';
-            }
           }}
         >
-          {/* Google Icon */}
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
             <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -211,28 +172,9 @@ const AuthPage = () => {
         </button>
 
         {/* Divider */}
-        <div style={{
-          position: 'relative',
-          textAlign: 'center',
-          marginBottom: '1.5rem'
-        }}>
-          <div style={{
-            height: '1px',
-            backgroundColor: theme === 'dark' ? '#333' : '#ddd',
-            width: '100%'
-          }}></div>
-          <span style={{
-            position: 'absolute',
-            top: '-0.5rem',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            backgroundColor: theme === 'dark' ? 'var(--card-bg)' : '#fff',
-            padding: '0 1rem',
-            fontSize: '0.85rem',
-            opacity: 0.7
-          }}>
-            atau
-          </span>
+        <div className="auth-divider">
+          <div className="divider-line"></div>
+          <span className="divider-text">atau</span>
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -247,11 +189,6 @@ const AuthPage = () => {
                 onChange={handleInputChange}
                 placeholder="Masukkan nama lengkap Anda"
                 required={!isLogin}
-                style={{
-                  color: theme === 'dark' ? '#ffffff' : 'inherit',
-                  backgroundColor: theme === 'dark' ? 'var(--card-bg)' : 'inherit',
-                  border: theme === 'dark' ? '1px solid var(--border-color)' : 'inherit'
-                }}
               />
             </div>
           )}
@@ -266,11 +203,6 @@ const AuthPage = () => {
               onChange={handleInputChange}
               placeholder={isLogin ? 'Masukkan email atau username' : 'Masukkan alamat email'}
               required
-              style={{
-                color: theme === 'dark' ? '#ffffff' : 'inherit',
-                backgroundColor: theme === 'dark' ? 'var(--card-bg)' : 'inherit',
-                border: theme === 'dark' ? '1px solid var(--border-color)' : 'inherit'
-              }}
             />
           </div>
 
@@ -284,11 +216,6 @@ const AuthPage = () => {
               onChange={handleInputChange}
               placeholder="Masukkan kata sandi"
               required
-              style={{
-                color: theme === 'dark' ? '#ffffff' : 'inherit',
-                backgroundColor: theme === 'dark' ? 'var(--card-bg)' : 'inherit',
-                border: theme === 'dark' ? '1px solid var(--border-color)' : 'inherit'
-              }}
             />
           </div>
 
@@ -303,11 +230,6 @@ const AuthPage = () => {
                 onChange={handleInputChange}
                 placeholder="Masukkan ulang kata sandi"
                 required={!isLogin}
-                style={{
-                  color: theme === 'dark' ? '#ffffff' : 'inherit',
-                  backgroundColor: theme === 'dark' ? 'var(--card-bg)' : 'inherit',
-                  border: theme === 'dark' ? '1px solid var(--border-color)' : 'inherit'
-                }}
               />
             </div>
           )}
@@ -321,16 +243,16 @@ const AuthPage = () => {
           </button>
         </form>
 
-        <div className="text-center mt-2">
-          <p style={{ fontSize: '0.9rem' }}>
+        <div className="text-center" style={{ marginTop: '1.5rem' }}>
+          <p style={{ fontSize: '0.9rem', marginBottom: '0.5rem' }}>
             {isLogin ? 'Belum punya akun?' : 'Sudah punya akun?'}
           </p>
           <button
             type="button"
             onClick={toggleAuthMode}
             className="btn btn-secondary"
-            style={{ fontSize: '0.9rem', padding: '0.5rem 1rem' }}
             disabled={loading || googleLoading}
+            style={{ fontSize: '0.9rem', padding: '0.5rem 1rem' }}
           >
             {isLogin ? 'Daftar di sini' : 'Masuk di sini'}
           </button>

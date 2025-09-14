@@ -7,9 +7,7 @@ const BookDetail = ({ book }) => {
   const navigate = useNavigate()
   const { theme } = useTheme()
 
-  const handleStartReading = () => {
-    navigate(`/${book.slug}/read`)
-  }
+  const handleStartReading = () => navigate(`/${book.slug}/read`)
 
   const handleDownload = async () => {
     try {
@@ -20,51 +18,32 @@ const BookDetail = ({ book }) => {
     }
   }
 
-  const handleBack = () => {
-    navigate('/books')
-  }
-
-  const formatFileSize = (bytes) => {
-    if (!bytes) return 'N/A'
-    const mb = bytes / 1024 / 1024
-    return `${mb.toFixed(1)} MB`
-  }
+  const formatFileSize = (bytes) => bytes ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : 'N/A'
 
   const formatReadingTime = (minutes) => {
     if (!minutes) return 'N/A'
     const hours = Math.floor(minutes / 60)
     const mins = minutes % 60
-    if (hours > 0) {
-      return `${hours} jam ${mins > 0 ? `${mins} menit` : ''}`
-    }
-    return `${minutes} menit`
+    return hours > 0 ? `${hours} jam ${mins > 0 ? `${mins} menit` : ''}` : `${minutes} menit`
   }
 
   const getDifficultyLabel = (level) => {
     if (!level) return 'N/A'
-    if (level <= 3) return `Mudah (${level}/10)`
-    if (level <= 6) return `Sedang (${level}/10)`
-    if (level <= 8) return `Sulit (${level}/10)`
-    return `Sangat Sulit (${level}/10)`
+    const labels = ['Mudah', 'Sedang', 'Sulit', 'Sangat Sulit']
+    const index = level <= 3 ? 0 : level <= 6 ? 1 : level <= 8 ? 2 : 3
+    return `${labels[index]} (${level}/10)`
   }
 
-  const formatNumber = (num) => {
-    if (!num) return '0'
-    return num.toLocaleString('id-ID')
-  }
+  const formatNumber = (num) => num?.toLocaleString('id-ID') || '0'
 
   return (
     <div className="book-detail-container">
-      {/* Navigation */}
-      <div className="book-detail-navigation">
-        <button className="btn btn-secondary" onClick={handleBack}>
-          ← Kembali
-        </button>
-      </div>
+      <button className="btn btn-secondary" onClick={() => navigate('/books')}>
+        ← Kembali
+      </button>
 
-      {/* Main Content */}
       <div className="book-detail-main">
-        {/* Book Cover Section */}
+        {/* Cover Section */}
         <div className="book-cover-section">
           <div className="book-cover-wrapper">
             {book.coverImageUrl ? (
@@ -82,14 +61,14 @@ const BookDetail = ({ book }) => {
             )}
           </div>
 
-          {/* Action Buttons */}
+          {/* Actions */}
           <div className="book-actions">
             <button className="btn btn-primary btn-action" onClick={handleStartReading}>
-              <span className="btn-icon">📖</span>
+              <span>📖</span>
               <span>Mulai Membaca</span>
             </button>
             <button className="btn btn-secondary btn-action" onClick={handleDownload}>
-              <span className="btn-icon">💾</span>
+              <span>💾</span>
               <span>Unduh EPUB</span>
             </button>
           </div>
@@ -113,12 +92,10 @@ const BookDetail = ({ book }) => {
           </div>
         </div>
 
-        {/* Book Information Section */}
+        {/* Info Section */}
         <div className="book-info-section">
           <div className="book-header">
-            <h1 className="book-title" style={{
-              color: theme === 'dark' ? 'var(--primary-pink)' : 'var(--primary-green)'
-            }}>
+            <h1 className="book-title" style={{ color: theme === 'dark' ? 'var(--primary-pink)' : 'var(--primary-green)' }}>
               {book.title}
             </h1>
 
@@ -139,11 +116,7 @@ const BookDetail = ({ book }) => {
             {book.genres?.length > 0 && (
               <div className="book-genres">
                 {book.genres.map(genre => (
-                  <span
-                    key={genre.id}
-                    className="genre-tag"
-                    style={{ backgroundColor: genre.colorHex + '20', color: genre.colorHex }}
-                  >
+                  <span key={genre.id} className="genre-tag" style={{ backgroundColor: genre.colorHex + '20', color: genre.colorHex }}>
                     {genre.name}
                   </span>
                 ))}
@@ -159,7 +132,7 @@ const BookDetail = ({ book }) => {
             </div>
           )}
 
-          {/* Metadata Grid */}
+          {/* Metadata */}
           <div className="book-metadata">
             <h3>Informasi Buku</h3>
             <div className="metadata-grid">
@@ -167,42 +140,19 @@ const BookDetail = ({ book }) => {
               <div className="metadata-section">
                 <h4>Informasi Dasar</h4>
                 <div className="metadata-items">
-                  {book.publisher && (
-                    <div className="metadata-item">
-                      <span className="meta-label">Penerbit:</span>
-                      <span className="meta-value">{book.publisher}</span>
+                  {[
+                    { label: 'Penerbit', value: book.publisher },
+                    { label: 'Tahun Terbit', value: book.publicationYear },
+                    { label: 'ISBN', value: book.isbn },
+                    { label: 'Bahasa', value: book.language },
+                    { label: 'Kategori', value: book.category },
+                    { label: 'Status Hak Cipta', value: book.copyrightStatus }
+                  ].filter(item => item.value).map(item => (
+                    <div key={item.label} className="metadata-item">
+                      <span className="meta-label">{item.label}:</span>
+                      <span className="meta-value">{item.value}</span>
                     </div>
-                  )}
-                  {book.publicationYear && (
-                    <div className="metadata-item">
-                      <span className="meta-label">Tahun Terbit:</span>
-                      <span className="meta-value">{book.publicationYear}</span>
-                    </div>
-                  )}
-                  {book.isbn && (
-                    <div className="metadata-item">
-                      <span className="meta-label">ISBN:</span>
-                      <span className="meta-value">{book.isbn}</span>
-                    </div>
-                  )}
-                  {book.language && (
-                    <div className="metadata-item">
-                      <span className="meta-label">Bahasa:</span>
-                      <span className="meta-value">{book.language}</span>
-                    </div>
-                  )}
-                  {book.category && (
-                    <div className="metadata-item">
-                      <span className="meta-label">Kategori:</span>
-                      <span className="meta-value">{book.category}</span>
-                    </div>
-                  )}
-                  {book.copyrightStatus && (
-                    <div className="metadata-item">
-                      <span className="meta-label">Status Hak Cipta:</span>
-                      <span className="meta-value">{book.copyrightStatus}</span>
-                    </div>
-                  )}
+                  ))}
                 </div>
               </div>
 
@@ -222,12 +172,10 @@ const BookDetail = ({ book }) => {
                       <span className="meta-value">{formatNumber(book.totalWord)}</span>
                     </div>
                   )}
-                  {book.estimatedReadTime && (
-                    <div className="metadata-item">
-                      <span className="meta-label">Estimasi Waktu Baca:</span>
-                      <span className="meta-value">{formatReadingTime(book.estimatedReadTime)}</span>
-                    </div>
-                  )}
+                  <div className="metadata-item">
+                    <span className="meta-label">Estimasi Waktu Baca:</span>
+                    <span className="meta-value">{formatReadingTime(book.estimatedReadTime)}</span>
+                  </div>
                   <div className="metadata-item">
                     <span className="meta-label">Level Kesulitan:</span>
                     <span className="meta-value">{getDifficultyLabel(book.difficultyLevel)}</span>
@@ -257,16 +205,14 @@ const BookDetail = ({ book }) => {
                 </div>
               )}
 
-              {/* Reviews Summary */}
+              {/* Reviews */}
               {(book.totalReviews > 0 || book.averageRating > 0) && (
                 <div className="metadata-section">
                   <h4>Ulasan</h4>
                   <div className="metadata-items">
                     <div className="metadata-item">
                       <span className="meta-label">Rating Rata-rata:</span>
-                      <span className="meta-value">
-                        {book.averageRating.toFixed(1)}/5 ⭐
-                      </span>
+                      <span className="meta-value">{book.averageRating.toFixed(1)}/5 ⭐</span>
                     </div>
                     <div className="metadata-item">
                       <span className="meta-label">Jumlah Ulasan:</span>

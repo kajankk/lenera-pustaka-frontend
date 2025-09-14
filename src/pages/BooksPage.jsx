@@ -10,10 +10,11 @@ const BooksPage = () => {
   const [error, setError] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [searchParams, setSearchParams] = useState({})
-  const [currentLimit, setCurrentLimit] = useState(12) // Perfect for 4x3 grid
   const [hasNextPage, setHasNextPage] = useState(false)
   const [knownPages, setKnownPages] = useState(new Set([1]))
   const navigate = useNavigate()
+
+  const ITEMS_PER_PAGE = 12
 
   const fetchBooks = async (page = currentPage, search = searchParams) => {
     setLoading(true)
@@ -22,25 +23,18 @@ const BooksPage = () => {
     try {
       const response = await bookService.getBooks({
         page,
-        limit: 12, // Force limit to 12 for 4x3 layout
+        limit: ITEMS_PER_PAGE,
         ...search
       })
 
       const booksData = Array.isArray(response.data?.list) ? response.data.list : []
-      const limit = response.data?.limit || 12
-
       setBooks(booksData)
-      setCurrentLimit(limit)
+      setHasNextPage(booksData.length === ITEMS_PER_PAGE)
 
-      // Deteksi apakah ada halaman selanjutnya
-      const hasNext = booksData.length === 12
-      setHasNextPage(hasNext)
-
-      // Update known pages
       setKnownPages(prev => {
         const newSet = new Set(prev)
         newSet.add(page)
-        if (hasNext) {
+        if (booksData.length === ITEMS_PER_PAGE) {
           newSet.add(page + 1)
         }
         return newSet
@@ -48,7 +42,7 @@ const BooksPage = () => {
 
     } catch (error) {
       console.error('Error fetching books:', error)
-      setError('Gagal memuat. Silakan coba lagi.')
+      setError('Gagal memuat ebook. Silakan coba lagi.')
       setBooks([])
       setHasNextPage(false)
     } finally {
@@ -60,12 +54,11 @@ const BooksPage = () => {
     try {
       const response = await bookService.getBooks({
         page,
-        limit: 12,
+        limit: ITEMS_PER_PAGE,
         ...searchParams
       })
-      const booksData = Array.isArray(response.data?.list) ? response.data.list : []
-      return booksData.length > 0
-    } catch (error) {
+      return Array.isArray(response.data?.list) && response.data.list.length > 0
+    } catch {
       return false
     }
   }
@@ -98,17 +91,11 @@ const BooksPage = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const handleRetry = () => {
-    fetchBooks()
-  }
-
-  const booksArray = Array.isArray(books) ? books : []
-
   const getPageNumbers = () => {
     const pages = []
     const maxVisiblePages = 5
-
     let estimatedMaxPage = Math.max(...Array.from(knownPages))
+
     if (hasNextPage) {
       estimatedMaxPage = Math.max(estimatedMaxPage, currentPage + 1)
     }
@@ -150,53 +137,32 @@ const BooksPage = () => {
       <SearchForm onSearch={handleSearch} />
 
       {error && (
-        <div className="card bg-red-50 border-red-200 text-red-700 mb-4">
-          <div className="p-4">
-            <p className="mb-2">{error}</p>
-            <button
-              onClick={handleRetry}
-              className="btn btn-primary"
-              style={{ backgroundColor: 'var(--primary-green)' }}
-            >
-              Coba Lagi
-            </button>
-          </div>
+        <div className="error">
+          <p>{error}</p>
+          <button className="btn btn-primary" onClick={() => fetchBooks()}>
+            Coba Lagi
+          </button>
         </div>
       )}
 
       {loading ? (
-        <div className="loading text-center py-8">
-          <p>Memuat...</p>
-        </div>
-      ) : booksArray.length === 0 ? (
-        <div className="card text-center py-8">
+        <div className="loading">Memuat ebook...</div>
+      ) : books.length === 0 ? (
+        <div className="card text-center">
           <p>
-            {searchParams && Object.keys(searchParams).length > 0
+            {Object.keys(searchParams).length > 0
               ? 'Tidak ada ebook yang sesuai dengan pencarian.'
-              : 'Belum ada ebook yang tersedia.'
-            }
+              : 'Belum ada ebook yang tersedia.'}
           </p>
         </div>
       ) : (
         <>
-          {/* Info halaman - Cover Grid Layout */}
-          <div style={{
-            textAlign: 'center',
-            marginBottom: '1rem',
-            fontSize: '0.9rem',
-            opacity: '0.8'
-          }}>
-            Halaman {currentPage} - Menampilkan {booksArray.length} ebook
-            {booksArray.length === 12 && (
-              <span style={{ fontSize: '0.8rem', opacity: '0.6', display: 'block' }}>
-                Grid 4 × 3
-              </span>
-            )}
+          <div className="text-center" style={{ marginBottom: '1rem', fontSize: '0.9rem', opacity: '0.8' }}>
+            Halaman {currentPage} - Menampilkan {books.length} ebook
           </div>
 
-          {/* Books Grid - Cover Only */}
           <div className="books-grid">
-            {booksArray.map((book) => (
+            {books.map((book) => (
               <BookCard
                 key={book.id || book.slug}
                 book={book}
@@ -206,21 +172,16 @@ const BooksPage = () => {
           </div>
 
           {/* Pagination */}
-          <div className="pagination flex items-center justify-center gap-4 mt-6">
+          <div className="pagination">
             <button
-              className="btn btn-secondary px-4 py-2 rounded disabled:opacity-50"
+              className="btn btn-secondary"
               onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
               disabled={currentPage === 1}
             >
               Sebelumnya
             </button>
 
-            <div style={{
-              display: 'flex',
-              gap: '0.5rem',
-              alignItems: 'center',
-              flexWrap: 'wrap'
-            }}>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
               {getPageNumbers().map((page, index) => (
                 page === '...' ? (
                   <span key={`ellipsis-${index}`} style={{ padding: '0 0.5rem' }}>...</span>
@@ -229,11 +190,7 @@ const BooksPage = () => {
                     key={page}
                     className={`btn ${currentPage === page ? 'btn-primary' : 'btn-secondary'}`}
                     onClick={() => handlePageChange(page)}
-                    style={{
-                      minWidth: '40px',
-                      padding: '0.5rem',
-                      fontSize: '0.9rem'
-                    }}
+                    style={{ minWidth: '40px', fontSize: '0.9rem' }}
                   >
                     {page}
                   </button>
@@ -242,7 +199,7 @@ const BooksPage = () => {
             </div>
 
             <button
-              className="btn btn-secondary px-4 py-2 rounded disabled:opacity-50"
+              className="btn btn-secondary"
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={!hasNextPage}
             >
