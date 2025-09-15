@@ -1,8 +1,8 @@
-import api from '../utils/api';
-import { API_ENDPOINTS, PAGINATION_DEFAULTS } from '../utils/constants'
+import api from "/src/utils/api.js";
+import { API_ENDPOINTS, PAGINATION_DEFAULTS } from "/src/utils/constants.js"
 
 export const bookService = {
-  // Get paginated books
+  // Get paginated books - public access
   async getBooks(params = {}) {
     const {
       page = PAGINATION_DEFAULTS.PAGE,
@@ -31,19 +31,19 @@ export const bookService = {
     return response.data
   },
 
-  // Get book detail by slug
+  // Get book detail by slug - public access
   async getBookDetail(slug) {
     const response = await api.get(API_ENDPOINTS.BOOK_DETAIL(slug))
     return response.data
   },
 
-  // Start reading a book
+  // Start reading a book - public access
   async startReading(slug) {
     const response = await api.get(API_ENDPOINTS.BOOK_READ(slug))
     return response.data
   },
 
-  // Create new book (for admin/upload)
+  // Create new book (for admin/upload) - requires auth
   async createBook(formData) {
     const response = await api.post(API_ENDPOINTS.BOOKS, formData, {
       headers: {
@@ -53,7 +53,7 @@ export const bookService = {
     return response.data
   },
 
-  // Update book
+  // Update book - requires auth
   async updateBook(id, bookData, file) {
     const formData = new FormData()
     formData.append('id', id)
@@ -71,7 +71,7 @@ export const bookService = {
     return response.data
   },
 
-  // Delete book
+  // Delete book - requires auth
   async deleteBook(id) {
     const response = await api.delete(API_ENDPOINTS.BOOKS, {
       params: { id }
@@ -79,23 +79,65 @@ export const bookService = {
     return response.data
   },
 
-  // Download book
-  async downloadBook(bookId, filename = 'book.epub') {
-    const response = await api.get(API_ENDPOINTS.BOOK_DOWNLOAD, {
-      params: { id: bookId },
-      responseType: 'blob'
-    })
+  // Download book - public access, no auth required
+  async downloadBook(bookSlug, filename = 'book.epub') {
+    try {
+      // Construct the correct download URL based on backend endpoint
+      const downloadUrl = `/api/books/${bookSlug}/download`
 
-    // Create download link
-    const url = window.URL.createObjectURL(new Blob([response.data]))
-    const link = document.createElement('a')
-    link.href = url
-    link.setAttribute('download', filename)
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    window.URL.revokeObjectURL(url)
+      const response = await api.get(downloadUrl, {
+        responseType: 'blob',
+        timeout: 30000, // 30 seconds timeout untuk download
+        headers: {
+          'Accept': 'application/octet-stream'
+        }
+      })
 
-    return true
+      // Check if response is actually a blob
+      if (!response.data || !(response.data instanceof Blob)) {
+        throw new Error('Response bukan file yang valid')
+      }
+
+      // Get filename from response headers if available
+      const contentDisposition = response.headers['content-disposition']
+      let actualFilename = filename
+
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/)
+        if (filenameMatch && filenameMatch[1]) {
+          actualFilename = filenameMatch[1].replace(/['"]/g, '')
+        }
+      }
+
+      // Create and trigger download
+      const url = window.URL.createObjectURL(response.data)
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', actualFilename)
+      link.style.display = 'none'
+      document.body.appendChild(link)
+      link.click()
+
+      // Cleanup
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+
+      return true
+    } catch (error) {
+      console.error('Download error:', error)
+
+      // Handle different error types
+      if (error.code === 'ECONNABORTED') {
+        throw new Error('Download timeout. File terlalu besar atau koneksi lambat.')
+      } else if (error.response?.status === 404) {
+        throw new Error('File tidak ditemukan.')
+      } else if (error.response?.status === 403) {
+        throw new Error('Tidak memiliki akses untuk mengunduh file ini.')
+      } else if (error.response?.status >= 500) {
+        throw new Error('Terjadi kesalahan pada server. Coba lagi nanti.')
+      } else {
+        throw new Error('Gagal mengunduh buku. Silakan coba lagi.')
+      }
+    }
   }
 }

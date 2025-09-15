@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { bookService } from '../../services/bookService'
 import { useTheme } from '../../hooks/useTheme'
@@ -6,15 +6,29 @@ import { useTheme } from '../../hooks/useTheme'
 const BookDetail = ({ book }) => {
   const navigate = useNavigate()
   const { theme } = useTheme()
+  const [isDownloading, setIsDownloading] = useState(false)
 
   const handleStartReading = () => navigate(`/${book.slug}/read`)
 
   const handleDownload = async () => {
+    if (isDownloading) return
+
+    setIsDownloading(true)
     try {
-      await bookService.downloadBook(book.id, `${book.title}.epub`)
+      // Generate filename dengan format yang lebih baik
+      const sanitizedTitle = book.title.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_')
+      const filename = `${sanitizedTitle}.epub`
+
+      await bookService.downloadBook(book.slug, filename)
+
+      // Show success message
+      alert('Buku berhasil diunduh!')
+
     } catch (error) {
       console.error('Error downloading book:', error)
-      alert('Gagal mengunduh ebook')
+      alert(error.message || 'Gagal mengunduh ebook. Silakan coba lagi.')
+    } finally {
+      setIsDownloading(false)
     }
   }
 
@@ -67,9 +81,13 @@ const BookDetail = ({ book }) => {
               <span>📖</span>
               <span>Mulai Membaca</span>
             </button>
-            <button className="btn btn-secondary btn-action" onClick={handleDownload}>
-              <span>💾</span>
-              <span>Unduh EPUB</span>
+            <button
+              className="btn btn-secondary btn-action"
+              onClick={handleDownload}
+              disabled={isDownloading}
+            >
+              <span>{isDownloading ? '⏳' : '💾'}</span>
+              <span>{isDownloading ? 'Mengunduh...' : 'Unduh EPUB'}</span>
             </button>
           </div>
 

@@ -15,11 +15,46 @@ const processQueue = (error, token = null) => {
   failedQueue = []
 }
 
-// Request interceptor
+// List of public endpoint patterns
+const PUBLIC_ENDPOINT_PATTERNS = [
+  /^\/api\/books$/, // GET /api/books (list books)
+  /^\/api\/books\/[^\/]+$/, // GET /api/books/{slug} (book detail)
+  /^\/api\/books\/[^\/]+\/read$/, // GET /api/books/{slug}/read
+  /^\/api\/books\/[^\/]+\/download$/, // GET /api/books/{slug}/download
+  /^\/auth\/login$/, // Login endpoint
+  /^\/auth\/register$/, // Register endpoint
+  /^\/auth\/forgot-password$/, // Forgot password
+]
+
+// Check if endpoint is public
+const isPublicEndpoint = (url) => {
+  // Remove base URL if present
+  const cleanUrl = url.replace(API_BASE_URL, '').replace(/^\/+/, '/')
+
+  return PUBLIC_ENDPOINT_PATTERNS.some(pattern => pattern.test(cleanUrl))
+}
+
+// Request interceptor - only add auth token for protected endpoints
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN)
-    if (token) config.headers.Authorization = `Bearer ${token}`
+    // Build full URL for checking
+    const fullUrl = config.baseURL ?
+      `${config.baseURL}${config.url}`.replace(/\/+/g, '/') :
+      config.url
+
+    // Only add auth token if it's not a public endpoint
+    if (!isPublicEndpoint(fullUrl)) {
+      const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN)
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`
+      }
+    }
+
+    // Set appropriate timeout for download requests
+    if (config.url && config.url.includes('/download')) {
+      config.timeout = 30000 // 30 seconds for downloads
+    }
+
     return config
   },
   (error) => Promise.reject(error)
@@ -33,12 +68,24 @@ api.interceptors.response.use(
 
     // Handle network errors
     if (!error.response) {
-      error.message = 'Tidak dapat terhubung ke server'
+      // Improve error message for network issues
+      if (error.code === 'ECONNABORTED') {
+        error.message = 'Request timeout - koneksi terlalu lambat'
+      } else if (error.code === 'ERR_NETWORK') {
+        error.message = 'Tidak dapat terhubung ke server'
+      } else {
+        error.message = 'Terjadi kesalahan jaringan'
+      }
       return Promise.reject(error)
     }
 
-    // Handle 401 dengan auto refresh
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Build full URL for checking
+    const fullUrl = originalRequest.baseURL ?
+      `${originalRequest.baseURL}${originalRequest.url}`.replace(/\/+/g, '/') :
+      originalRequest.url
+
+    // Handle 401 dengan auto refresh - only for protected endpoints
+    if (error.response?.status === 401 && !originalRequest._retry && !isPublicEndpoint(fullUrl)) {
       if (originalRequest.url?.includes('/refresh-token')) {
         localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN)
         localStorage.removeItem('refreshToken')
@@ -89,6 +136,7 @@ api.interceptors.response.use(
       }
     }
 
+    // Handle server errors
     if (error.response?.status >= 500) {
       error.message = 'Terjadi kesalahan pada server'
     }

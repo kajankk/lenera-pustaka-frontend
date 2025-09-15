@@ -1,4 +1,4 @@
-export const API_BASE_URL = 'https://lentera-pustaka.up.railway.app'
+export const API_BASE_URL = 'http://localhost:8080';
 
 export const ROUTES = {
   HOME: '/',
@@ -22,7 +22,7 @@ export const API_ENDPOINTS = {
   BOOKS: '/api/books',
   BOOK_DETAIL: (slug) => `/api/books/${slug}`,
   BOOK_READ: (slug) => `/api/books/${slug}/read`,
-  BOOK_DOWNLOAD: '/api/books/download',
+  BOOK_DOWNLOAD: (slug) => `/api/books/${slug}/download`,
 
   // Dashboard
   DASHBOARD: '/api/dashboard'
