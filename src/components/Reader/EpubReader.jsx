@@ -21,59 +21,24 @@ const EpubReader = ({ bookData }) => {
   const [touchStart, setTouchStart] = useState({ x: 0, y: 0 })
   const [touchEnd, setTouchEnd] = useState({ x: 0, y: 0 })
 
-  // Auto-hide controls in fullscreen
-  const resetInactivityTimer = () => {
-    if (!isFullscreen) return
-
-    setShowControls(true)
-    if (fullscreenContainerRef.current) {
-      fullscreenContainerRef.current.classList.remove('inactive')
+  const flattenToc = (toc) => {
+    const result = []
+    const traverse = (items, level = 0) => {
+      items.forEach(item => {
+        if (item.label && (item.href || item.cfi)) {
+          result.push({
+            label: item.label,
+            href: item.href || item.cfi,
+            level,
+            originalItem: item
+          })
+        }
+        if (item.subitems?.length) traverse(item.subitems, level + 1)
+      })
     }
-
-    if (inactivityTimerRef.current) {
-      clearTimeout(inactivityTimerRef.current)
-    }
-
-    inactivityTimerRef.current = setTimeout(() => {
-      setShowControls(false)
-      if (fullscreenContainerRef.current) {
-        fullscreenContainerRef.current.classList.add('inactive')
-      }
-    }, 3000) // Hide after 3 seconds of inactivity
+    traverse(toc)
+    return result
   }
-
-  // Handle mouse/touch activity in fullscreen
-  useEffect(() => {
-    if (!isFullscreen) return
-
-    const handleActivity = () => {
-      resetInactivityTimer()
-    }
-
-    const handleMouseMove = (e) => {
-      // Show controls when mouse is near top or bottom
-      if (e.clientY < 100 || e.clientY > window.innerHeight - 100) {
-        resetInactivityTimer()
-      }
-    }
-
-    document.addEventListener('mousemove', handleMouseMove)
-    document.addEventListener('touchstart', handleActivity)
-    document.addEventListener('touchmove', handleActivity)
-    document.addEventListener('click', handleActivity)
-
-    resetInactivityTimer()
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('touchstart', handleActivity)
-      document.removeEventListener('touchmove', handleActivity)
-      document.removeEventListener('click', handleActivity)
-      if (inactivityTimerRef.current) {
-        clearTimeout(inactivityTimerRef.current)
-      }
-    }
-  }, [isFullscreen])
 
   // Close dropdown on outside click
   useEffect(() => {
