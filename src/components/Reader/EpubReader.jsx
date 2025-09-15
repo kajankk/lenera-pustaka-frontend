@@ -16,6 +16,7 @@ const EpubReader = ({ bookData }) => {
   const [progress, setProgress] = useState(0)
   const [tocOpen, setTocOpen] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [showFullscreenControls, setShowFullscreenControls] = useState(false)
 
   // Touch/swipe handling for fullscreen mode
   const [touchStart, setTouchStart] = useState({ x: 0, y: 0 })
@@ -99,6 +100,9 @@ const EpubReader = ({ bookData }) => {
         case 'Escape':
           exitFullscreen()
           break
+        case 'F11':
+          e.preventDefault()
+          break
       }
     }
 
@@ -108,23 +112,44 @@ const EpubReader = ({ bookData }) => {
     }
   }, [isFullscreen, rendition])
 
+  // Auto-hide fullscreen controls
+  useEffect(() => {
+    if (!isFullscreen) return
+
+    let hideTimeout
+    const showControls = () => {
+      setShowFullscreenControls(true)
+      clearTimeout(hideTimeout)
+      hideTimeout = setTimeout(() => setShowFullscreenControls(false), 3000)
+    }
+
+    const handleMouseMove = () => showControls()
+    const handleMouseEnter = () => showControls()
+
+    // Show controls initially
+    showControls()
+
+    document.addEventListener('mousemove', handleMouseMove)
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      clearTimeout(hideTimeout)
+    }
+  }, [isFullscreen])
+
   // Touch event handlers for swipe navigation
   const handleTouchStart = (e) => {
-    if (!isFullscreen) return
     const touch = e.touches[0]
     setTouchStart({ x: touch.clientX, y: touch.clientY })
     setTouchEnd({ x: touch.clientX, y: touch.clientY })
   }
 
   const handleTouchMove = (e) => {
-    if (!isFullscreen) return
     const touch = e.touches[0]
     setTouchEnd({ x: touch.clientX, y: touch.clientY })
   }
 
   const handleTouchEnd = () => {
-    if (!isFullscreen) return
-
     const deltaX = touchStart.x - touchEnd.x
     const deltaY = touchStart.y - touchEnd.y
     const minSwipeDistance = 50
@@ -139,6 +164,23 @@ const EpubReader = ({ bookData }) => {
         handleNavigation('prev')
       }
     }
+  }
+
+  // Click navigation for fullscreen
+  const handleViewportClick = (e) => {
+    if (!isFullscreen) return
+
+    const rect = e.currentTarget.getBoundingClientRect()
+    const clickX = e.clientX - rect.left
+    const screenWidth = rect.width
+
+    // Divide screen into three zones: left 30%, middle 40%, right 30%
+    if (clickX < screenWidth * 0.3) {
+      handleNavigation('prev')
+    } else if (clickX > screenWidth * 0.7) {
+      handleNavigation('next')
+    }
+    // Middle zone does nothing (for text selection, etc.)
   }
 
   // Initialize EPUB
@@ -406,36 +448,249 @@ const EpubReader = ({ bookData }) => {
         </div>
       )}
 
-      {/* Fullscreen Exit Button */}
+      {/* Fullscreen Controls Overlay */}
       {isFullscreen && (
-        <button
-          onClick={exitFullscreen}
+        <div
           style={{
             position: 'fixed',
-            top: '20px',
-            right: '20px',
+            top: '0',
+            left: '0',
+            right: '0',
             zIndex: 10000,
-            padding: '10px 15px',
-            backgroundColor: theme === 'dark' ? '#de96be' : '#225330',
-            color: theme === 'dark' ? '#1a1a1a' : '#ffffff',
-            border: 'none',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontSize: '14px',
-            fontWeight: '600',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-            transition: 'all 0.3s ease'
+            backgroundColor: 'rgba(0,0,0,0.95)',
+            backdropFilter: 'blur(10px)',
+            padding: '15px 20px',
+            transform: showFullscreenControls ? 'translateY(0)' : 'translateY(-100%)',
+            transition: 'transform 0.3s ease',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '15px'
           }}
-          onMouseEnter={(e) => {
-            e.target.style.transform = 'scale(1.05)'
-          }}
-          onMouseLeave={(e) => {
-            e.target.style.transform = 'scale(1)'
-          }}
-          title="Keluar dari Layar Penuh (ESC)"
+          onMouseEnter={() => setShowFullscreenControls(true)}
         >
-          ✕ Keluar
-        </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
+            {/* TOC Dropdown */}
+            <div className="toc-dropdown" ref={dropdownRef} style={{ position: 'relative' }}>
+              <button
+                onClick={() => setTocOpen(!tocOpen)}
+                style={{
+                  padding: '10px 15px',
+                  backgroundColor: theme === 'dark' ? '#de96be' : '#225330',
+                  color: theme === 'dark' ? '#1a1a1a' : '#ffffff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  transition: 'all 0.3s ease'
+                }}
+              >
+                Daftar Isi
+                <span style={{
+                  transition: 'transform 0.3s ease',
+                  transform: tocOpen ? 'rotate(180deg)' : 'rotate(0deg)'
+                }}>▼</span>
+              </button>
+
+              {tocOpen && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 8px)',
+                    left: '0',
+                    width: '350px',
+                    maxHeight: '400px',
+                    backgroundColor: theme === 'dark' ? '#2d2d2d' : '#ffffff',
+                    border: `2px solid ${theme === 'dark' ? '#de96be' : '#225330'}`,
+                    borderRadius: '8px',
+                    boxShadow: '0 8px 25px rgba(0,0,0,0.4)',
+                    zIndex: 20000,
+                    overflow: 'hidden'
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: '12px 16px',
+                      borderBottom: `1px solid ${theme === 'dark' ? '#de96be' : '#225330'}`,
+                      fontSize: '14px',
+                      fontWeight: 'bold',
+                      color: theme === 'dark' ? '#de96be' : '#225330'
+                    }}
+                  >
+                    Daftar Isi
+                  </div>
+                  <div
+                    style={{
+                      maxHeight: '320px',
+                      overflowY: 'auto',
+                      padding: '8px 0'
+                    }}
+                  >
+                    {toc.length > 0 ? (
+                      toc.map((item, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => goToChapter(item.href, item)}
+                          disabled={item.href === '#'}
+                          style={{
+                            width: '100%',
+                            padding: '8px 16px',
+                            paddingLeft: `${16 + (item.level || 0) * 12}px`,
+                            fontSize: '13px',
+                            textAlign: 'left',
+                            border: 'none',
+                            backgroundColor: 'transparent',
+                            color: theme === 'dark' ? '#ffffff' : '#000000',
+                            cursor: item.href === '#' ? 'default' : 'pointer',
+                            opacity: item.href === '#' ? 0.5 : 1,
+                            transition: 'background-color 0.2s ease'
+                          }}
+                          onMouseEnter={(e) => {
+                            if (item.href !== '#') {
+                              e.target.style.backgroundColor = theme === 'dark' ? 'rgba(222, 150, 190, 0.1)' : 'rgba(34, 83, 48, 0.1)'
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            e.target.style.backgroundColor = 'transparent'
+                          }}
+                        >
+                          {item.label}
+                        </button>
+                      ))
+                    ) : (
+                      <div
+                        style={{
+                          padding: '16px',
+                          textAlign: 'center',
+                          opacity: 0.6,
+                          fontSize: '13px',
+                          color: theme === 'dark' ? '#ffffff' : '#000000'
+                        }}
+                      >
+                        Daftar isi tidak tersedia
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Font Controls */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                onClick={() => handleFontSizeChange(-2)}
+                style={{
+                  padding: '8px 12px',
+                  backgroundColor: theme === 'dark' ? '#de96be' : '#225330',
+                  color: theme === 'dark' ? '#1a1a1a' : '#ffffff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '600'
+                }}
+              >
+                A-
+              </button>
+              <span style={{
+                color: theme === 'dark' ? '#ffffff' : '#000000',
+                fontSize: '14px',
+                fontWeight: '500',
+                minWidth: '45px',
+                textAlign: 'center'
+              }}>
+                {fontSize}px
+              </span>
+              <button
+                onClick={() => handleFontSizeChange(2)}
+                style={{
+                  padding: '8px 12px',
+                  backgroundColor: theme === 'dark' ? '#de96be' : '#225330',
+                  color: theme === 'dark' ? '#1a1a1a' : '#ffffff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '600'
+                }}
+              >
+                A+
+              </button>
+              <button
+                onClick={toggleReadingMode}
+                style={{
+                  padding: '8px 12px',
+                  backgroundColor: readingMode === 'cream' ? (theme === 'dark' ? '#de96be' : '#225330') : 'transparent',
+                  color: readingMode === 'cream' ? (theme === 'dark' ? '#1a1a1a' : '#ffffff') : (theme === 'dark' ? '#de96be' : '#225330'),
+                  border: `2px solid ${theme === 'dark' ? '#de96be' : '#225330'}`,
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '500'
+                }}
+              >
+                Mode
+              </button>
+            </div>
+
+            {/* Progress */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: '150px' }}>
+              <span style={{
+                color: theme === 'dark' ? '#ffffff' : '#000000',
+                fontSize: '14px',
+                opacity: 0.8
+              }}>
+                {progress}%
+              </span>
+              <div style={{
+                flex: 1,
+                height: '6px',
+                backgroundColor: theme === 'dark' ? 'rgba(222, 150, 190, 0.3)' : 'rgba(34, 83, 48, 0.3)',
+                borderRadius: '3px',
+                overflow: 'hidden'
+              }}>
+                <div style={{
+                  width: `${progress}%`,
+                  height: '100%',
+                  backgroundColor: theme === 'dark' ? '#de96be' : '#225330',
+                  transition: 'width 0.3s ease'
+                }} />
+              </div>
+            </div>
+          </div>
+
+          {/* Exit Button */}
+          <button
+            onClick={exitFullscreen}
+            style={{
+              padding: '10px 15px',
+              backgroundColor: 'rgba(220, 38, 38, 0.9)',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: '600',
+              transition: 'all 0.3s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.backgroundColor = '#dc2626'
+              e.target.style.transform = 'scale(1.05)'
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.backgroundColor = 'rgba(220, 38, 38, 0.9)'
+              e.target.style.transform = 'scale(1)'
+            }}
+            title="Keluar dari Layar Penuh (ESC)"
+          >
+            ✕ Keluar
+          </button>
+        </div>
       )}
 
       {/* Reader Content */}
@@ -468,11 +723,13 @@ const EpubReader = ({ bookData }) => {
               height: '100vh',
               width: '100vw',
               border: 'none',
-              borderRadius: 0
+              borderRadius: 0,
+              cursor: 'pointer'
             } : {}}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
+            onClick={handleViewportClick}
           >
             {isLoading && (
               <div className="loading" style={isFullscreen ? {
@@ -480,7 +737,8 @@ const EpubReader = ({ bookData }) => {
                 top: '50%',
                 left: '50%',
                 transform: 'translate(-50%, -50%)',
-                fontSize: '1.2rem'
+                fontSize: '1.2rem',
+                zIndex: 1000
               } : {}}>
                 Memuat konten ebook...
               </div>
@@ -522,37 +780,31 @@ const EpubReader = ({ bookData }) => {
         </div>
       )}
 
-      {/* Fullscreen Instructions Overlay */}
+      {/* Fullscreen Instructions */}
       {isFullscreen && (
         <div
           style={{
             position: 'fixed',
-            bottom: '20px',
+            bottom: showFullscreenControls ? '20px' : '-100px',
             left: '50%',
             transform: 'translateX(-50%)',
-            backgroundColor: 'rgba(0,0,0,0.7)',
+            backgroundColor: 'rgba(0,0,0,0.8)',
             color: 'white',
-            padding: '10px 20px',
+            padding: '12px 20px',
             borderRadius: '20px',
-            fontSize: '14px',
+            fontSize: '13px',
             zIndex: 10000,
-            opacity: 0.8,
-            animation: 'fadeInOut 3s ease-in-out',
-            pointerEvents: 'none'
+            transition: 'bottom 0.3s ease',
+            pointerEvents: 'none',
+            textAlign: 'center',
+            maxWidth: '90vw'
           }}
         >
-          Geser kiri/kanan atau gunakan panah keyboard untuk navigasi • ESC untuk keluar
+          Klik kiri/kanan layar, geser, atau gunakan panah keyboard • Arahkan mouse ke atas untuk kontrol • ESC untuk keluar
         </div>
       )}
 
       <style jsx>{`
-        @keyframes fadeInOut {
-          0% { opacity: 0; transform: translateX(-50%) translateY(20px); }
-          20% { opacity: 0.8; transform: translateX(-50%) translateY(0); }
-          80% { opacity: 0.8; transform: translateX(-50%) translateY(0); }
-          100% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
-        }
-
         .fullscreen-mode {
           user-select: none;
           -webkit-user-select: none;
@@ -561,11 +813,7 @@ const EpubReader = ({ bookData }) => {
         }
 
         .fullscreen-mode .epub-reader-viewport {
-          cursor: grab;
-        }
-
-        .fullscreen-mode .epub-reader-viewport:active {
-          cursor: grabbing;
+          cursor: pointer !important;
         }
       `}</style>
     </div>
