@@ -737,7 +737,7 @@ body {
 .reader-viewport-container {
   position: relative;
   display: flex;
-  align-items: center;
+  align-items: stretch;
   gap: 1rem;
 }
 
@@ -1076,20 +1076,21 @@ body {
 /* TAMBAHAN UNTUK LAYAR SANGAT KECIL */
 @media (max-width: 360px) {
   .reader-viewport-container {
-    gap: 0.0625rem; /* 1px */
+    gap: 0.125rem;
+    align-items: stretch;
   }
 
   .side-nav-button {
-    min-width: 22px;
-    min-height: 22px;
-    padding: 0.0625rem;
-    font-size: 0.75rem;
-    border-radius: 11px;
+    width: 30px;
+    min-height: 400px;
+    padding: 0.5rem 0.0625rem;
+    font-size: 0.8rem;
+    border-radius: 3px;
     border-width: 1px;
   }
 
   .epub-reader-viewport {
-    min-height: 500px;
+    min-height: 400px;
   }
 }
 
