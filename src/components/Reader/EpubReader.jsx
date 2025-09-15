@@ -245,8 +245,25 @@ const EpubReader = ({ bookData }) => {
         </div>
       </div>
 
-      {/* Reader Content */}
+      {/* Reader Content with Floating Navigation */}
       <div className="epub-reader-content">
+        {/* Floating Navigation Buttons */}
+        <button
+          className="floating-nav-btn prev"
+          onClick={() => handleNavigation('prev')}
+          aria-label="Halaman Sebelumnya"
+        >
+          ←
+        </button>
+
+        <button
+          className="floating-nav-btn next"
+          onClick={() => handleNavigation('next')}
+          aria-label="Halaman Selanjutnya"
+        >
+          →
+        </button>
+
         <div ref={bookRef} className="epub-reader-viewport" tabIndex={0}>
           {isLoading && (
             <div className="loading">Memuat konten ebook...</div>
@@ -262,7 +279,7 @@ const EpubReader = ({ bookData }) => {
         </div>
       </div>
 
-      {/* Navigation */}
+      {/* Navigation - Kept for mobile fallback */}
       <div className="card navigation-section">
         <button className="btn btn-primary" onClick={() => handleNavigation('prev')}>
           ← Sebelumnya
