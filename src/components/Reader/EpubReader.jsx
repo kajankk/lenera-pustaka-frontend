@@ -6,6 +6,7 @@ const EpubReader = ({ bookData }) => {
   const { theme } = useTheme()
   const bookRef = useRef(null)
   const dropdownRef = useRef(null)
+  const fullscreenContainerRef = useRef(null)
   const [book, setBook] = useState(null)
   const [rendition, setRendition] = useState(null)
   const [toc, setToc] = useState([])
@@ -14,6 +15,11 @@ const EpubReader = ({ bookData }) => {
   const [isLoading, setIsLoading] = useState(true)
   const [progress, setProgress] = useState(0)
   const [tocOpen, setTocOpen] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+
+  // Touch/swipe handling for fullscreen mode
+  const [touchStart, setTouchStart] = useState({ x: 0, y: 0 })
+  const [touchEnd, setTouchEnd] = useState({ x: 0, y: 0 })
 
   const flattenToc = (toc) => {
     const result = []
@@ -48,6 +54,93 @@ const EpubReader = ({ bookData }) => {
     }
   }, [tocOpen])
 
+  // Handle fullscreen changes
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isCurrentlyFullscreen = Boolean(
+        document.fullscreenElement ||
+        document.webkitFullscreenElement ||
+        document.mozFullScreenElement ||
+        document.msFullscreenElement
+      )
+
+      if (!isCurrentlyFullscreen && isFullscreen) {
+        setIsFullscreen(false)
+      }
+    }
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange)
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange)
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange)
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange)
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange)
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange)
+      document.removeEventListener('mozfullscreenchange', handleFullscreenChange)
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange)
+    }
+  }, [isFullscreen])
+
+  // Handle keyboard navigation in fullscreen
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (!isFullscreen) return
+
+      switch (e.key) {
+        case 'ArrowLeft':
+          e.preventDefault()
+          handleNavigation('prev')
+          break
+        case 'ArrowRight':
+          e.preventDefault()
+          handleNavigation('next')
+          break
+        case 'Escape':
+          exitFullscreen()
+          break
+      }
+    }
+
+    if (isFullscreen) {
+      document.addEventListener('keydown', handleKeyDown)
+      return () => document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isFullscreen, rendition])
+
+  // Touch event handlers for swipe navigation
+  const handleTouchStart = (e) => {
+    if (!isFullscreen) return
+    const touch = e.touches[0]
+    setTouchStart({ x: touch.clientX, y: touch.clientY })
+    setTouchEnd({ x: touch.clientX, y: touch.clientY })
+  }
+
+  const handleTouchMove = (e) => {
+    if (!isFullscreen) return
+    const touch = e.touches[0]
+    setTouchEnd({ x: touch.clientX, y: touch.clientY })
+  }
+
+  const handleTouchEnd = () => {
+    if (!isFullscreen) return
+
+    const deltaX = touchStart.x - touchEnd.x
+    const deltaY = touchStart.y - touchEnd.y
+    const minSwipeDistance = 50
+
+    // Only trigger swipe if horizontal movement is greater than vertical
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > minSwipeDistance) {
+      if (deltaX > 0) {
+        // Swipe left - next page
+        handleNavigation('next')
+      } else {
+        // Swipe right - previous page
+        handleNavigation('prev')
+      }
+    }
+  }
+
   // Initialize EPUB
   useEffect(() => {
     if (!bookData?.fileUrl) return
@@ -58,7 +151,7 @@ const EpubReader = ({ bookData }) => {
 
     const rend = epubBook.renderTo(bookRef.current, {
       width: '100%',
-      height: '600px',
+      height: isFullscreen ? '100vh' : '600px',
       allowScriptedContent: true
     })
     setRendition(rend)
@@ -111,6 +204,15 @@ const EpubReader = ({ bookData }) => {
       epubBook.destroy()
     }
   }, [bookData?.fileUrl])
+
+  // Update rendition when fullscreen changes
+  useEffect(() => {
+    if (rendition) {
+      setTimeout(() => {
+        rendition.resize()
+      }, 100)
+    }
+  }, [isFullscreen, rendition])
 
   // Update font size
   useEffect(() => {
@@ -187,111 +289,285 @@ const EpubReader = ({ bookData }) => {
     setReadingMode(prev => prev === 'cream' ? 'default' : 'cream')
   }
 
-  return (
-    <div className="epub-reader">
-      {/* Controls */}
-      <div className="card reader-controls">
-        <div className="reader-control-group">
-          {/* TOC Dropdown */}
-          <div className="toc-dropdown" ref={dropdownRef}>
-            <button
-              className="btn btn-secondary"
-              onClick={() => setTocOpen(!tocOpen)}
-            >
-              Daftar Isi
-              <span className={`dropdown-arrow ${tocOpen ? 'open' : ''}`}>▼</span>
-            </button>
+  const enterFullscreen = async () => {
+    const element = fullscreenContainerRef.current
+    if (!element) return
 
-            {tocOpen && (
-              <div className="dropdown-menu">
-                <div className="dropdown-header">Daftar Isi</div>
-                <div className="dropdown-content">
-                  {toc.length > 0 ? (
-                    toc.map((item, idx) => (
-                      <button
-                        key={idx}
-                        className="dropdown-item"
-                        onClick={() => goToChapter(item.href, item)}
-                        disabled={item.href === '#'}
-                        style={{ paddingLeft: `${1 + (item.level || 0) * 0.75}rem` }}
-                      >
-                        {item.label}
-                      </button>
-                    ))
-                  ) : (
-                    <div className="dropdown-empty">Daftar isi tidak tersedia</div>
-                  )}
+    try {
+      if (element.requestFullscreen) {
+        await element.requestFullscreen()
+      } else if (element.webkitRequestFullscreen) {
+        await element.webkitRequestFullscreen()
+      } else if (element.mozRequestFullScreen) {
+        await element.mozRequestFullScreen()
+      } else if (element.msRequestFullscreen) {
+        await element.msRequestFullscreen()
+      }
+      setIsFullscreen(true)
+    } catch (error) {
+      console.error('Failed to enter fullscreen:', error)
+    }
+  }
+
+  const exitFullscreen = async () => {
+    try {
+      if (document.exitFullscreen) {
+        await document.exitFullscreen()
+      } else if (document.webkitExitFullscreen) {
+        await document.webkitExitFullscreen()
+      } else if (document.mozCancelFullScreen) {
+        await document.mozCancelFullScreen()
+      } else if (document.msExitFullscreen) {
+        await document.msExitFullscreen()
+      }
+    } catch (error) {
+      console.error('Failed to exit fullscreen:', error)
+    }
+    setIsFullscreen(false)
+  }
+
+  return (
+    <div
+      ref={fullscreenContainerRef}
+      className={`epub-reader ${isFullscreen ? 'fullscreen-mode' : ''}`}
+      style={isFullscreen ? {
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100vw',
+        height: '100vh',
+        zIndex: 9999,
+        backgroundColor: theme === 'dark' ? '#1a1a1a' : '#ffffff',
+        overflow: 'hidden'
+      } : {}}
+    >
+      {/* Controls - Hidden in fullscreen */}
+      {!isFullscreen && (
+        <div className="card reader-controls">
+          <div className="reader-control-group">
+            {/* TOC Dropdown */}
+            <div className="toc-dropdown" ref={dropdownRef}>
+              <button
+                className="btn btn-secondary"
+                onClick={() => setTocOpen(!tocOpen)}
+              >
+                Daftar Isi
+                <span className={`dropdown-arrow ${tocOpen ? 'open' : ''}`}>▼</span>
+              </button>
+
+              {tocOpen && (
+                <div className="dropdown-menu">
+                  <div className="dropdown-header">Daftar Isi</div>
+                  <div className="dropdown-content">
+                    {toc.length > 0 ? (
+                      toc.map((item, idx) => (
+                        <button
+                          key={idx}
+                          className="dropdown-item"
+                          onClick={() => goToChapter(item.href, item)}
+                          disabled={item.href === '#'}
+                          style={{ paddingLeft: `${1 + (item.level || 0) * 0.75}rem` }}
+                        >
+                          {item.label}
+                        </button>
+                      ))
+                    ) : (
+                      <div className="dropdown-empty">Daftar isi tidak tersedia</div>
+                    )}
+                  </div>
                 </div>
+              )}
+            </div>
+
+            {/* Font Controls */}
+            <div className="font-controls">
+              <button className="btn btn-secondary btn-small" onClick={() => handleFontSizeChange(-2)}>
+                A-
+              </button>
+              <span className="font-size-display">{fontSize}px</span>
+              <button className="btn btn-secondary btn-small" onClick={() => handleFontSizeChange(2)}>
+                A+
+              </button>
+              <button
+                className={`btn btn-secondary ${readingMode === 'cream' ? 'active' : ''}`}
+                onClick={toggleReadingMode}
+              >
+                Mode
+              </button>
+              <button
+                className="btn btn-secondary"
+                onClick={enterFullscreen}
+                title="Layar Penuh"
+              >
+                ⛶
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fullscreen Exit Button */}
+      {isFullscreen && (
+        <button
+          onClick={exitFullscreen}
+          style={{
+            position: 'fixed',
+            top: '20px',
+            right: '20px',
+            zIndex: 10000,
+            padding: '10px 15px',
+            backgroundColor: theme === 'dark' ? '#de96be' : '#225330',
+            color: theme === 'dark' ? '#1a1a1a' : '#ffffff',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: '600',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+            transition: 'all 0.3s ease'
+          }}
+          onMouseEnter={(e) => {
+            e.target.style.transform = 'scale(1.05)'
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.transform = 'scale(1)'
+          }}
+          title="Keluar dari Layar Penuh (ESC)"
+        >
+          ✕ Keluar
+        </button>
+      )}
+
+      {/* Reader Content */}
+      <div className="epub-reader-content" style={isFullscreen ? {
+        height: '100vh',
+        display: 'flex',
+        flexDirection: 'column'
+      } : {}}>
+        <div className="reader-viewport-container" style={isFullscreen ? {
+          flex: 1,
+          height: '100%'
+        } : {}}>
+          {/* Left Navigation Button - Hidden in fullscreen */}
+          {!isFullscreen && (
+            <button
+              className="side-nav-button"
+              onClick={() => handleNavigation('prev')}
+              title="Halaman Sebelumnya"
+            >
+              ←
+            </button>
+          )}
+
+          {/* Main Viewport */}
+          <div
+            ref={bookRef}
+            className="epub-reader-viewport"
+            tabIndex={0}
+            style={isFullscreen ? {
+              height: '100vh',
+              width: '100vw',
+              border: 'none',
+              borderRadius: 0
+            } : {}}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+          >
+            {isLoading && (
+              <div className="loading" style={isFullscreen ? {
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                fontSize: '1.2rem'
+              } : {}}>
+                Memuat konten ebook...
               </div>
             )}
           </div>
 
-          {/* Font Controls */}
-          <div className="font-controls">
-            <button className="btn btn-secondary btn-small" onClick={() => handleFontSizeChange(-2)}>
-              A-
-            </button>
-            <span className="font-size-display">{fontSize}px</span>
-            <button className="btn btn-secondary btn-small" onClick={() => handleFontSizeChange(2)}>
-              A+
-            </button>
+          {/* Right Navigation Button - Hidden in fullscreen */}
+          {!isFullscreen && (
             <button
-              className={`btn btn-secondary ${readingMode === 'cream' ? 'active' : ''}`}
-              onClick={toggleReadingMode}
+              className="side-nav-button"
+              onClick={() => handleNavigation('next')}
+              title="Halaman Selanjutnya"
             >
-              Mode
+              →
             </button>
+          )}
+        </div>
+      </div>
+
+      {/* Progress - Hidden in fullscreen */}
+      {!isFullscreen && (
+        <div className="card progress-section">
+          <div className="progress-text">Progres Membaca: {progress}%</div>
+          <div className="progress-bar">
+            <div className="progress-fill" style={{ width: `${progress}%` }} />
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Reader Content with Side Navigation */}
-      <div className="epub-reader-content">
-        <div className="reader-viewport-container">
-          {/* Left Navigation Button */}
-          <button
-            className="side-nav-button"
-            onClick={() => handleNavigation('prev')}
-            title="Halaman Sebelumnya"
-          >
-            ←
+      {/* Bottom Navigation (Hidden on Desktop, Shown on Mobile) - Hidden in fullscreen */}
+      {!isFullscreen && (
+        <div className="card navigation-section">
+          <button className="btn btn-primary" onClick={() => handleNavigation('prev')}>
+            ← Sebelumnya
           </button>
-
-          {/* Main Viewport */}
-          <div ref={bookRef} className="epub-reader-viewport" tabIndex={0}>
-            {isLoading && (
-              <div className="loading">Memuat konten ebook...</div>
-            )}
-          </div>
-
-          {/* Right Navigation Button */}
-          <button
-            className="side-nav-button"
-            onClick={() => handleNavigation('next')}
-            title="Halaman Selanjutnya"
-          >
-            →
+          <button className="btn btn-primary" onClick={() => handleNavigation('next')}>
+            Selanjutnya →
           </button>
         </div>
-      </div>
+      )}
 
-      {/* Progress */}
-      <div className="card progress-section">
-        <div className="progress-text">Progres Membaca: {progress}%</div>
-        <div className="progress-bar">
-          <div className="progress-fill" style={{ width: `${progress}%` }} />
+      {/* Fullscreen Instructions Overlay */}
+      {isFullscreen && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            backgroundColor: 'rgba(0,0,0,0.7)',
+            color: 'white',
+            padding: '10px 20px',
+            borderRadius: '20px',
+            fontSize: '14px',
+            zIndex: 10000,
+            opacity: 0.8,
+            animation: 'fadeInOut 3s ease-in-out',
+            pointerEvents: 'none'
+          }}
+        >
+          Geser kiri/kanan atau gunakan panah keyboard untuk navigasi • ESC untuk keluar
         </div>
-      </div>
+      )}
 
-      {/* Bottom Navigation (Hidden on Desktop, Shown on Mobile) */}
-      <div className="card navigation-section">
-        <button className="btn btn-primary" onClick={() => handleNavigation('prev')}>
-          ← Sebelumnya
-        </button>
-        <button className="btn btn-primary" onClick={() => handleNavigation('next')}>
-          Selanjutnya →
-        </button>
-      </div>
+      <style jsx>{`
+        @keyframes fadeInOut {
+          0% { opacity: 0; transform: translateX(-50%) translateY(20px); }
+          20% { opacity: 0.8; transform: translateX(-50%) translateY(0); }
+          80% { opacity: 0.8; transform: translateX(-50%) translateY(0); }
+          100% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+        }
+
+        .fullscreen-mode {
+          user-select: none;
+          -webkit-user-select: none;
+          -moz-user-select: none;
+          -ms-user-select: none;
+        }
+
+        .fullscreen-mode .epub-reader-viewport {
+          cursor: grab;
+        }
+
+        .fullscreen-mode .epub-reader-viewport:active {
+          cursor: grabbing;
+        }
+      `}</style>
     </div>
   )
 }
