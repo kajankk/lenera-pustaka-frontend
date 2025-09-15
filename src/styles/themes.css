@@ -733,56 +733,21 @@ body {
   position: relative;
 }
 
+/* READER VIEWPORT WITH SIDE NAVIGATION */
+.reader-viewport-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
 .epub-reader-viewport {
   width: 100%;
   min-height: 600px;
   border: 1px solid;
   border-radius: 8px;
   overflow: hidden;
-  position: relative;
-  z-index: 0;
-}
-
-/* FLOATING NAVIGATION BUTTONS */
-.floating-nav-btn {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 10;
-  padding: 1rem 0.75rem;
-  border-radius: 50px;
-  background: rgba(0, 0, 0, 0.7);
-  color: white;
-  border: none;
-  cursor: pointer;
-  font-size: 1.2rem;
-  transition: var(--transition);
-  backdrop-filter: blur(10px);
-  min-width: 50px;
-  height: 50px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.floating-nav-btn:hover {
-  background: rgba(0, 0, 0, 0.9);
-  transform: translateY(-50%) scale(1.1);
-}
-
-.floating-nav-btn.prev {
-  left: 10px;
-}
-
-.floating-nav-btn.next {
-  right: 10px;
-}
-
-/* Hide floating buttons on small screens */
-@media (max-width: 768px) {
-  .floating-nav-btn {
-    display: none;
-  }
+  flex: 1;
 }
 
 .light .epub-reader-viewport {
@@ -791,6 +756,53 @@ body {
 
 .dark .epub-reader-viewport {
   border-color: rgba(222, 150, 190, var(--border-opacity));
+}
+
+/* SIDE NAVIGATION BUTTONS */
+.side-nav-button {
+  position: relative;
+  padding: 1rem 0.75rem;
+  border: 2px solid;
+  border-radius: 50px;
+  background: none;
+  cursor: pointer;
+  font-size: 1.2rem;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 50px;
+  min-height: 50px;
+  z-index: 10;
+}
+
+.side-nav-button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.light .side-nav-button {
+  border-color: var(--primary-green);
+  color: var(--primary-green);
+  background-color: rgba(255, 255, 255, 0.9);
+}
+
+.light .side-nav-button:hover:not(:disabled) {
+  background-color: var(--primary-green);
+  color: white;
+  box-shadow: var(--shadow-hover);
+}
+
+.dark .side-nav-button {
+  border-color: var(--primary-pink);
+  color: var(--primary-pink);
+  background-color: rgba(26, 26, 26, 0.9);
+}
+
+.dark .side-nav-button:hover:not(:disabled) {
+  background-color: var(--primary-pink);
+  color: var(--bg-dark);
+  box-shadow: var(--shadow-hover);
 }
 
 .progress-section {
@@ -832,15 +844,9 @@ body {
   background: var(--primary-pink);
 }
 
+/* HIDE ORIGINAL NAVIGATION SECTION */
 .navigation-section {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.navigation-section .btn {
-  flex: 1;
-  max-width: 200px;
+  display: none;
 }
 
 /* AUTH PAGE */
@@ -964,10 +970,31 @@ body {
     text-align: left;
   }
 
+  /* RESPONSIVE READER - KEEP SIDE NAVIGATION ON ALL SCREEN SIZES */
+  .reader-viewport-container {
+    /* Tetap horizontal layout dengan tombol samping */
+    display: flex;
+    align-items: center;
+    gap: 0.5rem; /* Kurangi gap untuk mobile */
+  }
+
+  /* Sesuaikan ukuran tombol samping untuk mobile */
+  .side-nav-button {
+    min-width: 45px;
+    min-height: 45px;
+    padding: 0.75rem 0.5rem;
+    font-size: 1.1rem;
+  }
+
+  /* HIDE BOTTOM NAVIGATION COMPLETELY */
+  .navigation-section {
+    display: none !important;
+  }
+
   /* PERBAIKAN READER CONTROLS - MOBILE */
   .reader-control-group {
     flex-direction: column;
-    align-items: center; /* Ubah dari stretch ke center */
+    align-items: center;
     gap: 1rem;
   }
 
@@ -979,24 +1006,11 @@ body {
   }
 
   .toc-dropdown .btn {
-    min-width: 150px; /* Berikan lebar minimum yang wajar */
+    min-width: 150px;
   }
 
   .font-controls {
     justify-content: center;
-  }
-
-  /* PERBAIKAN NAVIGATION SECTION */
-  .navigation-section {
-    flex-direction: row; /* Tetap row untuk mobile */
-    justify-content: space-between;
-    gap: 1rem; /* Pastikan ada gap yang cukup */
-  }
-
-  .navigation-section .btn {
-    flex: 1;
-    max-width: none;
-    min-width: 0; /* Reset min-width untuk mencegah overflow */
   }
 
   .dropdown-menu {
@@ -1039,18 +1053,43 @@ body {
     flex-wrap: wrap;
   }
 
-  /* PERBAIKAN KHUSUS MOBILE KECIL */
-  .navigation-section {
-    flex-direction: row; /* Tetap row, jangan column */
-    justify-content: space-between;
-    gap: 0.75rem;
+  /* RESPONSIVE SIDE NAVIGATION FOR VERY SMALL SCREENS */
+  .reader-viewport-container {
+    gap: 0.125rem;
   }
 
-  .navigation-section .btn {
-    flex: 1;
-    padding: 0.75rem 0.5rem; /* Kurangi padding horizontal jika perlu */
-    font-size: 0.9rem; /* Sedikit kecilkan font untuk ruang lebih */
-    min-width: 0; /* Penting untuk mencegah overflow */
+  .side-nav-button {
+    min-width: 26px;
+    min-height: 26px;
+    padding: 0.125rem;
+    font-size: 0.8rem;
+    border-radius: 13px;
+    border-width: 1px;
+  }
+
+  /* NAVIGATION TETAP TERSEMBUNYI */
+  .navigation-section {
+    display: none !important;
+  }
+}
+
+/* TAMBAHAN UNTUK LAYAR SANGAT KECIL */
+@media (max-width: 360px) {
+  .reader-viewport-container {
+    gap: 0.0625rem; /* 1px */
+  }
+
+  .side-nav-button {
+    min-width: 22px;
+    min-height: 22px;
+    padding: 0.0625rem;
+    font-size: 0.75rem;
+    border-radius: 11px;
+    border-width: 1px;
+  }
+
+  .epub-reader-viewport {
+    min-height: 500px;
   }
 }
 

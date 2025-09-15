@@ -245,29 +245,33 @@ const EpubReader = ({ bookData }) => {
         </div>
       </div>
 
-      {/* Reader Content with Floating Navigation */}
+      {/* Reader Content with Side Navigation */}
       <div className="epub-reader-content">
-        {/* Floating Navigation Buttons */}
-        <button
-          className="floating-nav-btn prev"
-          onClick={() => handleNavigation('prev')}
-          aria-label="Halaman Sebelumnya"
-        >
-          ←
-        </button>
+        <div className="reader-viewport-container">
+          {/* Left Navigation Button */}
+          <button
+            className="side-nav-button"
+            onClick={() => handleNavigation('prev')}
+            title="Halaman Sebelumnya"
+          >
+            ←
+          </button>
 
-        <button
-          className="floating-nav-btn next"
-          onClick={() => handleNavigation('next')}
-          aria-label="Halaman Selanjutnya"
-        >
-          →
-        </button>
+          {/* Main Viewport */}
+          <div ref={bookRef} className="epub-reader-viewport" tabIndex={0}>
+            {isLoading && (
+              <div className="loading">Memuat konten ebook...</div>
+            )}
+          </div>
 
-        <div ref={bookRef} className="epub-reader-viewport" tabIndex={0}>
-          {isLoading && (
-            <div className="loading">Memuat konten ebook...</div>
-          )}
+          {/* Right Navigation Button */}
+          <button
+            className="side-nav-button"
+            onClick={() => handleNavigation('next')}
+            title="Halaman Selanjutnya"
+          >
+            →
+          </button>
         </div>
       </div>
 
@@ -279,7 +283,7 @@ const EpubReader = ({ bookData }) => {
         </div>
       </div>
 
-      {/* Navigation - Kept for mobile fallback */}
+      {/* Bottom Navigation (Hidden on Desktop, Shown on Mobile) */}
       <div className="card navigation-section">
         <button className="btn btn-primary" onClick={() => handleNavigation('prev')}>
           ← Sebelumnya
