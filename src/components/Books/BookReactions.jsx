@@ -8,13 +8,13 @@ const BookReactions = ({ bookSlug, userReaction, onReaction }) => {
   const [rating, setRating] = useState(5)
   const [comment, setComment] = useState('')
 
-  const reactions = [
-    { type: 'like', emoji: '👍', label: 'Suka' },
-    { type: 'love', emoji: '❤️', label: 'Cinta' },
-    { type: 'wow', emoji: '😮', label: 'Wow' },
-    { type: 'sad', emoji: '😢', label: 'Sedih' },
-    { type: 'angry', emoji: '😠', label: 'Marah' }
-  ]
+    const reactions = [
+      { type: "like",    emoji: "👍", label: "Suka" },
+      { type: "dislike", emoji: "👎", label: "Tidak Suka" },
+      { type: "love",    emoji: "❤️", label: "Cinta" },
+      { type: "sad",     emoji: "😢", label: "Sedih" },
+      { type: "angry",   emoji: "😠", label: "Marah" }
+    ];
 
   const handleQuickReaction = (type) => {
     onReaction(type)

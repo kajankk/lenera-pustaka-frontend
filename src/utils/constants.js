@@ -1,5 +1,5 @@
 // utils/constants.js - Enhanced version with new endpoints
-export const API_BASE_URL = 'https://lentera-pustaka.up.railway.app'
+export const API_BASE_URL = 'http://localhost:8080'
 
 export const ROUTES = {
   HOME: '/',
