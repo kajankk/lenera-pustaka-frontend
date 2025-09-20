@@ -1,4 +1,3 @@
-// utils/readerUtils.js - Utility functions for reader features
 export const readerUtils = {
   // Generate unique ID for annotations
   generateAnnotationId: () => {

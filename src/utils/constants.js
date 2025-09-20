@@ -1,5 +1,5 @@
 // utils/constants.js - Enhanced version with new endpoints
-export const API_BASE_URL = 'https://lentera-pustaka.up.railway.app'
+export const API_BASE_URL = 'http://localhost:8080'
 
 export const ROUTES = {
   HOME: '/',
@@ -49,12 +49,8 @@ export const API_ENDPOINTS = {
   DELETE_NOTE: (slug, noteId) => `/api/books/${slug}/notes/${noteId}`,
   UPDATE_NOTE: (slug, noteId) => `/api/books/${slug}/notes/${noteId}`,
 
-  // New Features - Export
-  EXPORT_DATA: (slug) => `/api/books/${slug}/export`,
-
   // New Features - Translation
   TRANSLATE_TEXT: (slug) => `/api/books/${slug}/translate`,
-  DUAL_LANGUAGE: (slug) => `/api/books/${slug}/dual-language`,
   TRANSLATE_HIGHLIGHT: (slug) => `/api/books/${slug}/translate-highlight`,
 
   // New Features - Reactions & Discussions
@@ -65,27 +61,6 @@ export const API_ENDPOINTS = {
   // New Features - Audio & Voice
   GENERATE_TTS: (slug) => `/api/books/${slug}/tts`,
   SYNC_AUDIO: (slug) => `/api/books/${slug}/sync-audio`,
-  ADD_VOICE_NOTE: (slug) => `/api/books/${slug}/voice-notes`,
-  GET_VOICE_NOTES: (slug) => `/api/books/${slug}/voice-notes`,
-
-  // New Features - AI Features
-  EXTRACT_VOCABULARY: (slug) => `/api/books/${slug}/vocab-builder`,
-  GENERATE_SUMMARY: (slug) => `/api/books/${slug}/summary`,
-  ASK_QUESTION: (slug) => `/api/books/${slug}/qa`,
-  GENERATE_QUIZ: (slug) => `/api/books/${slug}/quiz`,
-  AI_HIGHLIGHTS: (slug) => `/api/books/${slug}/ai-highlight`,
-
-  // New Features - Advanced Features
-  ADD_COMMENT_TO_NOTE: (slug, noteId) => `/api/books/${slug}/notes/${noteId}/comments`,
-  SHARE_QUOTE: (slug) => `/api/books/${slug}/share-quote`,
-  HIGHLIGHT_TRENDS: (slug) => `/api/books/${slug}/highlights/trends`,
-  BOOKMARK_SUGGESTIONS: (slug) => `/api/books/${slug}/bookmark-suggest`,
-  AUTO_TAG_NOTES: (slug) => `/api/books/${slug}/notes/tags`,
-  VOICE_COMMAND: (slug) => `/api/books/${slug}/voice-control`,
-
-  // New Features - Collaborative
-  CREATE_COLLAB_NOTE: (slug) => `/api/books/${slug}/collab-notes`,
-  GET_COLLAB_NOTES: (slug) => `/api/books/${slug}/collab-notes`,
 
   // Dashboard
   DASHBOARD: '/api/dashboard'

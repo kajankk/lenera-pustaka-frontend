@@ -19,15 +19,51 @@ const BookDetailPage = () => {
       }
 
       try {
+        setLoading(true)
+        setError('')
+
         const response = await bookService.getBookDetail(slug)
-        if (response.result === 'Success' && response.data) {
-          setBook(response.data)
+
+        // Handle different response structures
+        let bookData = null
+        if (response && response.result === 'Success' && response.data) {
+          bookData = response.data
+        } else if (response && response.data) {
+          bookData = response.data
+        } else if (response) {
+          bookData = response
+        }
+
+        if (bookData) {
+          // Ensure required fields have defaults
+          const processedBook = {
+            ...bookData,
+            viewCount: bookData.viewCount || 0,
+            downloadCount: bookData.downloadCount || 0,
+            averageRating: bookData.averageRating || 0,
+            authors: bookData.authors || [],
+            genres: bookData.genres || [],
+            totalPages: bookData.totalPages || 0,
+            totalWord: bookData.totalWord || 0
+          }
+          setBook(processedBook)
         } else {
           setError('Ebook tidak ditemukan')
         }
       } catch (err) {
         console.error('Error fetching book detail:', err)
-        setError('Gagal memuat detail ebook')
+
+        if (err.response?.status === 404) {
+          setError('Ebook tidak ditemukan')
+        } else if (err.response?.status === 403) {
+          setError('Anda tidak memiliki akses ke ebook ini')
+        } else if (err.response?.status >= 500) {
+          setError('Terjadi kesalahan pada server. Silakan coba lagi nanti.')
+        } else if (err.code === 'NETWORK_ERROR' || !err.response) {
+          setError('Tidak dapat terhubung ke server. Periksa koneksi internet Anda.')
+        } else {
+          setError(err.message || 'Gagal memuat detail ebook')
+        }
       } finally {
         setLoading(false)
       }
@@ -36,9 +72,17 @@ const BookDetailPage = () => {
     fetchBookDetail()
   }, [slug])
 
+  const handleRetry = () => {
+    setError('')
+    window.location.reload()
+  }
+
   if (loading) {
     return (
       <div className="loading">
+        <div className="loading-spinner">
+          <div className="spinner"></div>
+        </div>
         <div className="loading-icon">📚</div>
         <p>Memuat detail ebook...</p>
       </div>
@@ -51,9 +95,16 @@ const BookDetailPage = () => {
         <div className="error-icon">{error ? '❌' : '📖'}</div>
         <h3>{error ? 'Terjadi Kesalahan' : 'Ebook Tidak Ditemukan'}</h3>
         <p>{error || 'Ebook yang Anda cari tidak tersedia.'}</p>
-        <button className="btn btn-primary" onClick={() => navigate('/books')}>
-          Kembali
-        </button>
+        <div className="error-actions">
+          <button className="btn btn-primary" onClick={() => navigate('/books')}>
+            Kembali ke Daftar Buku
+          </button>
+          {error && (
+            <button className="btn btn-secondary" onClick={handleRetry}>
+              Coba Lagi
+            </button>
+          )}
+        </div>
       </div>
     )
   }

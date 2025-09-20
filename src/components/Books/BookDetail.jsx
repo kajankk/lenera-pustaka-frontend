@@ -1,19 +1,16 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { bookService } from '../../services/bookService'
 import { useTheme } from '../../hooks/useTheme'
 import { useAuth } from '../../context/AuthContext'
-import { useDiscussions } from '../../hooks/useDiscussions'
 import BookReactions from './BookReactions'
 import BookDiscussions from './BookDiscussions'
 import BookAnalytics from './BookAnalytics'
-import BookExportModal from './BookExportModal'
 
 const BookDetail = ({ book }) => {
   const navigate = useNavigate()
   const { theme } = useTheme()
   const { isAuthenticated, user } = useAuth()
-  const { discussions } = useDiscussions(book.slug)
 
   const [state, setState] = useState({
     isDownloading: false,
@@ -21,7 +18,12 @@ const BookDetail = ({ book }) => {
     showExportModal: false,
     userReaction: null,
     bookStats: { highlights: 0, notes: 0, bookmarks: 0, reactions: 0 },
-    aiInsights: null
+    reactionStats: null,
+    discussions: [],
+    loadingStats: false,
+    loadingDiscussions: false,
+    notification: null,
+    discussionCount: 0
   })
 
   // Utility functions
@@ -40,6 +42,21 @@ const BookDetail = ({ book }) => {
   }
   const formatNumber = (num) => num?.toLocaleString('id-ID') || '0'
 
+  // Notification system
+  const showNotification = (message, type = 'info') => {
+    setState(prev => ({
+      ...prev,
+      notification: { message, type, id: Date.now() }
+    }))
+
+    setTimeout(() => {
+      setState(prev => ({
+        ...prev,
+        notification: null
+      }))
+    }, 4000)
+  }
+
   // Event handlers
   const handleStartReading = () => navigate(`/${book.slug}/read`)
 
@@ -50,87 +67,191 @@ const BookDetail = ({ book }) => {
     try {
       const filename = `${book.title.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_')}.epub`
       await bookService.downloadBook(book.slug, filename)
-      alert('Buku berhasil diunduh!')
+      showNotification('Buku berhasil diunduh!', 'success')
+
+      // Update download count in book object
+      book.downloadCount = (book.downloadCount || 0) + 1
     } catch (error) {
       console.error('Error downloading book:', error)
-      alert(error.message || 'Gagal mengunduh ebook. Silakan coba lagi.')
+      showNotification(error.message || 'Gagal mengunduh ebook. Silakan coba lagi.', 'error')
     } finally {
       setState(prev => ({ ...prev, isDownloading: false }))
     }
   }
 
-  const handleReaction = async (type, rating = null, comment = '') => {
-    if (!isAuthenticated) return alert('Silakan login untuk memberikan reaksi')
-
-    try {
-      const response = await bookService.addReaction(book.slug, { type, rating, comment })
-      setState(prev => ({
-        ...prev,
-        userReaction: response.data,
-        bookStats: { ...prev.bookStats, reactions: prev.bookStats.reactions + 1 }
-      }))
-    } catch (error) {
-      console.error('Error adding reaction:', error)
-      alert('Gagal menambahkan reaksi')
-    }
-  }
-
-  // Data loading
-  const loadData = async () => {
+  // Data loading functions
+  const loadUserStats = useCallback(async () => {
     if (!isAuthenticated) return
 
     try {
-      const [highlightsRes, notesRes, bookmarksRes, trendsRes, suggestionsRes] = await Promise.all([
+      const [highlightsRes, notesRes, bookmarksRes] = await Promise.allSettled([
         bookService.getHighlights(book.slug),
         bookService.getNotes(book.slug),
-        bookService.getBookmarks(book.slug),
-        bookService.getHighlightTrends(book.slug),
-        bookService.getBookmarkSuggestions(book.slug)
+        bookService.getBookmarks(book.slug)
       ])
 
       setState(prev => ({
         ...prev,
         bookStats: {
-          highlights: highlightsRes.data?.length || 0,
-          notes: notesRes.data?.length || 0,
-          bookmarks: bookmarksRes.data?.length || 0,
-          reactions: book.reactionCount || 0
-        },
-        aiInsights: {
-          trends: trendsRes.data,
-          suggestions: suggestionsRes.data
+          ...prev.bookStats,
+          highlights: highlightsRes.status === 'fulfilled' ? highlightsRes.value.data?.length || 0 : 0,
+          notes: notesRes.status === 'fulfilled' ? notesRes.value.data?.length || 0 : 0,
+          bookmarks: bookmarksRes.status === 'fulfilled' ? bookmarksRes.value.data?.length || 0 : 0
         }
       }))
     } catch (error) {
+      console.error('Error loading user stats:', error)
+    }
+  }, [isAuthenticated, book.slug])
+
+  const loadReactionStats = useCallback(async () => {
+    try {
+      const response = await bookService.getReactionStats(book.slug)
+      const stats = response.data
+
+      setState(prev => ({
+        ...prev,
+        reactionStats: stats,
+        bookStats: {
+          ...prev.bookStats,
+          reactions: stats?.total || 0
+        }
+      }))
+
+      // Update book's reaction count if available
+      if (stats?.total) {
+        book.reactionCount = stats.total
+      }
+    } catch (error) {
+      console.error('Error loading reaction stats:', error)
+    }
+  }, [book.slug])
+
+  // Load discussions from reactions with comments
+  const loadDiscussions = useCallback(async () => {
+    setState(prev => ({ ...prev, loadingDiscussions: true }))
+
+    try {
+      const response = await bookService.getReactions(book.slug, 1, 50)
+      const reactionsWithComments = response.data?.filter(reaction =>
+        reaction.comment && reaction.comment.trim() !== ''
+      ) || []
+
+      setState(prev => ({
+        ...prev,
+        discussions: reactionsWithComments,
+        discussionCount: reactionsWithComments.length,
+        loadingDiscussions: false
+      }))
+    } catch (error) {
+      console.error('Error loading discussions:', error)
+      setState(prev => ({
+        ...prev,
+        discussions: [],
+        discussionCount: 0,
+        loadingDiscussions: false
+      }))
+    }
+  }, [book.slug])
+
+  const loadUserReaction = useCallback(async () => {
+    if (!isAuthenticated) return
+
+    try {
+      // Check if user has any reaction by getting all reactions and finding current user's
+      const response = await bookService.getReactions(book.slug, 1, 50)
+      const userReaction = response.data?.find(reaction =>
+        reaction.user?.id === user?.id || reaction.userId === user?.id
+      )
+
+      setState(prev => ({
+        ...prev,
+        userReaction: userReaction || null
+      }))
+    } catch (error) {
+      setState(prev => ({
+        ...prev,
+        userReaction: null
+      }))
+    }
+  }, [isAuthenticated, book.slug, user?.id])
+
+  const loadAllData = useCallback(async () => {
+    setState(prev => ({ ...prev, loadingStats: true }))
+
+    try {
+      await Promise.all([
+        loadUserStats(),
+        loadReactionStats(),
+        loadDiscussions(),
+        loadUserReaction()
+      ])
+    } catch (error) {
       console.error('Error loading data:', error)
+    } finally {
+      setState(prev => ({ ...prev, loadingStats: false }))
+    }
+  }, [loadUserStats, loadReactionStats, loadDiscussions, loadUserReaction])
+
+  // Handle reaction with proper state updates
+  const handleReaction = async (type, rating = null, comment = '') => {
+    if (!isAuthenticated) {
+      showNotification('Silakan login untuk memberikan reaksi', 'warning')
+      return
+    }
+
+    try {
+      const response = await bookService.addReaction(book.slug, { type, rating, comment })
+
+      setState(prev => ({
+        ...prev,
+        userReaction: response.data
+      }))
+
+      // Reload all relevant data after adding reaction
+      await Promise.all([
+        loadReactionStats(),
+        loadDiscussions() // This will update discussion count automatically
+      ])
+
+      showNotification('Reaksi berhasil ditambahkan!', 'success')
+    } catch (error) {
+      console.error('Error adding reaction:', error)
+      showNotification(error.message || 'Gagal menambahkan reaksi', 'error')
     }
   }
 
+  // Load data on component mount and authentication changes
   useEffect(() => {
-    if (isAuthenticated && book.slug) loadData()
-  }, [isAuthenticated, book.slug])
+    if (book.slug) {
+      loadAllData()
+    }
+  }, [book.slug, loadAllData])
 
   const tabs = [
     { id: 'description', label: 'Deskripsi', icon: '📄' },
     { id: 'metadata', label: 'Info Detail', icon: 'ℹ️' },
-    { id: 'discussions', label: `Diskusi (${discussions.length})`, icon: '💬' },
+    { id: 'discussions', label: `Diskusi (${state.discussionCount})`, icon: '💬' },
     { id: 'analytics', label: 'Analitik', icon: '📊' }
   ]
 
-  const metadataItems = [
-    { label: 'Penerbit', value: book.publisher },
-    { label: 'Tahun Terbit', value: book.publicationYear },
-    { label: 'ISBN', value: book.isbn },
-    { label: 'Bahasa', value: book.language },
-    { label: 'Jumlah Halaman', value: book.totalPages > 0 ? formatNumber(book.totalPages) : null },
-    { label: 'Jumlah Kata', value: book.totalWord > 0 ? formatNumber(book.totalWord) : null },
-    { label: 'Estimasi Waktu Baca', value: formatReadingTime(book.estimatedReadTime) },
-    { label: 'Level Kesulitan', value: getDifficultyLabel(book.difficultyLevel) },
-    { label: 'Ukuran File', value: formatFileSize(book.fileSize) }
-  ].filter(item => item.value)
-
   return (
     <div className="book-detail-container">
+      {/* Notification */}
+      {state.notification && (
+        <div className={`notification notification-${state.notification.type}`}>
+          <div className="notification-content">
+            <span className="notification-icon">
+              {state.notification.type === 'success' && '✅'}
+              {state.notification.type === 'error' && '❌'}
+              {state.notification.type === 'warning' && '⚠️'}
+              {state.notification.type === 'info' && 'ℹ️'}
+            </span>
+            <span className="notification-message">{state.notification.message}</span>
+          </div>
+        </div>
+      )}
+
       <button className="btn btn-secondary" onClick={() => navigate('/books')}>
         ← Kembali
       </button>
@@ -140,7 +261,12 @@ const BookDetail = ({ book }) => {
         <div className="book-cover-section">
           <div className="book-cover-wrapper">
             {book.coverImageUrl ? (
-              <img src={book.coverImageUrl} alt={`Cover ${book.title}`} className="book-cover-image" loading="lazy" />
+              <img
+                src={book.coverImageUrl}
+                alt={`Cover ${book.title}`}
+                className="book-cover-image"
+                loading="lazy"
+              />
             ) : (
               <div className="book-cover-placeholder">
                 <div className="placeholder-icon">📚</div>
@@ -151,53 +277,42 @@ const BookDetail = ({ book }) => {
 
           <div className="book-actions">
             <button className="btn btn-primary btn-action" onClick={handleStartReading}>
-              <span>📖</span><span>Mulai Membaca</span>
+              <span>📖</span>
+              <span>Mulai Membaca</span>
             </button>
-            <button className="btn btn-secondary btn-action" onClick={handleDownload} disabled={state.isDownloading}>
+
+            <button
+              className="btn btn-secondary btn-action"
+              onClick={handleDownload}
+              disabled={state.isDownloading}
+            >
               <span>{state.isDownloading ? '⏳' : '💾'}</span>
               <span>{state.isDownloading ? 'Mengunduh...' : 'Unduh EPUB'}</span>
             </button>
 
             <div className="book-quick-stats">
               {[
-                { label: 'Dilihat', value: book.viewCount },
-                { label: 'Diunduh', value: book.downloadCount },
-                { label: 'Rating', value: book.averageRating ? `${book.averageRating.toFixed(1)}/5` : 'N/A' }
+                { label: 'Dilihat', value: book.viewCount || 0 },
+                { label: 'Diunduh', value: book.downloadCount || 0 },
+                { label: 'Rating', value: book.averageRating ? `${book.averageRating.toFixed(1)}/5` : 'Belum ada' }
               ].map(stat => (
                 <div key={stat.label} className="stat-item">
                   <div className="stat-label">{stat.label}</div>
-                  <div className="stat-value">{typeof stat.value === 'number' ? formatNumber(stat.value) : stat.value}</div>
+                  <div className="stat-value">
+                    {typeof stat.value === 'number' ? formatNumber(stat.value) : stat.value}
+                  </div>
                 </div>
               ))}
             </div>
-
-            {isAuthenticated && (
-              <div className="user-reading-stats card">
-                <h4 style={{ fontSize: '0.9rem', marginBottom: '0.75rem', color: theme === 'dark' ? 'var(--primary-pink)' : 'var(--primary-green)' }}>
-                  Aktivitas Anda
-                </h4>
-                <div className="stats-grid">
-                  {[
-                    { icon: '🖍️', count: state.bookStats.highlights, label: 'Highlight' },
-                    { icon: '📝', count: state.bookStats.notes, label: 'Catatan' },
-                    { icon: '🔖', count: state.bookStats.bookmarks, label: 'Bookmark' }
-                  ].map(stat => (
-                    <div key={stat.label} className="stat-item">
-                      <div className="stat-icon">{stat.icon}</div>
-                      <div className="stat-count">{stat.count}</div>
-                      <div className="stat-label">{stat.label}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
         {/* Book Info */}
         <div className="book-info-section">
           <div className="book-header">
-            <h1 className="book-title" style={{ color: theme === 'dark' ? 'var(--primary-pink)' : 'var(--primary-green)' }}>
+            <h1 className="book-title" style={{
+              color: theme === 'dark' ? 'var(--primary-pink)' : 'var(--primary-green)'
+            }}>
               {book.title}
             </h1>
 
@@ -215,7 +330,14 @@ const BookDetail = ({ book }) => {
             {book.genres?.length > 0 && (
               <div className="book-genres">
                 {book.genres.map(genre => (
-                  <span key={genre.id} className="genre-tag" style={{ backgroundColor: genre.colorHex + '20', color: genre.colorHex }}>
+                  <span
+                    key={genre.id}
+                    className="genre-tag"
+                    style={{
+                      backgroundColor: genre.colorHex + '20',
+                      color: genre.colorHex
+                    }}
+                  >
                     {genre.name}
                   </span>
                 ))}
@@ -223,14 +345,22 @@ const BookDetail = ({ book }) => {
             )}
 
             {isAuthenticated && (
-              <BookReactions bookSlug={book.slug} userReaction={state.userReaction} onReaction={handleReaction} />
+              <BookReactions
+                bookSlug={book.slug}
+                userReaction={state.userReaction}
+                onReaction={handleReaction}
+                reactionStats={state.reactionStats}
+              />
             )}
           </div>
 
           <div className="book-tabs">
             {tabs.map(tab => (
-              <button key={tab.id} className={`btn btn-secondary btn-small ${state.activeTab === tab.id ? 'active' : ''}`}
-                onClick={() => setState(prev => ({ ...prev, activeTab: tab.id }))}>
+              <button
+                key={tab.id}
+                className={`btn btn-secondary btn-small ${state.activeTab === tab.id ? 'active' : ''}`}
+                onClick={() => setState(prev => ({ ...prev, activeTab: tab.id }))}
+              >
                 {tab.icon} {tab.label}
               </button>
             ))}
@@ -238,14 +368,27 @@ const BookDetail = ({ book }) => {
 
           <div className="book-tab-content">
             {state.activeTab === 'description' && book.description && (
-              <div className="book-description"><h3>Deskripsi</h3><p>{book.description}</p></div>
+              <div className="book-description">
+                <h3>Deskripsi</h3>
+                <p>{book.description}</p>
+              </div>
             )}
 
             {state.activeTab === 'metadata' && (
               <div className="book-metadata">
                 <h3>Informasi Detail</h3>
                 <div className="metadata-items">
-                  {metadataItems.map(item => (
+                  {[
+                    { label: 'Penerbit', value: book.publisher },
+                    { label: 'Tahun Terbit', value: book.publicationYear },
+                    { label: 'ISBN', value: book.isbn },
+                    { label: 'Bahasa', value: book.language },
+                    { label: 'Jumlah Halaman', value: book.totalPages > 0 ? formatNumber(book.totalPages) : null },
+                    { label: 'Jumlah Kata', value: book.totalWord > 0 ? formatNumber(book.totalWord) : null },
+                    { label: 'Estimasi Waktu Baca', value: formatReadingTime(book.estimatedReadTime) },
+                    { label: 'Level Kesulitan', value: getDifficultyLabel(book.difficultyLevel) },
+                    { label: 'Ukuran File', value: formatFileSize(book.fileSize) }
+                  ].filter(item => item.value && item.value !== 'N/A').map(item => (
                     <div key={item.label} className="metadata-item">
                       <span className="meta-label">{item.label}:</span>
                       <span className="meta-value">{item.value}</span>
@@ -255,18 +398,26 @@ const BookDetail = ({ book }) => {
               </div>
             )}
 
-            {state.activeTab === 'discussions' && <BookDiscussions bookSlug={book.slug} />}
+            {state.activeTab === 'discussions' && (
+              <BookDiscussions
+                bookSlug={book.slug}
+                discussions={state.discussions}
+                loading={state.loadingDiscussions}
+                onDiscussionUpdate={loadDiscussions}
+              />
+            )}
+
             {state.activeTab === 'analytics' && (
-              <BookAnalytics book={book} bookStats={state.bookStats} aiInsights={state.aiInsights} isAuthenticated={isAuthenticated} />
+              <BookAnalytics
+                book={book}
+                bookStats={state.bookStats}
+                reactionStats={state.reactionStats}
+                isAuthenticated={isAuthenticated}
+              />
             )}
           </div>
         </div>
       </div>
-
-      {state.showExportModal && (
-        <BookExportModal bookSlug={book.slug} bookTitle={book.title}
-          onClose={() => setState(prev => ({ ...prev, showExportModal: false }))} />
-      )}
     </div>
   )
 }
