@@ -1,9 +1,20 @@
-// Enhanced BookmarkPanel.jsx
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 
-const BookmarkPanel = ({ bookmarks, onBookmarkClick, onBookmarkDelete, onClose }) => {
+const BookmarkPanel = ({ bookmarks, onBookmarkClick, onBookmarkDelete, onClose, isMobile = false }) => {
   const [searchTerm, setSearchTerm] = useState('')
   const [sortBy, setSortBy] = useState('date') // date, title, page
+
+  // Close panel on escape key
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') {
+        onClose()
+      }
+    }
+
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [onClose])
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('id-ID', {
@@ -32,59 +43,115 @@ const BookmarkPanel = ({ bookmarks, onBookmarkClick, onBookmarkDelete, onClose }
       }
     })
 
+  const handleBookmarkClick = (bookmark) => {
+    onBookmarkClick(bookmark)
+    if (isMobile) {
+      onClose() // Auto-close on mobile after navigation
+    }
+  }
+
   return (
-    <div className="reader-panel card">
-      <div className="panel-header">
-        <h3>Bookmark ({bookmarks.length})</h3>
-        <button className="btn btn-secondary btn-small" onClick={onClose}>
+    <div className={`reader-panel bookmark-panel ${isMobile ? 'mobile' : 'desktop'}`}>
+      {/* Mobile header with drag indicator */}
+      {isMobile && (
+        <div className="panel-drag-indicator">
+          <div className="drag-handle"></div>
+        </div>
+      )}
+
+      <header className="panel-header">
+        <h3>
+          <span className="panel-icon">🔖</span>
+          Bookmark ({bookmarks.length})
+        </h3>
+        <button
+          className="btn btn-secondary btn-small panel-close-btn"
+          onClick={onClose}
+          aria-label="Tutup panel bookmark"
+        >
           ✕
         </button>
-      </div>
+      </header>
 
+      {/* Search and Filters */}
       {bookmarks.length > 0 && (
         <div className="panel-filters">
-          <input
-            type="text"
-            placeholder="Cari bookmark..."
-            className="form-control"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+          <div className="search-input-container">
+            <input
+              type="text"
+              placeholder="Cari bookmark..."
+              className="form-control search-input"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              aria-label="Cari bookmark"
+            />
+            {searchTerm && (
+              <button
+                className="search-clear-btn"
+                onClick={() => setSearchTerm('')}
+                aria-label="Hapus pencarian"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
           <select
-            className="form-control"
+            className="form-control sort-select"
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
+            aria-label="Urutkan bookmark"
           >
-            <option value="date">Urutkan: Terbaru</option>
-            <option value="title">Urutkan: Judul</option>
-            <option value="page">Urutkan: Halaman</option>
+            <option value="date">📅 Terbaru</option>
+            <option value="title">📝 Judul</option>
+            <option value="page">📄 Halaman</option>
           </select>
         </div>
       )}
 
+      {/* Content */}
       <div className="panel-content">
         {filteredAndSortedBookmarks.length === 0 ? (
           <div className="empty-state">
             {bookmarks.length === 0 ? (
               <>
                 <div className="empty-icon">🔖</div>
-                <p>Belum ada bookmark.</p>
+                <h4>Belum ada bookmark</h4>
                 <p>Pilih teks dan klik ikon bookmark untuk menambahkan.</p>
+                {isMobile && (
+                  <p><small>💡 Tekan dan tahan teks, lalu pilih "Bookmark"</small></p>
+                )}
               </>
             ) : (
               <>
                 <div className="empty-icon">🔍</div>
+                <h4>Tidak ada hasil</h4>
                 <p>Tidak ada bookmark yang cocok dengan pencarian "{searchTerm}"</p>
+                <button
+                  className="btn btn-secondary btn-small"
+                  onClick={() => setSearchTerm('')}
+                >
+                  Hapus Filter
+                </button>
               </>
             )}
           </div>
         ) : (
           <div className="bookmark-list">
             {filteredAndSortedBookmarks.map((bookmark) => (
-              <div key={bookmark.id} className="bookmark-item">
+              <article key={bookmark.id} className="bookmark-item">
                 <div
                   className="bookmark-content"
-                  onClick={() => onBookmarkClick(bookmark)}
+                  onClick={() => handleBookmarkClick(bookmark)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      handleBookmarkClick(bookmark)
+                    }
+                  }}
+                  aria-label={`Navigasi ke bookmark: ${bookmark.title}`}
                 >
                   <div className="bookmark-header">
                     <h4 className="bookmark-title">{bookmark.title}</h4>
@@ -96,37 +163,44 @@ const BookmarkPanel = ({ bookmarks, onBookmarkClick, onBookmarkDelete, onClose }
                   )}
 
                   <div className="bookmark-meta">
-                    <small>{formatDate(bookmark.createdAt)}</small>
+                    <time className="bookmark-date">
+                      {formatDate(bookmark.createdAt)}
+                    </time>
                     {bookmark.chapterTitle && (
-                      <small className="chapter-title">{bookmark.chapterTitle}</small>
+                      <span className="chapter-title">{bookmark.chapterTitle}</span>
                     )}
                   </div>
                 </div>
 
                 <div className="bookmark-actions">
                   <button
-                    className="btn btn-secondary btn-small"
+                    className="btn btn-secondary btn-small action-btn delete-btn"
                     onClick={(e) => {
                       e.stopPropagation()
-                      onBookmarkDelete(bookmark.id)
+                      if (confirm('Hapus bookmark ini?')) {
+                        onBookmarkDelete(bookmark.id)
+                      }
                     }}
                     title="Hapus bookmark"
+                    aria-label={`Hapus bookmark: ${bookmark.title}`}
                   >
                     🗑️
                   </button>
                 </div>
-              </div>
+              </article>
             ))}
           </div>
         )}
       </div>
 
+      {/* Footer */}
       {bookmarks.length > 0 && (
-        <div className="panel-footer">
+        <footer className="panel-footer">
           <small>
             Menampilkan {filteredAndSortedBookmarks.length} dari {bookmarks.length} bookmark
+            {searchTerm && ` • Filter: "${searchTerm}"`}
           </small>
-        </div>
+        </footer>
       )}
     </div>
   )

@@ -14,8 +14,10 @@ const EpubReader = ({ bookData }) => {
   const readerContainerRef = useRef(null)
   const dropdownRef = useRef(null)
   const saveProgressTimeout = useRef(null)
-  const renditionRef = useRef(null) // Add ref for rendition
-  const bookInstanceRef = useRef(null) // Add ref for book instance
+  const renditionRef = useRef(null)
+  const bookInstanceRef = useRef(null)
+  const touchStartX = useRef(0)
+  const touchStartY = useRef(0)
 
   const [state, setState] = useState({
     book: null,
@@ -42,17 +44,40 @@ const EpubReader = ({ bookData }) => {
     translations: new Map(),
     translating: false,
     currentLocation: null,
-    isFullscreen: false
+    isFullscreen: false,
+    isMobile: false
   })
 
   const [notification, setNotification] = useState(null)
+
+  // Detect mobile device
+  useEffect(() => {
+    const checkMobile = () => {
+      const isMobile = window.innerWidth <= 768
+      setState(prev => ({ ...prev, isMobile }))
+    }
+
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
+  // Fullscreen detection
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setState(prev => ({ ...prev, isFullscreen: !!document.fullscreenElement }))
+    }
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange)
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange)
+  }, [])
 
   const showNotification = useCallback((message, type = 'info') => {
     setNotification({ message, type, id: Date.now() })
     setTimeout(() => setNotification(null), 4000)
   }, [])
 
-  // Flatten table of contents - remove from dependencies
+  // Flatten table of contents
   const flattenToc = useCallback((toc) => {
     const result = []
     const traverse = (items, level = 0) => {
@@ -67,7 +92,7 @@ const EpubReader = ({ bookData }) => {
     return result
   }, [])
 
-  // Auto-save progress - remove state.totalPages from dependencies
+  // Auto-save progress
   const saveProgress = useCallback(async (location, pageNum, percentage) => {
     if (!bookData?.slug || !location) return
 
@@ -82,7 +107,7 @@ const EpubReader = ({ bookData }) => {
           position: location.start.cfi,
           percentage: Math.round(percentage),
           lastReadAt: new Date().toISOString(),
-          totalPages: bookInstanceRef.current?.spine?.length || 0, // Use ref instead
+          totalPages: bookInstanceRef.current?.spine?.length || 0,
           chapterTitle: location.start.displayed?.page?.toString() || 'Chapter'
         }
 
@@ -91,9 +116,9 @@ const EpubReader = ({ bookData }) => {
         console.error('Error saving progress:', error)
       }
     }, 2000)
-  }, [bookData?.slug]) // Remove state.totalPages dependency
+  }, [bookData?.slug])
 
-  // Load user data - remove state.rendition from dependencies
+  // Load user data
   const loadUserData = useCallback(async () => {
     if (!bookData?.slug) return
 
@@ -111,7 +136,7 @@ const EpubReader = ({ bookData }) => {
         notes: notesRes.status === 'fulfilled' ? notesRes.value.data || [] : []
       }))
 
-      // Apply highlights to the rendition using ref
+      // Apply highlights to the rendition
       if (renditionRef.current && highlightsRes.status === 'fulfilled') {
         const highlights = highlightsRes.value.data || []
         highlights.forEach(highlight => {
@@ -130,9 +155,9 @@ const EpubReader = ({ bookData }) => {
     } catch (error) {
       console.error('Error loading user data:', error)
     }
-  }, [bookData?.slug]) // Remove state.rendition dependency
+  }, [bookData?.slug])
 
-  // Text selection handler - remove state.rendition from dependencies
+  // Text selection handler
   const handleTextSelection = useCallback(() => {
     if (!renditionRef.current) return
 
@@ -156,9 +181,36 @@ const EpubReader = ({ bookData }) => {
     } catch (error) {
       // Text selection not supported
     }
-  }, []) // Remove state.rendition dependency
+  }, [])
 
-  // Initialize EPUB - FIXED: Remove problematic dependencies
+  // Touch/Swipe handlers for mobile
+  const handleTouchStart = useCallback((e) => {
+    if (!state.isMobile) return
+    touchStartX.current = e.touches[0].clientX
+    touchStartY.current = e.touches[0].clientY
+  }, [state.isMobile])
+
+  const handleTouchEnd = useCallback((e) => {
+    if (!state.isMobile || !renditionRef.current) return
+
+    const touchEndX = e.changedTouches[0].clientX
+    const touchEndY = e.changedTouches[0].clientY
+    const deltaX = touchStartX.current - touchEndX
+    const deltaY = touchStartY.current - touchEndY
+
+    // Only process horizontal swipes (avoid vertical scrolling)
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
+      if (deltaX > 0) {
+        // Swipe left - next page
+        renditionRef.current.next()
+      } else {
+        // Swipe right - previous page
+        renditionRef.current.prev()
+      }
+    }
+  }, [state.isMobile])
+
+  // Initialize EPUB
   useEffect(() => {
     if (!bookData?.fileUrl || !bookRef.current) return
 
@@ -177,8 +229,9 @@ const EpubReader = ({ bookData }) => {
 
     const rend = epubBook.renderTo(bookRef.current, {
       width: '100%',
-      height: '600px',
-      allowScriptedContent: true
+      height: state.isMobile ? '500px' : '600px',
+      allowScriptedContent: true,
+      flow: 'paginated'
     })
     renditionRef.current = rend
 
@@ -187,7 +240,7 @@ const EpubReader = ({ bookData }) => {
       body: {
         'font-family': `Georgia, serif !important`,
         'line-height': `1.6 !important`,
-        'padding': '2rem !important'
+        'padding': state.isMobile ? '1rem !important' : '2rem !important'
       },
       p: { 'margin': '0 0 1rem 0 !important', 'text-align': 'justify !important' },
       a: { 'text-decoration': 'underline !important', 'color': 'inherit !important' }
@@ -244,24 +297,82 @@ const EpubReader = ({ bookData }) => {
         // Text selection not supported
       }
 
-      // Load user data after rendering - delay to ensure rendition is ready
+      // Add touch handlers for mobile
+      if (bookRef.current) {
+        bookRef.current.addEventListener('touchstart', handleTouchStart, { passive: true })
+        bookRef.current.addEventListener('touchend', handleTouchEnd, { passive: true })
+      }
+
+      // Load user data after rendering
       setTimeout(() => {
         loadUserData()
       }, 1000)
     })
 
+    // Keyboard navigation
+    const handleKeyPress = (e) => {
+      if (!renditionRef.current || state.activePanel) return
+
+      switch (e.key) {
+        case 'ArrowLeft':
+          e.preventDefault()
+          renditionRef.current.prev()
+          break
+        case 'ArrowRight':
+          e.preventDefault()
+          renditionRef.current.next()
+          break
+        case 'b':
+        case 'B':
+          if (e.ctrlKey || e.metaKey) return
+          e.preventDefault()
+          handlePanelToggle('bookmarks')
+          break
+        case 'h':
+        case 'H':
+          if (e.ctrlKey || e.metaKey) return
+          e.preventDefault()
+          handlePanelToggle('highlights')
+          break
+        case 'n':
+        case 'N':
+          if (e.ctrlKey || e.metaKey) return
+          e.preventDefault()
+          handlePanelToggle('notes')
+          break
+        case 'f':
+        case 'F':
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault()
+            handlePanelToggle('search')
+          }
+          break
+        case 'F11':
+          e.preventDefault()
+          toggleFullscreen()
+          break
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyPress)
+
     return () => {
       if (saveProgressTimeout.current) {
         clearTimeout(saveProgressTimeout.current)
       }
+      if (bookRef.current) {
+        bookRef.current.removeEventListener('touchstart', handleTouchStart)
+        bookRef.current.removeEventListener('touchend', handleTouchEnd)
+      }
+      document.removeEventListener('keydown', handleKeyPress)
       rend.destroy()
       epubBook.destroy()
       renditionRef.current = null
       bookInstanceRef.current = null
     }
-  }, [bookData?.fileUrl]) // ONLY depend on fileUrl
+  }, [bookData?.fileUrl, state.isMobile])
 
-  // Update font settings - use refs instead of state
+  // Update font settings
   useEffect(() => {
     if (renditionRef.current) {
       renditionRef.current.themes.fontSize(`${state.fontSize}px`)
@@ -274,7 +385,7 @@ const EpubReader = ({ bookData }) => {
     }
   }, [state.fontSize, state.fontFamily, state.lineHeight])
 
-  // Apply themes - use refs instead of state
+  // Apply themes
   useEffect(() => {
     if (!renditionRef.current) return
 
@@ -311,7 +422,19 @@ const EpubReader = ({ bookData }) => {
     }
   }, [state.tocOpen])
 
-  // Event handlers - use refs instead of state
+  // Close panel on escape key or outside click
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && state.activePanel) {
+        setState(prev => ({ ...prev, activePanel: null }))
+      }
+    }
+
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [state.activePanel])
+
+  // Event handlers
   const handleNavigation = useCallback((direction) => {
     if (renditionRef.current) {
       renditionRef.current[direction]()
@@ -343,7 +466,7 @@ const EpubReader = ({ bookData }) => {
     })
   }, [])
 
-  // Bookmark functions - use refs
+  // Bookmark functions
   const handleAddBookmark = useCallback(async () => {
     if (!state.currentLocation || !bookData?.slug) {
       showNotification('Tidak dapat menambahkan bookmark saat ini', 'error')
@@ -378,6 +501,7 @@ const EpubReader = ({ bookData }) => {
     if (renditionRef.current && bookmark.position) {
       try {
         await renditionRef.current.display(bookmark.position)
+        setState(prev => ({ ...prev, activePanel: null }))
       } catch (error) {
         showNotification('Gagal navigasi ke bookmark', 'error')
       }
@@ -399,7 +523,7 @@ const EpubReader = ({ bookData }) => {
     }
   }, [bookData?.slug, showNotification])
 
-  // Highlight functions - use refs
+  // Highlight functions
   const handleHighlight = useCallback(async (color = '#ffff00') => {
     if (!state.selectedText || !state.selectedRange || !bookData?.slug) {
       showNotification('Pilih teks terlebih dahulu', 'warning')
@@ -419,7 +543,7 @@ const EpubReader = ({ bookData }) => {
 
       const response = await bookService.addHighlight(bookData.slug, highlightData)
 
-      // Add to rendition using ref
+      // Add to rendition
       if (renditionRef.current && renditionRef.current.annotations) {
         renditionRef.current.annotations.add('highlight', highlightData.startPosition, highlightData.endPosition, {
           id: response.data.id,
@@ -445,6 +569,7 @@ const EpubReader = ({ bookData }) => {
     if (renditionRef.current && highlight.startPosition) {
       try {
         await renditionRef.current.display(highlight.startPosition)
+        setState(prev => ({ ...prev, activePanel: null }))
       } catch (error) {
         showNotification('Gagal navigasi ke highlight', 'error')
       }
@@ -457,7 +582,7 @@ const EpubReader = ({ bookData }) => {
     try {
       await bookService.deleteHighlight(bookData.slug, highlightId)
 
-      // Remove from rendition using ref
+      // Remove from rendition
       if (renditionRef.current && renditionRef.current.annotations) {
         renditionRef.current.annotations.remove(highlightId)
       }
@@ -501,6 +626,7 @@ const EpubReader = ({ bookData }) => {
     if (renditionRef.current && note.position) {
       try {
         await renditionRef.current.display(note.position)
+        setState(prev => ({ ...prev, activePanel: null }))
       } catch (error) {
         showNotification('Gagal navigasi ke catatan', 'error')
       }
@@ -545,6 +671,7 @@ const EpubReader = ({ bookData }) => {
     if (renditionRef.current && result.cfi) {
       try {
         await renditionRef.current.display(result.cfi)
+        setState(prev => ({ ...prev, activePanel: null }))
       } catch (error) {
         showNotification('Gagal navigasi ke hasil pencarian', 'error')
       }
@@ -590,9 +717,24 @@ const EpubReader = ({ bookData }) => {
     setState(prev => ({
       ...prev,
       activePanel: prev.activePanel === panel ? null : panel,
-      showFloatingToolbar: false
+      showFloatingToolbar: false,
+      tocOpen: false
     }))
   }, [])
+
+  const handlePanelClose = useCallback(() => {
+    setState(prev => ({
+      ...prev,
+      activePanel: null
+    }))
+  }, [])
+
+  // Panel backdrop click handler
+  const handleBackdropClick = useCallback((e) => {
+    if (e.target === e.currentTarget) {
+      handlePanelClose()
+    }
+  }, [handlePanelClose])
 
   // Memoized values
   const controls = useMemo(() => [
@@ -625,6 +767,11 @@ const EpubReader = ({ bookData }) => {
         </div>
       )}
 
+      {/* Panel Backdrop for Mobile */}
+      {state.activePanel && state.isMobile && (
+        <div className="panel-backdrop" onClick={handleBackdropClick} />
+      )}
+
       {/* Controls */}
       <div className="card reader-controls">
         <div className="reader-control-group">
@@ -634,7 +781,9 @@ const EpubReader = ({ bookData }) => {
               className="btn btn-secondary"
               onClick={() => setState(prev => ({ ...prev, tocOpen: !prev.tocOpen }))}
             >
-              Daftar Isi <span className={`dropdown-arrow ${state.tocOpen ? 'open' : ''}`}>▼</span>
+              <span className="control-icon">📖</span>
+              {!state.isMobile && <span>Daftar Isi</span>}
+              <span className={`dropdown-arrow ${state.tocOpen ? 'open' : ''}`}>▼</span>
             </button>
             {state.tocOpen && (
               <div className="dropdown-menu">
@@ -678,19 +827,21 @@ const EpubReader = ({ bookData }) => {
               A+
             </button>
 
-            <select
-              className="form-control font-select"
-              value={state.fontFamily}
-              onChange={(e) => handleFontChange('fontFamily', e.target.value)}
-              title="Pilih jenis font"
-            >
-              {fontFamilies.map(font => (
-                <option key={font} value={font}>{font}</option>
-              ))}
-            </select>
+            {!state.isMobile && (
+              <select
+                className="form-control font-select"
+                value={state.fontFamily}
+                onChange={(e) => handleFontChange('fontFamily', e.target.value)}
+                title="Pilih jenis font"
+              >
+                {fontFamilies.map(font => (
+                  <option key={font} value={font}>{font}</option>
+                ))}
+              </select>
+            )}
 
             <button
-              className="btn btn-secondary"
+              className="btn btn-secondary btn-small"
               onClick={handleReadingModeChange}
               title={`Mode: ${state.readingMode}`}
             >
@@ -707,7 +858,8 @@ const EpubReader = ({ bookData }) => {
                 onClick={() => handlePanelToggle(control.id)}
                 title={control.title}
               >
-                {control.icon}
+                <span className="control-icon">{control.icon}</span>
+                {!state.isMobile && <span className="control-label">{control.title}</span>}
                 {control.count !== null && control.count > 0 && (
                   <span className="control-count">{control.count}</span>
                 )}
@@ -719,15 +871,16 @@ const EpubReader = ({ bookData }) => {
               onClick={toggleFullscreen}
               title="Fullscreen"
             >
-              ⛶
+              <span className="control-icon">⛶</span>
+              {!state.isMobile && <span>Fullscreen</span>}
             </button>
           </div>
         </div>
       </div>
 
       {/* Floating Toolbar */}
-      {state.showFloatingToolbar && state.selectedText && (
-        <div className="floating-toolbar card">
+      {state.showFloatingToolbar && state.selectedText && !state.activePanel && (
+        <div className={`floating-toolbar card ${state.isMobile ? 'mobile' : ''}`}>
           <div className="toolbar-section">
             <span className="toolbar-title">Highlight:</span>
             {highlightColors.map(({ color, icon, title }) => (
@@ -778,59 +931,75 @@ const EpubReader = ({ bookData }) => {
         </div>
       )}
 
-      {/* Side Panels */}
-      {state.activePanel === 'bookmarks' && (
-        <BookmarkPanel
-          bookmarks={state.bookmarks}
-          onBookmarkClick={handleBookmarkClick}
-          onBookmarkDelete={handleBookmarkDelete}
-          onClose={() => setState(prev => ({ ...prev, activePanel: null }))}
-        />
-      )}
+      {/* Side Panels - Fixed positioning and z-index */}
+      {state.activePanel && (
+        <div className={`panel-container ${state.isMobile ? 'mobile' : 'desktop'}`}>
+          {state.activePanel === 'bookmarks' && (
+            <BookmarkPanel
+              bookmarks={state.bookmarks}
+              onBookmarkClick={handleBookmarkClick}
+              onBookmarkDelete={handleBookmarkDelete}
+              onClose={handlePanelClose}
+              isMobile={state.isMobile}
+            />
+          )}
 
-      {state.activePanel === 'highlights' && (
-        <HighlightPanel
-          highlights={state.highlights}
-          onHighlightClick={handleHighlightClick}
-          onHighlightDelete={handleHighlightDelete}
-          onClose={() => setState(prev => ({ ...prev, activePanel: null }))}
-        />
-      )}
+          {state.activePanel === 'highlights' && (
+            <HighlightPanel
+              highlights={state.highlights}
+              onHighlightClick={handleHighlightClick}
+              onHighlightDelete={handleHighlightDelete}
+              onClose={handlePanelClose}
+              isMobile={state.isMobile}
+            />
+          )}
 
-      {state.activePanel === 'notes' && (
-        <NotesPanel
-          notes={state.notes}
-          onNoteAdd={handleNoteAdd}
-          onNoteClick={handleNoteClick}
-          onNoteDelete={handleNoteDelete}
-          onClose={() => setState(prev => ({ ...prev, activePanel: null }))}
-          selectedText={state.selectedText}
-        />
-      )}
+          {state.activePanel === 'notes' && (
+            <NotesPanel
+              notes={state.notes}
+              onNoteAdd={handleNoteAdd}
+              onNoteClick={handleNoteClick}
+              onNoteDelete={handleNoteDelete}
+              onClose={handlePanelClose}
+              selectedText={state.selectedText}
+              isMobile={state.isMobile}
+            />
+          )}
 
-      {state.activePanel === 'search' && (
-        <SearchPanel
-          searchResults={state.searchResults}
-          onSearch={handleSearch}
-          searching={state.searching}
-          onResultClick={handleSearchResultClick}
-          onClose={() => setState(prev => ({ ...prev, activePanel: null }))}
-        />
-      )}
+          {state.activePanel === 'search' && (
+            <SearchPanel
+              searchResults={state.searchResults}
+              onSearch={handleSearch}
+              searching={state.searching}
+              onResultClick={handleSearchResultClick}
+              onClose={handlePanelClose}
+              isMobile={state.isMobile}
+            />
+          )}
 
-      {state.activePanel === 'translation' && (
-        <TranslationPanel
-          selectedText={state.selectedText}
-          onTranslate={handleTranslate}
-          translations={state.translations}
-          onClose={() => setState(prev => ({ ...prev, activePanel: null }))}
-        />
+          {state.activePanel === 'translation' && (
+            <TranslationPanel
+              selectedText={state.selectedText}
+              onTranslate={handleTranslate}
+              translations={state.translations}
+              translating={state.translating}
+              onClose={handlePanelClose}
+              isMobile={state.isMobile}
+            />
+          )}
+        </div>
       )}
 
       {/* Reader Content */}
       <div className="epub-reader-content">
         <div className="reader-viewport-container">
-          <div ref={bookRef} className="epub-reader-viewport" tabIndex={0}>
+          <div
+            ref={bookRef}
+            className="epub-reader-viewport"
+            tabIndex={0}
+            role="main"
+            aria-label="E-book content"
+          >
             {state.isLoading && (
               <div className="loading">
                 <div className="loading-spinner"></div>
@@ -860,41 +1029,54 @@ const EpubReader = ({ bookData }) => {
       </div>
 
       {/* Navigation */}
-      <div className="card navigation-section">
+      <nav className="card navigation-section" role="navigation" aria-label="Page navigation">
         <button
-          className="btn btn-primary"
+          className="btn btn-primary nav-btn"
           onClick={() => handleNavigation('prev')}
           disabled={state.currentPage <= 1}
+          aria-label="Previous page"
         >
-          ← Sebelumnya
+          <span className="nav-icon">←</span>
+          {!state.isMobile && <span>Sebelumnya</span>}
         </button>
         <div className="page-indicator">
           <span>{state.currentPage} / {state.totalPages}</span>
         </div>
         <button
-          className="btn btn-primary"
+          className="btn btn-primary nav-btn"
           onClick={() => handleNavigation('next')}
           disabled={state.currentPage >= state.totalPages}
+          aria-label="Next page"
         >
-          Selanjutnya →
+          {!state.isMobile && <span>Selanjutnya</span>}
+          <span className="nav-icon">→</span>
         </button>
-      </div>
+      </nav>
 
-      {/* Keyboard Shortcuts Info */}
-      <div className="keyboard-shortcuts">
-        <details>
-          <summary>Pintasan Keyboard</summary>
-          <div className="shortcuts-grid">
-            <div><kbd>←</kbd> Halaman sebelumnya</div>
-            <div><kbd>→</kbd> Halaman selanjutnya</div>
-            <div><kbd>Ctrl + F</kbd> Pencarian</div>
-            <div><kbd>B</kbd> Bookmark</div>
-            <div><kbd>H</kbd> Highlight</div>
-            <div><kbd>N</kbd> Catatan</div>
-            <div><kbd>F11</kbd> Fullscreen</div>
-          </div>
-        </details>
-      </div>
+      {/* Keyboard Shortcuts Info - Hidden on mobile */}
+      {!state.isMobile && (
+        <div className="keyboard-shortcuts">
+          <details>
+            <summary>Pintasan Keyboard</summary>
+            <div className="shortcuts-grid">
+              <div><kbd>←</kbd> Halaman sebelumnya</div>
+              <div><kbd>→</kbd> Halaman selanjutnya</div>
+              <div><kbd>Ctrl + F</kbd> Pencarian</div>
+              <div><kbd>B</kbd> Bookmark</div>
+              <div><kbd>H</kbd> Highlight</div>
+              <div><kbd>N</kbd> Catatan</div>
+              <div><kbd>F11</kbd> Fullscreen</div>
+            </div>
+          </details>
+        </div>
+      )}
+
+      {/* Mobile swipe instructions */}
+      {state.isMobile && (
+        <div className="mobile-instructions">
+          <small>💡 Geser kiri/kanan pada teks untuk ganti halaman</small>
+        </div>
+      )}
     </div>
   )
 }
