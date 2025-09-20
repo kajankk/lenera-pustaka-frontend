@@ -14,6 +14,8 @@ const EpubReader = ({ bookData }) => {
   const readerContainerRef = useRef(null)
   const dropdownRef = useRef(null)
   const saveProgressTimeout = useRef(null)
+  const renditionRef = useRef(null) // Add ref for rendition
+  const bookInstanceRef = useRef(null) // Add ref for book instance
 
   const [state, setState] = useState({
     book: null,
@@ -50,7 +52,7 @@ const EpubReader = ({ bookData }) => {
     setTimeout(() => setNotification(null), 4000)
   }, [])
 
-  // Flatten table of contents
+  // Flatten table of contents - remove from dependencies
   const flattenToc = useCallback((toc) => {
     const result = []
     const traverse = (items, level = 0) => {
@@ -65,7 +67,7 @@ const EpubReader = ({ bookData }) => {
     return result
   }, [])
 
-  // Auto-save progress
+  // Auto-save progress - remove state.totalPages from dependencies
   const saveProgress = useCallback(async (location, pageNum, percentage) => {
     if (!bookData?.slug || !location) return
 
@@ -80,7 +82,7 @@ const EpubReader = ({ bookData }) => {
           position: location.start.cfi,
           percentage: Math.round(percentage),
           lastReadAt: new Date().toISOString(),
-          totalPages: state.totalPages,
+          totalPages: bookInstanceRef.current?.spine?.length || 0, // Use ref instead
           chapterTitle: location.start.displayed?.page?.toString() || 'Chapter'
         }
 
@@ -88,10 +90,10 @@ const EpubReader = ({ bookData }) => {
       } catch (error) {
         console.error('Error saving progress:', error)
       }
-    }, 2000) // Auto-save every 2 seconds
-  }, [bookData?.slug, state.totalPages])
+    }, 2000)
+  }, [bookData?.slug]) // Remove state.totalPages dependency
 
-  // Load user data (bookmarks, highlights, notes)
+  // Load user data - remove state.rendition from dependencies
   const loadUserData = useCallback(async () => {
     if (!bookData?.slug) return
 
@@ -109,13 +111,13 @@ const EpubReader = ({ bookData }) => {
         notes: notesRes.status === 'fulfilled' ? notesRes.value.data || [] : []
       }))
 
-      // Apply highlights to the rendition
-      if (state.rendition && highlightsRes.status === 'fulfilled') {
+      // Apply highlights to the rendition using ref
+      if (renditionRef.current && highlightsRes.status === 'fulfilled') {
         const highlights = highlightsRes.value.data || []
         highlights.forEach(highlight => {
           try {
-            if (state.rendition.annotations && highlight.startPosition && highlight.endPosition) {
-              state.rendition.annotations.add('highlight', highlight.startPosition, highlight.endPosition, {
+            if (renditionRef.current.annotations && highlight.startPosition && highlight.endPosition) {
+              renditionRef.current.annotations.add('highlight', highlight.startPosition, highlight.endPosition, {
                 id: highlight.id,
                 color: highlight.color || '#ffff00'
               })
@@ -128,14 +130,14 @@ const EpubReader = ({ bookData }) => {
     } catch (error) {
       console.error('Error loading user data:', error)
     }
-  }, [bookData?.slug, state.rendition])
+  }, [bookData?.slug]) // Remove state.rendition dependency
 
-  // Text selection handler
+  // Text selection handler - remove state.rendition from dependencies
   const handleTextSelection = useCallback(() => {
-    if (!state.rendition) return
+    if (!renditionRef.current) return
 
     try {
-      const selection = state.rendition.getSelection ? state.rendition.getSelection() : null
+      const selection = renditionRef.current.getSelection ? renditionRef.current.getSelection() : null
       if (selection && selection.toString().trim()) {
         setState(prev => ({
           ...prev,
@@ -154,42 +156,54 @@ const EpubReader = ({ bookData }) => {
     } catch (error) {
       // Text selection not supported
     }
-  }, [state.rendition])
+  }, []) // Remove state.rendition dependency
 
-  // Initialize EPUB
+  // Initialize EPUB - FIXED: Remove problematic dependencies
   useEffect(() => {
-    if (!bookData?.fileUrl) return
+    if (!bookData?.fileUrl || !bookRef.current) return
 
     setState(prev => ({ ...prev, isLoading: true }))
+
+    // Cleanup previous instance
+    if (renditionRef.current) {
+      renditionRef.current.destroy()
+    }
+    if (bookInstanceRef.current) {
+      bookInstanceRef.current.destroy()
+    }
+
     const epubBook = ePub(bookData.fileUrl)
+    bookInstanceRef.current = epubBook
 
     const rend = epubBook.renderTo(bookRef.current, {
       width: '100%',
       height: '600px',
       allowScriptedContent: true
     })
+    renditionRef.current = rend
 
     // Apply base styles
     rend.themes.default({
       body: {
-        'font-family': `${state.fontFamily}, serif !important`,
-        'line-height': `${state.lineHeight} !important`,
+        'font-family': `Georgia, serif !important`,
+        'line-height': `1.6 !important`,
         'padding': '2rem !important'
       },
       p: { 'margin': '0 0 1rem 0 !important', 'text-align': 'justify !important' },
       a: { 'text-decoration': 'underline !important', 'color': 'inherit !important' }
     })
 
-    rend.themes.fontSize(`${state.fontSize}px`)
+    rend.themes.fontSize('16px')
 
     // Load TOC
     epubBook.loaded.navigation.then(nav => {
       if (nav.toc && Array.isArray(nav.toc)) {
-        setState(prev => ({ ...prev, toc: flattenToc(nav.toc) }))
+        const flattenedToc = flattenToc(nav.toc)
+        setState(prev => ({ ...prev, toc: flattenedToc }))
       }
     }).catch(() => setState(prev => ({ ...prev, toc: [] })))
 
-    // Display book (resume from saved position or start from beginning)
+    // Display book
     epubBook.ready.then(() => {
       const startPosition = bookData.currentPosition || 0
       return rend.display(startPosition)
@@ -216,7 +230,12 @@ const EpubReader = ({ bookData }) => {
     })
 
     rend.on('rendered', () => {
-      setState(prev => ({ ...prev, isLoading: false }))
+      setState(prev => ({
+        ...prev,
+        isLoading: false,
+        book: epubBook,
+        rendition: rend
+      }))
 
       // Set up text selection
       try {
@@ -225,11 +244,11 @@ const EpubReader = ({ bookData }) => {
         // Text selection not supported
       }
 
-      // Load user data after rendering
-      setTimeout(loadUserData, 1000)
+      // Load user data after rendering - delay to ensure rendition is ready
+      setTimeout(() => {
+        loadUserData()
+      }, 1000)
     })
-
-    setState(prev => ({ ...prev, book: epubBook, rendition: rend }))
 
     return () => {
       if (saveProgressTimeout.current) {
@@ -237,25 +256,27 @@ const EpubReader = ({ bookData }) => {
       }
       rend.destroy()
       epubBook.destroy()
+      renditionRef.current = null
+      bookInstanceRef.current = null
     }
-  }, [bookData?.fileUrl, handleTextSelection, saveProgress, loadUserData, flattenToc])
+  }, [bookData?.fileUrl]) // ONLY depend on fileUrl
 
-  // Update font settings
+  // Update font settings - use refs instead of state
   useEffect(() => {
-    if (state.rendition) {
-      state.rendition.themes.fontSize(`${state.fontSize}px`)
-      state.rendition.themes.default({
+    if (renditionRef.current) {
+      renditionRef.current.themes.fontSize(`${state.fontSize}px`)
+      renditionRef.current.themes.default({
         body: {
           'font-family': `${state.fontFamily}, serif !important`,
           'line-height': `${state.lineHeight} !important`
         }
       })
     }
-  }, [state.fontSize, state.fontFamily, state.lineHeight, state.rendition])
+  }, [state.fontSize, state.fontFamily, state.lineHeight])
 
-  // Apply themes
+  // Apply themes - use refs instead of state
   useEffect(() => {
-    if (!state.rendition) return
+    if (!renditionRef.current) return
 
     const getThemeColors = () => {
       switch (state.readingMode) {
@@ -271,10 +292,10 @@ const EpubReader = ({ bookData }) => {
     }
 
     const colors = getThemeColors()
-    state.rendition.themes.override('color', colors.color)
-    state.rendition.themes.override('background', colors.bg)
-    state.rendition.themes.override('a', `color: ${colors.link} !important; text-decoration: underline !important;`)
-  }, [theme, state.rendition, state.readingMode])
+    renditionRef.current.themes.override('color', colors.color)
+    renditionRef.current.themes.override('background', colors.bg)
+    renditionRef.current.themes.override('a', `color: ${colors.link} !important; text-decoration: underline !important;`)
+  }, [theme, state.readingMode])
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -290,24 +311,24 @@ const EpubReader = ({ bookData }) => {
     }
   }, [state.tocOpen])
 
-  // Event handlers
+  // Event handlers - use refs instead of state
   const handleNavigation = useCallback((direction) => {
-    if (state.rendition) {
-      state.rendition[direction]()
+    if (renditionRef.current) {
+      renditionRef.current[direction]()
     }
-  }, [state.rendition])
+  }, [])
 
   const goToChapter = useCallback(async (href, item) => {
-    if (!href || href === '#' || !state.rendition || !state.book) return
+    if (!href || href === '#' || !renditionRef.current || !bookInstanceRef.current) return
 
     try {
-      await state.rendition.display(href)
+      await renditionRef.current.display(href)
       setState(prev => ({ ...prev, tocOpen: false }))
     } catch (error) {
       console.warn('Navigation failed:', error)
       setState(prev => ({ ...prev, tocOpen: false }))
     }
-  }, [state.rendition, state.book])
+  }, [])
 
   const handleFontChange = useCallback((property, value) => {
     setState(prev => ({ ...prev, [property]: value }))
@@ -315,12 +336,14 @@ const EpubReader = ({ bookData }) => {
 
   const handleReadingModeChange = useCallback(() => {
     const modes = ['default', 'cream', 'night']
-    const currentIndex = modes.indexOf(state.readingMode)
-    const nextMode = modes[(currentIndex + 1) % modes.length]
-    setState(prev => ({ ...prev, readingMode: nextMode }))
-  }, [state.readingMode])
+    setState(prev => {
+      const currentIndex = modes.indexOf(prev.readingMode)
+      const nextMode = modes[(currentIndex + 1) % modes.length]
+      return { ...prev, readingMode: nextMode }
+    })
+  }, [])
 
-  // Bookmark functions
+  // Bookmark functions - use refs
   const handleAddBookmark = useCallback(async () => {
     if (!state.currentLocation || !bookData?.slug) {
       showNotification('Tidak dapat menambahkan bookmark saat ini', 'error')
@@ -352,14 +375,14 @@ const EpubReader = ({ bookData }) => {
   }, [state.currentLocation, state.currentPage, state.selectedText, bookData?.slug, showNotification])
 
   const handleBookmarkClick = useCallback(async (bookmark) => {
-    if (state.rendition && bookmark.position) {
+    if (renditionRef.current && bookmark.position) {
       try {
-        await state.rendition.display(bookmark.position)
+        await renditionRef.current.display(bookmark.position)
       } catch (error) {
         showNotification('Gagal navigasi ke bookmark', 'error')
       }
     }
-  }, [state.rendition, showNotification])
+  }, [showNotification])
 
   const handleBookmarkDelete = useCallback(async (bookmarkId) => {
     if (!bookData?.slug) return
@@ -376,7 +399,7 @@ const EpubReader = ({ bookData }) => {
     }
   }, [bookData?.slug, showNotification])
 
-  // Highlight functions
+  // Highlight functions - use refs
   const handleHighlight = useCallback(async (color = '#ffff00') => {
     if (!state.selectedText || !state.selectedRange || !bookData?.slug) {
       showNotification('Pilih teks terlebih dahulu', 'warning')
@@ -396,9 +419,9 @@ const EpubReader = ({ bookData }) => {
 
       const response = await bookService.addHighlight(bookData.slug, highlightData)
 
-      // Add to rendition
-      if (state.rendition.annotations) {
-        state.rendition.annotations.add('highlight', highlightData.startPosition, highlightData.endPosition, {
+      // Add to rendition using ref
+      if (renditionRef.current && renditionRef.current.annotations) {
+        renditionRef.current.annotations.add('highlight', highlightData.startPosition, highlightData.endPosition, {
           id: response.data.id,
           color
         })
@@ -416,17 +439,17 @@ const EpubReader = ({ bookData }) => {
     } catch (error) {
       showNotification('Gagal menambahkan highlight', 'error')
     }
-  }, [state.selectedText, state.selectedRange, state.currentPage, state.currentLocation, state.rendition, bookData?.slug, showNotification])
+  }, [state.selectedText, state.selectedRange, state.currentPage, state.currentLocation, bookData?.slug, showNotification])
 
   const handleHighlightClick = useCallback(async (highlight) => {
-    if (state.rendition && highlight.startPosition) {
+    if (renditionRef.current && highlight.startPosition) {
       try {
-        await state.rendition.display(highlight.startPosition)
+        await renditionRef.current.display(highlight.startPosition)
       } catch (error) {
         showNotification('Gagal navigasi ke highlight', 'error')
       }
     }
-  }, [state.rendition, showNotification])
+  }, [showNotification])
 
   const handleHighlightDelete = useCallback(async (highlightId) => {
     if (!bookData?.slug) return
@@ -434,9 +457,9 @@ const EpubReader = ({ bookData }) => {
     try {
       await bookService.deleteHighlight(bookData.slug, highlightId)
 
-      // Remove from rendition
-      if (state.rendition.annotations) {
-        state.rendition.annotations.remove(highlightId)
+      // Remove from rendition using ref
+      if (renditionRef.current && renditionRef.current.annotations) {
+        renditionRef.current.annotations.remove(highlightId)
       }
 
       setState(prev => ({
@@ -447,7 +470,7 @@ const EpubReader = ({ bookData }) => {
     } catch (error) {
       showNotification('Gagal menghapus highlight', 'error')
     }
-  }, [bookData?.slug, state.rendition, showNotification])
+  }, [bookData?.slug, showNotification])
 
   // Note functions
   const handleNoteAdd = useCallback(async (content) => {
@@ -475,14 +498,14 @@ const EpubReader = ({ bookData }) => {
   }, [bookData?.slug, state.currentPage, state.currentLocation, showNotification])
 
   const handleNoteClick = useCallback(async (note) => {
-    if (state.rendition && note.position) {
+    if (renditionRef.current && note.position) {
       try {
-        await state.rendition.display(note.position)
+        await renditionRef.current.display(note.position)
       } catch (error) {
         showNotification('Gagal navigasi ke catatan', 'error')
       }
     }
-  }, [state.rendition, showNotification])
+  }, [showNotification])
 
   const handleNoteDelete = useCallback(async (noteId) => {
     if (!bookData?.slug) return
@@ -519,14 +542,14 @@ const EpubReader = ({ bookData }) => {
   }, [bookData?.slug, showNotification])
 
   const handleSearchResultClick = useCallback(async (result) => {
-    if (state.rendition && result.cfi) {
+    if (renditionRef.current && result.cfi) {
       try {
-        await state.rendition.display(result.cfi)
+        await renditionRef.current.display(result.cfi)
       } catch (error) {
         showNotification('Gagal navigasi ke hasil pencarian', 'error')
       }
     }
-  }, [state.rendition, showNotification])
+  }, [showNotification])
 
   // Translation functions
   const handleTranslate = useCallback(async (text, targetLanguage) => {
