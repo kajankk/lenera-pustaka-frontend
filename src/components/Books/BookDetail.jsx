@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { bookService } from '../../services/bookService'
 import { useTheme } from '../../hooks/useTheme'
 import { useAuth } from '../../context/AuthContext'
@@ -9,58 +9,64 @@ import BookAnalytics from './BookAnalytics'
 
 const BookDetail = ({ book }) => {
   const navigate = useNavigate()
+  const location = useLocation()
   const { theme } = useTheme()
   const { isAuthenticated, user } = useAuth()
 
   const [state, setState] = useState({
     isDownloading: false,
     activeTab: 'description',
-    showExportModal: false,
+    showShareModal: false,
     userReaction: null,
     bookStats: { highlights: 0, notes: 0, bookmarks: 0, reactions: 0 },
     reactionStats: null,
     discussions: [],
     loadingStats: false,
     loadingDiscussions: false,
-    notification: null,
+    readingProgress: null,
+    relatedBooks: [],
+    loadingRelated: false,
+    isBookmarked: false,
     discussionCount: 0
   })
 
+  const [notification, setNotification] = useState(null)
+
   // Utility functions
-  const formatFileSize = (bytes) => bytes ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : 'N/A'
-  const formatReadingTime = (minutes) => {
+  const formatFileSize = useCallback((bytes) => {
+    if (!bytes) return 'N/A'
+    const sizes = ['B', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(1024))
+    return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`
+  }, [])
+
+  const formatReadingTime = useCallback((minutes) => {
     if (!minutes) return 'N/A'
     const hours = Math.floor(minutes / 60)
     const mins = minutes % 60
     return hours > 0 ? `${hours} jam ${mins > 0 ? `${mins} menit` : ''}` : `${minutes} menit`
-  }
-  const getDifficultyLabel = (level) => {
+  }, [])
+
+  const getDifficultyLabel = useCallback((level) => {
     if (!level) return 'N/A'
     const labels = ['Mudah', 'Sedang', 'Sulit', 'Sangat Sulit']
     const index = level <= 3 ? 0 : level <= 6 ? 1 : level <= 8 ? 2 : 3
     return `${labels[index]} (${level}/10)`
-  }
-  const formatNumber = (num) => num?.toLocaleString('id-ID') || '0'
+  }, [])
 
-  // Notification system
-  const showNotification = (message, type = 'info') => {
-    setState(prev => ({
-      ...prev,
-      notification: { message, type, id: Date.now() }
-    }))
+  const formatNumber = useCallback((num) => num?.toLocaleString('id-ID') || '0', [])
 
-    setTimeout(() => {
-      setState(prev => ({
-        ...prev,
-        notification: null
-      }))
-    }, 4000)
-  }
+  const showNotification = useCallback((message, type = 'info') => {
+    setNotification({ message, type, id: Date.now() })
+    setTimeout(() => setNotification(null), 4000)
+  }, [])
 
   // Event handlers
-  const handleStartReading = () => navigate(`/${book.slug}/read`)
+  const handleStartReading = useCallback(() => {
+    navigate(`/${book.slug}/read`)
+  }, [navigate, book.slug])
 
-  const handleDownload = async () => {
+  const handleDownload = useCallback(async () => {
     if (state.isDownloading) return
     setState(prev => ({ ...prev, isDownloading: true }))
 
@@ -68,8 +74,6 @@ const BookDetail = ({ book }) => {
       const filename = `${book.title.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_')}.epub`
       await bookService.downloadBook(book.slug, filename)
       showNotification('Buku berhasil diunduh!', 'success')
-
-      // Update download count in book object
       book.downloadCount = (book.downloadCount || 0) + 1
     } catch (error) {
       console.error('Error downloading book:', error)
@@ -77,17 +81,54 @@ const BookDetail = ({ book }) => {
     } finally {
       setState(prev => ({ ...prev, isDownloading: false }))
     }
-  }
+  }, [state.isDownloading, book, showNotification])
+
+  const handleShare = useCallback(() => {
+    const url = window.location.href
+    const title = `${book.title} - Lentera Pustaka`
+    const text = book.description ? `${book.description.substring(0, 100)}...` : `Baca "${book.title}" di Lentera Pustaka`
+
+    if (navigator.share) {
+      navigator.share({ title, text, url }).catch(console.error)
+    } else if (navigator.clipboard) {
+      navigator.clipboard.writeText(url).then(() => {
+        showNotification('Link berhasil disalin ke clipboard!', 'success')
+      }).catch(() => {
+        setState(prev => ({ ...prev, showShareModal: true }))
+      })
+    } else {
+      setState(prev => ({ ...prev, showShareModal: true }))
+    }
+  }, [book.title, book.description, showNotification])
+
+  const handleAddToBookmarks = useCallback(async () => {
+    if (!isAuthenticated) {
+      showNotification('Silakan login untuk menambahkan ke bookmark', 'warning')
+      return
+    }
+
+    try {
+      // This would integrate with a general bookmarks system
+      setState(prev => ({ ...prev, isBookmarked: !prev.isBookmarked }))
+      showNotification(
+        state.isBookmarked ? 'Dihapus dari bookmark' : 'Ditambahkan ke bookmark',
+        'success'
+      )
+    } catch (error) {
+      showNotification('Gagal mengubah bookmark', 'error')
+    }
+  }, [isAuthenticated, state.isBookmarked, showNotification])
 
   // Data loading functions
   const loadUserStats = useCallback(async () => {
-    if (!isAuthenticated) return
+    if (!isAuthenticated || !book.slug) return
 
     try {
-      const [highlightsRes, notesRes, bookmarksRes] = await Promise.allSettled([
+      const [highlightsRes, notesRes, bookmarksRes, progressRes] = await Promise.allSettled([
         bookService.getHighlights(book.slug),
         bookService.getNotes(book.slug),
-        bookService.getBookmarks(book.slug)
+        bookService.getBookmarks(book.slug),
+        bookService.getReadingProgress(book.slug)
       ])
 
       setState(prev => ({
@@ -97,7 +138,8 @@ const BookDetail = ({ book }) => {
           highlights: highlightsRes.status === 'fulfilled' ? highlightsRes.value.data?.length || 0 : 0,
           notes: notesRes.status === 'fulfilled' ? notesRes.value.data?.length || 0 : 0,
           bookmarks: bookmarksRes.status === 'fulfilled' ? bookmarksRes.value.data?.length || 0 : 0
-        }
+        },
+        readingProgress: progressRes.status === 'fulfilled' ? progressRes.value.data : null
       }))
     } catch (error) {
       console.error('Error loading user stats:', error)
@@ -105,6 +147,8 @@ const BookDetail = ({ book }) => {
   }, [isAuthenticated, book.slug])
 
   const loadReactionStats = useCallback(async () => {
+    if (!book.slug) return
+
     try {
       const response = await bookService.getReactionStats(book.slug)
       const stats = response.data
@@ -118,7 +162,6 @@ const BookDetail = ({ book }) => {
         }
       }))
 
-      // Update book's reaction count if available
       if (stats?.total) {
         book.reactionCount = stats.total
       }
@@ -127,8 +170,9 @@ const BookDetail = ({ book }) => {
     }
   }, [book.slug])
 
-  // Load discussions from reactions with comments
   const loadDiscussions = useCallback(async () => {
+    if (!book.slug) return
+
     setState(prev => ({ ...prev, loadingDiscussions: true }))
 
     try {
@@ -155,26 +199,50 @@ const BookDetail = ({ book }) => {
   }, [book.slug])
 
   const loadUserReaction = useCallback(async () => {
-    if (!isAuthenticated) return
+    if (!isAuthenticated || !book.slug || !user?.id) return
 
     try {
-      // Check if user has any reaction by getting all reactions and finding current user's
-      const response = await bookService.getReactions(book.slug, 1, 50)
+      const response = await bookService.getReactions(book.slug, 1, 100)
       const userReaction = response.data?.find(reaction =>
-        reaction.user?.id === user?.id || reaction.userId === user?.id
+        reaction.user?.id === user.id || reaction.userId === user.id
       )
+
+      setState(prev => ({ ...prev, userReaction: userReaction || null }))
+    } catch (error) {
+      setState(prev => ({ ...prev, userReaction: null }))
+    }
+  }, [isAuthenticated, book.slug, user?.id])
+
+  const loadRelatedBooks = useCallback(async () => {
+    if (!book.slug) return
+
+    setState(prev => ({ ...prev, loadingRelated: true }))
+
+    try {
+      // Get books by same author or genre
+      const params = {
+        limit: 6,
+        genreId: book.genres?.[0]?.id,
+        searchTitle: book.authors?.[0]?.name
+      }
+
+      const response = await bookService.getBooks(params)
+      const relatedBooks = response.data?.data?.filter(b => b.slug !== book.slug) || []
 
       setState(prev => ({
         ...prev,
-        userReaction: userReaction || null
+        relatedBooks: relatedBooks.slice(0, 6),
+        loadingRelated: false
       }))
     } catch (error) {
+      console.error('Error loading related books:', error)
       setState(prev => ({
         ...prev,
-        userReaction: null
+        relatedBooks: [],
+        loadingRelated: false
       }))
     }
-  }, [isAuthenticated, book.slug, user?.id])
+  }, [book.slug, book.genres, book.authors])
 
   const loadAllData = useCallback(async () => {
     setState(prev => ({ ...prev, loadingStats: true }))
@@ -184,17 +252,18 @@ const BookDetail = ({ book }) => {
         loadUserStats(),
         loadReactionStats(),
         loadDiscussions(),
-        loadUserReaction()
+        loadUserReaction(),
+        loadRelatedBooks()
       ])
     } catch (error) {
       console.error('Error loading data:', error)
     } finally {
       setState(prev => ({ ...prev, loadingStats: false }))
     }
-  }, [loadUserStats, loadReactionStats, loadDiscussions, loadUserReaction])
+  }, [loadUserStats, loadReactionStats, loadDiscussions, loadUserReaction, loadRelatedBooks])
 
   // Handle reaction with proper state updates
-  const handleReaction = async (type, rating = null, comment = '') => {
+  const handleReaction = useCallback(async (type, rating = null, comment = '') => {
     if (!isAuthenticated) {
       showNotification('Silakan login untuk memberikan reaksi', 'warning')
       return
@@ -203,15 +272,11 @@ const BookDetail = ({ book }) => {
     try {
       const response = await bookService.addReaction(book.slug, { type, rating, comment })
 
-      setState(prev => ({
-        ...prev,
-        userReaction: response.data
-      }))
+      setState(prev => ({ ...prev, userReaction: response.data }))
 
-      // Reload all relevant data after adding reaction
       await Promise.all([
         loadReactionStats(),
-        loadDiscussions() // This will update discussion count automatically
+        loadDiscussions()
       ])
 
       showNotification('Reaksi berhasil ditambahkan!', 'success')
@@ -219,7 +284,7 @@ const BookDetail = ({ book }) => {
       console.error('Error adding reaction:', error)
       showNotification(error.message || 'Gagal menambahkan reaksi', 'error')
     }
-  }
+  }, [isAuthenticated, book.slug, loadReactionStats, loadDiscussions, showNotification])
 
   // Load data on component mount and authentication changes
   useEffect(() => {
@@ -228,33 +293,75 @@ const BookDetail = ({ book }) => {
     }
   }, [book.slug, loadAllData])
 
+  // Update browser title and meta tags
+  useEffect(() => {
+    document.title = `${book.title} - Lentera Pustaka`
+
+    const updateMetaTags = () => {
+      const setMeta = (name, content) => {
+        let meta = document.querySelector(`meta[name="${name}"]`) ||
+                   document.querySelector(`meta[property="${name}"]`)
+        if (!meta) {
+          meta = document.createElement('meta')
+          if (name.startsWith('og:') || name.startsWith('twitter:')) {
+            meta.setAttribute('property', name)
+          } else {
+            meta.setAttribute('name', name)
+          }
+          document.head.appendChild(meta)
+        }
+        meta.setAttribute('content', content)
+      }
+
+      setMeta('description', book.description || `Baca "${book.title}" di Lentera Pustaka`)
+      setMeta('og:title', book.title)
+      setMeta('og:description', book.description || `Baca "${book.title}" di Lentera Pustaka`)
+      setMeta('og:type', 'book')
+      setMeta('og:url', window.location.href)
+      if (book.coverImageUrl) {
+        setMeta('og:image', book.coverImageUrl)
+      }
+      setMeta('twitter:card', 'summary_large_image')
+      setMeta('twitter:title', book.title)
+      setMeta('twitter:description', book.description || `Baca "${book.title}" di Lentera Pustaka`)
+    }
+
+    updateMetaTags()
+  }, [book.title, book.description, book.coverImageUrl])
+
   const tabs = [
     { id: 'description', label: 'Deskripsi', icon: '📄' },
     { id: 'metadata', label: 'Info Detail', icon: 'ℹ️' },
     { id: 'discussions', label: `Diskusi (${state.discussionCount})`, icon: '💬' },
-    { id: 'analytics', label: 'Analitik', icon: '📊' }
+    { id: 'analytics', label: 'Analitik', icon: '📊' },
+    { id: 'related', label: 'Buku Serupa', icon: '📚' }
   ]
 
   return (
     <div className="book-detail-container">
       {/* Notification */}
-      {state.notification && (
-        <div className={`notification notification-${state.notification.type}`}>
+      {notification && (
+        <div className={`notification notification-${notification.type}`}>
           <div className="notification-content">
             <span className="notification-icon">
-              {state.notification.type === 'success' && '✅'}
-              {state.notification.type === 'error' && '❌'}
-              {state.notification.type === 'warning' && '⚠️'}
-              {state.notification.type === 'info' && 'ℹ️'}
+              {notification.type === 'success' && '✅'}
+              {notification.type === 'error' && '❌'}
+              {notification.type === 'warning' && '⚠️'}
+              {notification.type === 'info' && 'ℹ️'}
             </span>
-            <span className="notification-message">{state.notification.message}</span>
+            <span className="notification-message">{notification.message}</span>
           </div>
         </div>
       )}
 
-      <button className="btn btn-secondary" onClick={() => navigate('/books')}>
-        ← Kembali
-      </button>
+      {/* Breadcrumb Navigation */}
+      <nav className="breadcrumb">
+        <button className="btn btn-secondary btn-small" onClick={() => navigate('/books')}>
+          ← Kembali ke Daftar Buku
+        </button>
+        <span className="breadcrumb-separator">/</span>
+        <span className="breadcrumb-current">{book.title}</span>
+      </nav>
 
       <div className="book-detail-main">
         {/* Cover & Actions */}
@@ -266,19 +373,27 @@ const BookDetail = ({ book }) => {
                 alt={`Cover ${book.title}`}
                 className="book-cover-image"
                 loading="lazy"
+                onError={(e) => {
+                  e.target.style.display = 'none'
+                  e.target.nextSibling.style.display = 'flex'
+                }}
               />
-            ) : (
-              <div className="book-cover-placeholder">
-                <div className="placeholder-icon">📚</div>
-                <div className="placeholder-text">Cover EPUB</div>
-              </div>
-            )}
+            ) : null}
+            <div className={`book-cover-placeholder ${book.coverImageUrl ? 'hidden' : ''}`}>
+              <div className="placeholder-icon">📚</div>
+              <div className="placeholder-text">Cover EPUB</div>
+            </div>
           </div>
 
           <div className="book-actions">
             <button className="btn btn-primary btn-action" onClick={handleStartReading}>
               <span>📖</span>
-              <span>Mulai Membaca</span>
+              <span>
+                {state.readingProgress?.percentage > 0
+                  ? `Lanjutkan (${Math.round(state.readingProgress.percentage)}%)`
+                  : 'Mulai Membaca'
+                }
+              </span>
             </button>
 
             <button
@@ -290,16 +405,37 @@ const BookDetail = ({ book }) => {
               <span>{state.isDownloading ? 'Mengunduh...' : 'Unduh EPUB'}</span>
             </button>
 
+            <div className="action-row">
+              <button
+                className={`btn btn-secondary btn-small ${state.isBookmarked ? 'active' : ''}`}
+                onClick={handleAddToBookmarks}
+                title="Tambah ke bookmark"
+              >
+                {state.isBookmarked ? '🔖' : '📌'} Bookmark
+              </button>
+
+              <button
+                className="btn btn-secondary btn-small"
+                onClick={handleShare}
+                title="Bagikan buku"
+              >
+                🔗 Bagikan
+              </button>
+            </div>
+
             <div className="book-quick-stats">
               {[
-                { label: 'Dilihat', value: book.viewCount || 0 },
-                { label: 'Diunduh', value: book.downloadCount || 0 },
-                { label: 'Rating', value: book.averageRating ? `${book.averageRating.toFixed(1)}/5` : 'Belum ada' }
+                { label: 'Dilihat', value: book.viewCount || 0, icon: '👁️' },
+                { label: 'Diunduh', value: book.downloadCount || 0, icon: '📥' },
+                { label: 'Rating', value: book.averageRating ? `${book.averageRating.toFixed(1)}/5` : 'Belum ada', icon: '⭐' }
               ].map(stat => (
                 <div key={stat.label} className="stat-item">
-                  <div className="stat-label">{stat.label}</div>
-                  <div className="stat-value">
-                    {typeof stat.value === 'number' ? formatNumber(stat.value) : stat.value}
+                  <div className="stat-icon">{stat.icon}</div>
+                  <div className="stat-details">
+                    <div className="stat-label">{stat.label}</div>
+                    <div className="stat-value">
+                      {typeof stat.value === 'number' ? formatNumber(stat.value) : stat.value}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -310,9 +446,7 @@ const BookDetail = ({ book }) => {
         {/* Book Info */}
         <div className="book-info-section">
           <div className="book-header">
-            <h1 className="book-title" style={{
-              color: theme === 'dark' ? 'var(--primary-pink)' : 'var(--primary-green)'
-            }}>
+            <h1 className="book-title">
               {book.title}
             </h1>
 
@@ -327,6 +461,13 @@ const BookDetail = ({ book }) => {
               </div>
             )}
 
+            {book.series && (
+              <div className="book-series">
+                Seri: <span className="series-name">{book.series}</span>
+                {book.seriesNumber && <span className="series-number"> #{book.seriesNumber}</span>}
+              </div>
+            )}
+
             {book.genres?.length > 0 && (
               <div className="book-genres">
                 {book.genres.map(genre => (
@@ -334,13 +475,30 @@ const BookDetail = ({ book }) => {
                     key={genre.id}
                     className="genre-tag"
                     style={{
-                      backgroundColor: genre.colorHex + '20',
-                      color: genre.colorHex
+                      backgroundColor: (genre.colorHex || '#6B7280') + '20',
+                      color: genre.colorHex || '#6B7280',
+                      borderColor: genre.colorHex || '#6B7280'
                     }}
                   >
                     {genre.name}
                   </span>
                 ))}
+              </div>
+            )}
+
+            {/* Reading Progress Display */}
+            {state.readingProgress && (
+              <div className="reading-progress-display">
+                <div className="progress-header">
+                  <span>Progres Baca Anda: {Math.round(state.readingProgress.percentage)}%</span>
+                  <span className="last-read">Terakhir: {new Date(state.readingProgress.lastReadAt).toLocaleDateString('id-ID')}</span>
+                </div>
+                <div className="progress-bar">
+                  <div
+                    className="progress-fill"
+                    style={{ width: `${state.readingProgress.percentage}%` }}
+                  />
+                </div>
               </div>
             )}
 
@@ -354,46 +512,141 @@ const BookDetail = ({ book }) => {
             )}
           </div>
 
+          {/* Tab Navigation */}
           <div className="book-tabs">
             {tabs.map(tab => (
               <button
                 key={tab.id}
-                className={`btn btn-secondary btn-small ${state.activeTab === tab.id ? 'active' : ''}`}
+                className={`btn btn-secondary btn-small tab-button ${state.activeTab === tab.id ? 'active' : ''}`}
                 onClick={() => setState(prev => ({ ...prev, activeTab: tab.id }))}
               >
-                {tab.icon} {tab.label}
+                <span className="tab-icon">{tab.icon}</span>
+                <span className="tab-label">{tab.label}</span>
               </button>
             ))}
           </div>
 
+          {/* Tab Content */}
           <div className="book-tab-content">
-            {state.activeTab === 'description' && book.description && (
-              <div className="book-description">
-                <h3>Deskripsi</h3>
-                <p>{book.description}</p>
+            {state.activeTab === 'description' && (
+              <div className="tab-content-wrapper">
+                {book.description && (
+                  <div className="book-description">
+                    <h3>Deskripsi</h3>
+                    <div className="description-text">
+                      {book.description.split('\n').map((paragraph, index) => (
+                        paragraph.trim() && <p key={index}>{paragraph}</p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Key Information */}
+                <div className="key-info-grid">
+                  <div className="info-card">
+                    <h4>📊 Statistik</h4>
+                    <div className="info-items">
+                      <div className="info-item">
+                        <span>Halaman:</span>
+                        <span>{book.totalPages ? formatNumber(book.totalPages) : 'N/A'}</span>
+                      </div>
+                      <div className="info-item">
+                        <span>Kata:</span>
+                        <span>{book.totalWord ? formatNumber(book.totalWord) : 'N/A'}</span>
+                      </div>
+                      <div className="info-item">
+                        <span>Waktu Baca:</span>
+                        <span>{formatReadingTime(book.estimatedReadTime)}</span>
+                      </div>
+                      <div className="info-item">
+                        <span>Kesulitan:</span>
+                        <span>{getDifficultyLabel(book.difficultyLevel)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="info-card">
+                    <h4>📚 Publikasi</h4>
+                    <div className="info-items">
+                      {book.publisher && (
+                        <div className="info-item">
+                          <span>Penerbit:</span>
+                          <span>{book.publisher}</span>
+                        </div>
+                      )}
+                      {book.publicationYear && (
+                        <div className="info-item">
+                          <span>Tahun:</span>
+                          <span>{book.publicationYear}</span>
+                        </div>
+                      )}
+                      {book.language && (
+                        <div className="info-item">
+                          <span>Bahasa:</span>
+                          <span>{book.language}</span>
+                        </div>
+                      )}
+                      {book.isbn && (
+                        <div className="info-item">
+                          <span>ISBN:</span>
+                          <span>{book.isbn}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 
             {state.activeTab === 'metadata' && (
-              <div className="book-metadata">
-                <h3>Informasi Detail</h3>
-                <div className="metadata-items">
-                  {[
-                    { label: 'Penerbit', value: book.publisher },
-                    { label: 'Tahun Terbit', value: book.publicationYear },
-                    { label: 'ISBN', value: book.isbn },
-                    { label: 'Bahasa', value: book.language },
-                    { label: 'Jumlah Halaman', value: book.totalPages > 0 ? formatNumber(book.totalPages) : null },
-                    { label: 'Jumlah Kata', value: book.totalWord > 0 ? formatNumber(book.totalWord) : null },
-                    { label: 'Estimasi Waktu Baca', value: formatReadingTime(book.estimatedReadTime) },
-                    { label: 'Level Kesulitan', value: getDifficultyLabel(book.difficultyLevel) },
-                    { label: 'Ukuran File', value: formatFileSize(book.fileSize) }
-                  ].filter(item => item.value && item.value !== 'N/A').map(item => (
-                    <div key={item.label} className="metadata-item">
-                      <span className="meta-label">{item.label}:</span>
-                      <span className="meta-value">{item.value}</span>
+              <div className="tab-content-wrapper">
+                <div className="metadata-grid">
+                  <div className="metadata-section">
+                    <h4>📋 Informasi Dasar</h4>
+                    <div className="metadata-items">
+                      {[
+                        { label: 'Judul Asli', value: book.originalTitle },
+                        { label: 'Penerjemah', value: book.translator },
+                        { label: 'Editor', value: book.editor },
+                        { label: 'Ilustrator', value: book.illustrator }
+                      ].filter(item => item.value).map(item => (
+                        <div key={item.label} className="metadata-item">
+                          <span className="meta-label">{item.label}:</span>
+                          <span className="meta-value">{item.value}</span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  </div>
+
+                  <div className="metadata-section">
+                    <h4>🔧 Detail Teknis</h4>
+                    <div className="metadata-items">
+                      {[
+                        { label: 'Format', value: 'EPUB' },
+                        { label: 'Ukuran File', value: formatFileSize(book.fileSize) },
+                        { label: 'Kompresi', value: book.compressionType || 'Standard' },
+                        { label: 'DRM', value: book.hasDRM ? 'Ya' : 'Tidak' }
+                      ].filter(item => item.value && item.value !== 'N/A').map(item => (
+                        <div key={item.label} className="metadata-item">
+                          <span className="meta-label">{item.label}:</span>
+                          <span className="meta-value">{item.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {book.tags?.length > 0 && (
+                    <div className="metadata-section tags-section">
+                      <h4>🏷️ Tag</h4>
+                      <div className="tags-container">
+                        {book.tags.map(tag => (
+                          <span key={tag.id} className="tag-item">
+                            {tag.name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -413,11 +666,130 @@ const BookDetail = ({ book }) => {
                 bookStats={state.bookStats}
                 reactionStats={state.reactionStats}
                 isAuthenticated={isAuthenticated}
+                readingProgress={state.readingProgress}
               />
+            )}
+
+            {state.activeTab === 'related' && (
+              <div className="tab-content-wrapper">
+                <div className="related-books-section">
+                  <h3>Buku Serupa</h3>
+                  {state.loadingRelated ? (
+                    <div className="loading-related">
+                      <div className="loading-spinner"></div>
+                      <p>Memuat buku serupa...</p>
+                    </div>
+                  ) : state.relatedBooks.length > 0 ? (
+                    <div className="related-books-grid">
+                      {state.relatedBooks.map(relatedBook => (
+                        <div
+                          key={relatedBook.id}
+                          className="related-book-card"
+                          onClick={() => navigate(`/books/${relatedBook.slug}`)}
+                        >
+                          <div className="related-book-cover">
+                            {relatedBook.coverImageUrl ? (
+                              <img src={relatedBook.coverImageUrl} alt={relatedBook.title} />
+                            ) : (
+                              <div className="placeholder-cover">📚</div>
+                            )}
+                          </div>
+                          <div className="related-book-info">
+                            <h5 className="related-book-title">{relatedBook.title}</h5>
+                            {relatedBook.authors?.[0] && (
+                              <p className="related-book-author">{relatedBook.authors[0].name}</p>
+                            )}
+                            <div className="related-book-meta">
+                              {relatedBook.averageRating && (
+                                <span className="related-rating">⭐ {relatedBook.averageRating.toFixed(1)}</span>
+                              )}
+                              <span className="related-views">👁️ {formatNumber(relatedBook.viewCount || 0)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="empty-state">
+                      <div className="empty-icon">📚</div>
+                      <p>Tidak ada buku serupa yang ditemukan.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* Share Modal */}
+      {state.showShareModal && (
+        <div className="modal-overlay" onClick={() => setState(prev => ({ ...prev, showShareModal: false }))}>
+          <div className="modal-content card" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Bagikan Buku</h3>
+              <button
+                className="btn btn-secondary btn-small"
+                onClick={() => setState(prev => ({ ...prev, showShareModal: false }))}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="share-options">
+                <div className="share-url">
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={window.location.href}
+                    readOnly
+                    onClick={(e) => e.target.select()}
+                  />
+                  <button
+                    className="btn btn-primary btn-small"
+                    onClick={() => {
+                      navigator.clipboard.writeText(window.location.href)
+                      showNotification('Link berhasil disalin!', 'success')
+                      setState(prev => ({ ...prev, showShareModal: false }))
+                    }}
+                  >
+                    Salin
+                  </button>
+                </div>
+                <div className="share-social">
+                  <h4>Bagikan ke:</h4>
+                  <div className="social-buttons">
+                    <a
+                      href={`https://wa.me/?text=${encodeURIComponent(`${book.title} - ${window.location.href}`)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-secondary social-btn"
+                    >
+                      💬 WhatsApp
+                    </a>
+                    <a
+                      href={`https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent(book.title)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-secondary social-btn"
+                    >
+                      ✈️ Telegram
+                    </a>
+                    <a
+                      href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(book.title)}&url=${encodeURIComponent(window.location.href)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-secondary social-btn"
+                    >
+                      🐦 Twitter
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
