@@ -238,25 +238,11 @@ export const bookService = {
     return response.data
   },
 
-  // Get reaction replies - Public access
-  async getReactionReplies(slug, reactionId) {
-    const response = await api.get(`/api/books/${slug}/reactions/${reactionId}/replies`)
-    return response.data
-  },
-
-  // Get reaction stats - Public access
-  async getReactionStats(slug) {
-    const response = await api.get(`/api/books/${slug}/reactions/stats`)
-    return response.data
-  },
-
-  // Update reaction - Requires Auth
-  async updateReaction(slug, reactionId, reactionData) {
-    const response = await api.put(`/api/books/${slug}/reactions/${reactionId}`, {
-      type: reactionData.type,
-      rating: reactionData.rating,
-      comment: reactionData.comment,
-      title: reactionData.title
+  async addReply(slug, parentReactionId, replyData) {
+    const response = await api.post(`/api/books/${slug}/reactions`, {
+      type: 'COMMENT',
+      comment: replyData.comment,
+      parentId: parentReactionId
     })
     return response.data
   },

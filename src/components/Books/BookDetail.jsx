@@ -157,7 +157,7 @@ const BookDetail = ({ book }) => {
     }
 
     try {
-      await bookService.addReply(state.replyToReaction.id, state.newReply)
+      await bookService.addReply(book.slug, state.replyToReaction.id, state.newReply)
       setState(prev => ({
         ...prev,
         showReplyModal: false,
@@ -169,7 +169,7 @@ const BookDetail = ({ book }) => {
     } catch (error) {
       showNotification(error.message || 'Gagal menambahkan balasan', 'error')
     }
-  }, [isAuthenticated, state.replyToReaction, state.newReply, showNotification])
+  }, [isAuthenticated, book.slug, state.replyToReaction, state.newReply, showNotification])
 
   const reactionStats = getReactionStats()
   const discussions = getDiscussions()
