@@ -27,14 +27,8 @@ const SearchForm = ({ onSearch }) => {
         />
       </div>
       <div className="search-actions">
-        <button className="btn btn-primary" onClick={handleSubmit}>
-          Cari
-        </button>
-        {searchTitle && (
-          <button className="btn btn-secondary" onClick={handleReset}>
-            Reset
-          </button>
-        )}
+        <button className="btn btn-primary" onClick={handleSubmit}>Cari</button>
+        {searchTitle && <button className="btn btn-secondary" onClick={handleReset}>Reset</button>}
       </div>
     </div>
   )

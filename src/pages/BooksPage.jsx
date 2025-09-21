@@ -10,8 +10,7 @@ const BooksPage = () => {
   const [error, setError] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [searchParams, setSearchParams] = useState({})
-  const [hasNextPage, setHasNextPage] = useState(false)
-  const [knownPages, setKnownPages] = useState(new Set([1]))
+  const [totalPages, setTotalPages] = useState(1)
   const navigate = useNavigate()
 
   const ITEMS_PER_PAGE = 12
@@ -19,58 +18,35 @@ const BooksPage = () => {
   const fetchBooks = async (page = currentPage, search = searchParams) => {
     setLoading(true)
     setError('')
-
     try {
-      const response = await bookService.getBooks({
-        page,
-        limit: ITEMS_PER_PAGE,
-        ...search
-      })
-
+      const response = await bookService.getBooks({ page, limit: ITEMS_PER_PAGE, ...search })
       const booksData = Array.isArray(response.data?.list) ? response.data.list : []
+
+      // Hitung total pages berdasarkan data yang ada
+      if (booksData.length < ITEMS_PER_PAGE && page === 1) {
+        setTotalPages(1) // Jika data kurang dari limit di halaman 1
+      } else if (booksData.length < ITEMS_PER_PAGE) {
+        setTotalPages(page) // Halaman terakhir
+      } else {
+        setTotalPages(page + 1) // Masih ada halaman selanjutnya
+      }
+
       setBooks(booksData)
-      setHasNextPage(booksData.length === ITEMS_PER_PAGE)
-
-      setKnownPages(prev => {
-        const newSet = new Set(prev)
-        newSet.add(page)
-        if (booksData.length === ITEMS_PER_PAGE) {
-          newSet.add(page + 1)
-        }
-        return newSet
-      })
-
     } catch (error) {
       console.error('Error fetching books:', error)
       setError('Gagal memuat ebook. Silakan coba lagi.')
       setBooks([])
-      setHasNextPage(false)
+      setTotalPages(1)
     } finally {
       setLoading(false)
     }
   }
 
-  const checkNextPageExists = async (page) => {
-    try {
-      const response = await bookService.getBooks({
-        page,
-        limit: ITEMS_PER_PAGE,
-        ...searchParams
-      })
-      return Array.isArray(response.data?.list) && response.data.list.length > 0
-    } catch {
-      return false
-    }
-  }
-
-  useEffect(() => {
-    fetchBooks()
-  }, [currentPage])
+  useEffect(() => { fetchBooks() }, [currentPage])
 
   const handleSearch = (params) => {
     setSearchParams(params)
     setCurrentPage(1)
-    setKnownPages(new Set([1]))
     fetchBooks(1, params)
   }
 
@@ -78,57 +54,33 @@ const BooksPage = () => {
     navigate(`/books/${book.slug}`)
   }
 
-  const handlePageChange = async (newPage) => {
-    if (newPage > currentPage && !knownPages.has(newPage)) {
-      const pageExists = await checkNextPageExists(newPage)
-      if (!pageExists) {
-        setHasNextPage(false)
-        return
-      }
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
     }
-
-    setCurrentPage(newPage)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const getPageNumbers = () => {
     const pages = []
-    const maxVisiblePages = 5
-    let estimatedMaxPage = Math.max(...Array.from(knownPages))
+    const maxDisplay = 5
 
-    if (hasNextPage) {
-      estimatedMaxPage = Math.max(estimatedMaxPage, currentPage + 1)
-    }
-
-    if (estimatedMaxPage <= maxVisiblePages) {
-      for (let i = 1; i <= estimatedMaxPage; i++) {
-        pages.push(i)
-      }
+    if (totalPages <= maxDisplay) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i)
     } else {
       pages.push(1)
-
-      if (currentPage > 3) {
-        pages.push('...')
-      }
+      if (currentPage > 3) pages.push('...')
 
       const start = Math.max(2, currentPage - 1)
-      const end = Math.min(estimatedMaxPage - 1, currentPage + 1)
+      const end = Math.min(totalPages - 1, currentPage + 1)
 
       for (let i = start; i <= end; i++) {
-        if (!pages.includes(i)) {
-          pages.push(i)
-        }
+        if (!pages.includes(i)) pages.push(i)
       }
 
-      if (currentPage < estimatedMaxPage - 2) {
-        pages.push('...')
-      }
-
-      if (!pages.includes(estimatedMaxPage)) {
-        pages.push(estimatedMaxPage)
-      }
+      if (currentPage < totalPages - 2) pages.push('...')
+      if (totalPages > 1 && !pages.includes(totalPages)) pages.push(totalPages)
     }
-
     return pages
   }
 
@@ -149,63 +101,58 @@ const BooksPage = () => {
         <div className="loading">Memuat ebook...</div>
       ) : books.length === 0 ? (
         <div className="card text-center">
-          <p>
-            {Object.keys(searchParams).length > 0
-              ? 'Tidak ada ebook yang sesuai dengan pencarian.'
-              : 'Belum ada ebook yang tersedia.'}
-          </p>
+          <p>{Object.keys(searchParams).length > 0
+            ? 'Tidak ada ebook yang sesuai dengan pencarian.'
+            : 'Belum ada ebook yang tersedia.'}</p>
         </div>
       ) : (
         <>
           <div className="text-center" style={{ marginBottom: '1rem', fontSize: '0.9rem', opacity: '0.8' }}>
-            Halaman {currentPage} - Menampilkan {books.length} ebook
+            Halaman {currentPage} dari {totalPages} - Menampilkan {books.length} ebook
           </div>
 
           <div className="books-grid">
             {books.map((book) => (
-              <BookCard
-                key={book.id || book.slug}
-                book={book}
-                onClick={() => handleBookClick(book)}
-              />
+              <BookCard key={book.id || book.slug} book={book} onClick={() => handleBookClick(book)} />
             ))}
           </div>
 
-          {/* Pagination */}
-          <div className="pagination">
-            <button
-              className="btn btn-secondary"
-              onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
-              disabled={currentPage === 1}
-            >
-              Sebelumnya
-            </button>
+          {totalPages > 1 && (
+            <div className="pagination">
+              <button
+                className="btn btn-secondary"
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+              >
+                Sebelumnya
+              </button>
 
-            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-              {getPageNumbers().map((page, index) => (
-                page === '...' ? (
-                  <span key={`ellipsis-${index}`} style={{ padding: '0 0.5rem' }}>...</span>
-                ) : (
-                  <button
-                    key={page}
-                    className={`btn ${currentPage === page ? 'btn-primary' : 'btn-secondary'}`}
-                    onClick={() => handlePageChange(page)}
-                    style={{ minWidth: '40px', fontSize: '0.9rem' }}
-                  >
-                    {page}
-                  </button>
-                )
-              ))}
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                {getPageNumbers().map((page, index) =>
+                  page === '...' ? (
+                    <span key={`ellipsis-${index}`} style={{ padding: '0 0.5rem' }}>...</span>
+                  ) : (
+                    <button
+                      key={page}
+                      className={`btn ${currentPage === page ? 'btn-primary' : 'btn-secondary'}`}
+                      onClick={() => handlePageChange(page)}
+                      style={{ minWidth: '40px', fontSize: '0.9rem' }}
+                    >
+                      {page}
+                    </button>
+                  )
+                )}
+              </div>
+
+              <button
+                className="btn btn-secondary"
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage >= totalPages}
+              >
+                Selanjutnya
+              </button>
             </div>
-
-            <button
-              className="btn btn-secondary"
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={!hasNextPage}
-            >
-              Selanjutnya
-            </button>
-          </div>
+          )}
         </>
       )}
     </div>

@@ -16,186 +16,71 @@ const BookReactions = ({ bookSlug, userReaction, onReaction, reactionStats }) =>
     { type: "angry", emoji: "😠", label: "Marah" }
   ]
 
-  const handleQuickReaction = (type) => {
-    onReaction(type)
-  }
-
-  const handleRating = async () => {
-    await onReaction('rating', rating, '')
-    setShowRatingModal(false)
-    setRating(5)
-  }
-
-  const handleComment = async () => {
-    if (!comment.trim()) {
-      alert('Silakan tulis komentar terlebih dahulu')
-      return
-    }
-    await onReaction('comment', null, comment)
-    setShowCommentModal(false)
-    setComment('')
-  }
-
-  const getReactionCount = (type) => {
-    return reactionStats?.[type] || 0
-  }
-
-  const getUserReactionDisplay = () => {
-    if (!userReaction) return null
-
-    if (userReaction.type === 'rating') {
-      return `⭐ ${userReaction.rating}/5`
-    }
-
-    const reaction = reactions.find(r => r.type === userReaction.type)
-    return reaction ? `${reaction.emoji} ${reaction.label}` : userReaction.type
-  }
+  const Modal = ({ show, onClose, title, children }) => show && (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content card" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3>{title}</h3>
+          <button className="btn btn-secondary btn-small" onClick={onClose}>Tutup</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  )
 
   return (
     <div className="book-reactions">
-      {/* Current User's Reaction Display */}
       {userReaction && (
         <div className="current-reaction">
           <span style={{ fontSize: '0.9rem', opacity: 0.8 }}>
-            Reaksi Anda: {getUserReactionDisplay()}
+            Reaksi Anda: {userReaction.type === 'rating' ? `⭐ ${userReaction.rating}/5` : reactions.find(r => r.type === userReaction.type)?.emoji + ' ' + reactions.find(r => r.type === userReaction.type)?.label}
           </span>
         </div>
       )}
 
-      {/* Quick Reactions */}
       <div className="quick-reactions">
-        <span style={{ fontSize: '0.9rem', marginRight: '1rem', opacity: 0.8 }}>
-          Berikan reaksi:
-        </span>
+        <span style={{ fontSize: '0.9rem', marginRight: '1rem', opacity: 0.8 }}>Berikan reaksi:</span>
         {reactions.map(reaction => (
-          <button
-            key={reaction.type}
-            className={`btn btn-secondary btn-small reaction-btn ${
-              userReaction?.type === reaction.type ? 'active' : ''
-            }`}
-            onClick={() => handleQuickReaction(reaction.type)}
-            title={`${reaction.label} (${getReactionCount(reaction.type)})`}
-          >
-            {reaction.emoji}
-            {getReactionCount(reaction.type) > 0 && (
-              <span className="reaction-count">{getReactionCount(reaction.type)}</span>
-            )}
+          <button key={reaction.type} className={`btn btn-secondary btn-small reaction-btn ${userReaction?.type === reaction.type ? 'active' : ''}`} onClick={() => onReaction(reaction.type)} title={`${reaction.label} (${reactionStats?.[reaction.type] || 0})`}>
+            {reaction.emoji}{reactionStats?.[reaction.type] > 0 && <span className="reaction-count">{reactionStats[reaction.type]}</span>}
           </button>
         ))}
       </div>
 
-      {/* Action Buttons */}
       <div className="reaction-actions">
-        <button
-          className={`btn btn-primary btn-small ${userReaction?.type === 'rating' ? 'active' : ''}`}
-          onClick={() => setShowRatingModal(true)}
-        >
-          ⭐ Beri Rating
-          {userReaction?.rating && ` (${userReaction.rating}/5)`}
-        </button>
-
-        <button
-          className={`btn btn-secondary btn-small ${userReaction?.comment ? 'active' : ''}`}
-          onClick={() => setShowCommentModal(true)}
-        >
-          💬 Tulis Komentar
-          {userReaction?.comment && ' ✓'}
-        </button>
+        <button className={`btn btn-primary btn-small ${userReaction?.type === 'rating' ? 'active' : ''}`} onClick={() => setShowRatingModal(true)}>⭐ Beri Rating{userReaction?.rating && ` (${userReaction.rating}/5)`}</button>
+        <button className={`btn btn-secondary btn-small ${userReaction?.comment ? 'active' : ''}`} onClick={() => setShowCommentModal(true)}>💬 Tulis Komentar{userReaction?.comment && ' ✓'}</button>
       </div>
 
-      {/* Reaction Statistics Display */}
       {reactionStats && (
         <div className="reaction-stats">
           <div className="stats-summary">
             <span>Total reaksi: {reactionStats.total || 0}</span>
-            {reactionStats.averageRating && (
-              <span> • Rating rata-rata: {reactionStats.averageRating.toFixed(1)}/5</span>
-            )}
+            {reactionStats.averageRating && <span> • Rating rata-rata: {reactionStats.averageRating.toFixed(1)}/5</span>}
           </div>
         </div>
       )}
 
-      {/* Rating Modal */}
-      {showRatingModal && (
-        <div className="modal-overlay" onClick={() => setShowRatingModal(false)}>
-          <div className="modal-content card" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Beri Rating</h3>
-              <button
-                className="btn btn-secondary btn-small"
-                onClick={() => setShowRatingModal(false)}
-              >
-                Tutup
-              </button>
-            </div>
-
-            <div className="modal-body">
-              <div className="form-group">
-                <label>Rating (1-5 bintang):</label>
-                <div className="star-rating">
-                  {[1, 2, 3, 4, 5].map(star => (
-                    <button
-                      key={star}
-                      className={`star-btn ${star <= rating ? 'active' : ''}`}
-                      onClick={() => setRating(star)}
-                    >
-                      ⭐
-                    </button>
-                  ))}
-                </div>
-                <small>Rating saat ini: {rating} bintang</small>
-              </div>
-
-              <button
-                className="btn btn-primary"
-                onClick={handleRating}
-                style={{ width: '100%' }}
-              >
-                Kirim Rating
-              </button>
-            </div>
+      <Modal show={showRatingModal} onClose={() => setShowRatingModal(false)} title="Beri Rating">
+        <div className="modal-body">
+          <div className="form-group">
+            <label>Rating (1-5 bintang):</label>
+            <div className="star-rating">{[1,2,3,4,5].map(star => <button key={star} className={`star-btn ${star <= rating ? 'active' : ''}`} onClick={() => setRating(star)}>⭐</button>)}</div>
+            <small>Rating saat ini: {rating} bintang</small>
           </div>
+          <button className="btn btn-primary" onClick={async () => { await onReaction('rating', rating, ''); setShowRatingModal(false); setRating(5) }} style={{ width: '100%' }}>Kirim Rating</button>
         </div>
-      )}
+      </Modal>
 
-      {/* Comment Modal */}
-      {showCommentModal && (
-        <div className="modal-overlay" onClick={() => setShowCommentModal(false)}>
-          <div className="modal-content card" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Tulis Komentar</h3>
-              <button
-                className="btn btn-secondary btn-small"
-                onClick={() => setShowCommentModal(false)}
-              >
-                Tutup
-              </button>
-            </div>
-
-            <div className="modal-body">
-              <div className="form-group">
-                <label>Komentar Anda:</label>
-                <textarea
-                  className="form-control"
-                  rows="4"
-                  placeholder="Tulis komentar Anda tentang buku ini..."
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                />
-              </div>
-
-              <button
-                className="btn btn-primary"
-                onClick={handleComment}
-                style={{ width: '100%' }}
-                disabled={!comment.trim()}
-              >
-                Kirim Komentar
-              </button>
-            </div>
+      <Modal show={showCommentModal} onClose={() => setShowCommentModal(false)} title="Tulis Komentar">
+        <div className="modal-body">
+          <div className="form-group">
+            <label>Komentar Anda:</label>
+            <textarea className="form-control" rows="4" placeholder="Tulis komentar Anda tentang buku ini..." value={comment} onChange={(e) => setComment(e.target.value)} />
           </div>
+          <button className="btn btn-primary" onClick={async () => { if(!comment.trim()) { alert('Silakan tulis komentar terlebih dahulu'); return } await onReaction('comment', null, comment); setShowCommentModal(false); setComment('') }} style={{ width: '100%' }} disabled={!comment.trim()}>Kirim Komentar</button>
         </div>
-      )}
+      </Modal>
     </div>
   )
 }

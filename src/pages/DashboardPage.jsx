@@ -22,7 +22,6 @@ const DashboardPage = () => {
         setLoading(false)
       }
     }
-
     fetchDashboard()
   }, [])
 
@@ -36,53 +35,29 @@ const DashboardPage = () => {
     { title: 'Favorit', value: dashboardData?.favoriteBooks || 0, icon: '❤️' }
   ]
 
+  const ActivitySection = ({ activities }) => (
+    <div className="card">
+      <h3 className="section-title">Aktivitas Terbaru</h3>
+      {activities?.length > 0 ? (
+        <div className="activity-list">{activities.map((activity, index) => (<div key={index} className="activity-item"><strong className="activity-title">{activity.title}</strong><p className="activity-description">{activity.description}</p><small className="activity-date">{new Date(activity.date).toLocaleDateString('id-ID')}</small></div>))}</div>
+      ) : (<p className="empty-state">Belum ada aktivitas terbaru.</p>)}
+    </div>
+  )
+
+  const RecommendationSection = ({ recommendations }) => (
+    <div className="card">
+      <h3 className="section-title">Rekomendasi Ebook</h3>
+      {recommendations?.length > 0 ? (
+        <div className="books-grid">{recommendations.map((book) => (<div key={book.id} className="card recommendation-card"><h4 className="book-title">{book.title}</h4><p className="book-author">{book.author}</p><p className="book-excerpt">{book.description?.substring(0, 100)}...</p></div>))}</div>
+      ) : (<p className="empty-state">Rekomendasi akan muncul berdasarkan riwayat bacaan Anda.</p>)}
+    </div>
+  )
+
   return (
     <div className="dashboard-page">
-      <div className="books-grid">
-        {stats.map((stat, index) => (
-          <StatsCard key={index} {...stat} />
-        ))}
-      </div>
-
-      <div className="card">
-        <h3 className="section-title">Aktivitas Terbaru</h3>
-        {dashboardData?.recentActivity?.length > 0 ? (
-          <div className="activity-list">
-            {dashboardData.recentActivity.map((activity, index) => (
-              <div key={index} className="activity-item">
-                <strong className="activity-title">{activity.title}</strong>
-                <p className="activity-description">{activity.description}</p>
-                <small className="activity-date">
-                  {new Date(activity.date).toLocaleDateString('id-ID')}
-                </small>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="empty-state">Belum ada aktivitas terbaru.</p>
-        )}
-      </div>
-
-      <div className="card">
-        <h3 className="section-title">Rekomendasi Ebook</h3>
-        {dashboardData?.recommendations?.length > 0 ? (
-          <div className="books-grid">
-            {dashboardData.recommendations.map((book) => (
-              <div key={book.id} className="card recommendation-card">
-                <h4 className="book-title">{book.title}</h4>
-                <p className="book-author">{book.author}</p>
-                <p className="book-excerpt">
-                  {book.description?.substring(0, 100)}...
-                </p>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="empty-state">
-            Rekomendasi akan muncul berdasarkan riwayat bacaan Anda.
-          </p>
-        )}
-      </div>
+      <div className="books-grid">{stats.map((stat, index) => (<StatsCard key={index} {...stat} />))}</div>
+      <ActivitySection activities={dashboardData?.recentActivity} />
+      <RecommendationSection recommendations={dashboardData?.recommendations} />
     </div>
   )
 }

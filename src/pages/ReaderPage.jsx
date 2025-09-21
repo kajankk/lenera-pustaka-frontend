@@ -11,9 +11,8 @@ const ReaderPage = () => {
   const [error, setError] = useState('')
 
   useEffect(() => {
+    if (!slug) return
     const loadBook = async () => {
-      if (!slug) return
-
       setLoading(true)
       try {
         const response = await bookService.startReading(slug)
@@ -25,42 +24,16 @@ const ReaderPage = () => {
         setLoading(false)
       }
     }
-
     loadBook()
   }, [slug])
 
+  const BackButton = () => <button className="btn btn-secondary" onClick={() => navigate('/books')}>← Kembali</button>
+
   if (loading) return <div className="loading">Memuat ebook...</div>
+  if (error) return <div className="reader-error"><div className="error">{error}</div><BackButton /></div>
+  if (!bookData) return <div className="reader-error"><div className="error">Ebook tidak ditemukan</div><BackButton /></div>
 
-  if (error) {
-    return (
-      <div className="reader-error">
-        <div className="error">{error}</div>
-        <button className="btn btn-secondary" onClick={() => navigate('/books')}>
-          ← Kembali
-        </button>
-      </div>
-    )
-  }
-
-  if (!bookData) {
-    return (
-      <div className="reader-error">
-        <div className="error">Ebook tidak ditemukan</div>
-        <button className="btn btn-secondary" onClick={() => navigate('/books')}>
-          ← Kembali
-        </button>
-      </div>
-    )
-  }
-
-  return (
-    <div className="reader-page">
-      <button className="btn btn-secondary back-button" onClick={() => navigate('/books')}>
-        ← Kembali
-      </button>
-      <EpubReader bookData={bookData} />
-    </div>
-  )
+  return <div className="reader-page"><button className="btn btn-secondary back-button" onClick={() => navigate('/books')}>← Kembali</button><EpubReader bookData={bookData} /></div>
 }
 
 export default ReaderPage
