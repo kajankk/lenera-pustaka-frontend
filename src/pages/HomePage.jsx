@@ -36,7 +36,8 @@ const HomePage = () => {
         <p className="about-text">Bukan Kuil Budaya, lantaran memang tak sebanding dengan perpustakaan Alexandria yang kesohor itu. Tapi di sini, siapa pun juga dapat menemukan buku-buku keren—gratis!</p>
         <p>Dorongan kekecewaan yang amat sangat di kalangan mahasiswa yang bangkrut, para pelajar melarat, dan orang-orang kalah—akibatnya—<em>Lentera Pustaka</em> didirikan sebagai tempat umum dengan semen selundupan.
         Kami berbagi file, mengedarkan pamflet-pamflet buatan sendiri yang kami kumpulkan dari berbagai sumber yang tersebar di <em>segara</em> internet. Kami menyuntingnya, sambil menyanyikan lagu-lagu rohani dan himne <em>Indonesia Raya</em>.</p>
-        <p>Paling banter, kami cuma pelaku vandalisme yang menggorok leher sendiri—meneror dengan hukuman yang patut dicontoh.</p>
+        <p>Pelaku vandalisme yang menggorok leher sendiri—meneror dengan hukuman yang patut dicontoh.</p>
+        <p>Selamat menikmati!</p>
       </div>
     </div>
   )
