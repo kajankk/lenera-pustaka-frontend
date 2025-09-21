@@ -26,6 +26,7 @@ export const API_ENDPOINTS = {
 
   // ============ BOOK CRUD ENDPOINTS ============
   BOOKS: '/api/books',
+  CREATE_BOOK: '/api/books',
   BOOK_DETAIL: (slug) => `/api/books/${slug}`,
   BOOK_UPDATE: '/api/books', // PUT with id param
   BOOK_DELETE: (id) => `/api/books/${id}`,
@@ -56,9 +57,6 @@ export const API_ENDPOINTS = {
   // ============ REACTIONS ENDPOINTS ============
   GET_REACTIONS: (slug) => `/api/books/${slug}/reactions`,
   ADD_REACTION: (slug) => `/api/books/${slug}/reactions`,
-  GET_REACTION_REPLIES: (slug, reactionId) => `/api/books/${slug}/reactions/${reactionId}/replies`,
-  GET_REACTION_STATS: (slug) => `/api/books/${slug}/reactions/stats`,
-  UPDATE_REACTION: (slug, reactionId) => `/api/books/${slug}/reactions/${reactionId}`,
   DELETE_REACTION: (slug, reactionId) => `/api/books/${slug}/reactions/${reactionId}`,
 
   // ============ UTILITY ENDPOINTS ============
