@@ -1324,6 +1324,305 @@ body {
   flex-wrap: wrap;
 }
 
+/* DARK MODE IMPROVEMENTS FOR BOOKDETAIL */
+
+/* Better contrast for notification in dark mode */
+.dark .notification-success {
+  background: rgba(34, 83, 48, 0.2);
+  border: 1px solid var(--primary-pink);
+  color: #86efac;
+}
+
+.dark .notification-error {
+  background: rgba(153, 27, 27, 0.2);
+  border: 1px solid #f87171;
+  color: #fca5a5;
+}
+
+.dark .notification-warning {
+  background: rgba(146, 64, 14, 0.2);
+  border: 1px solid #fbbf24;
+  color: #fde68a;
+}
+
+.dark .notification-info {
+  background: rgba(30, 64, 175, 0.2);
+  border: 1px solid var(--primary-pink);
+  color: #93c5fd;
+}
+
+/* Improve breadcrumb visibility in dark mode */
+.dark .breadcrumb {
+  border-bottom-color: rgba(222, 150, 190, 0.3);
+  background: rgba(222, 150, 190, 0.02);
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 2rem;
+}
+
+.dark .breadcrumb-separator {
+  color: var(--primary-pink);
+  opacity: 0.7;
+}
+
+.dark .breadcrumb-current {
+  color: var(--primary-pink);
+  opacity: 1;
+}
+
+/* Enhanced book cover wrapper for dark mode */
+.dark .book-cover-wrapper {
+  box-shadow: 0 10px 25px rgba(222, 150, 190, 0.15);
+  border: 1px solid rgba(222, 150, 190, 0.1);
+}
+
+.dark .book-cover-wrapper:hover {
+  box-shadow: 0 15px 35px rgba(222, 150, 190, 0.25);
+  border-color: rgba(222, 150, 190, 0.3);
+}
+
+/* Better book actions styling in dark mode */
+.dark .book-actions {
+  background: rgba(222, 150, 190, 0.05);
+  border-radius: 12px;
+  padding: 1rem;
+  border: 1px solid rgba(222, 150, 190, 0.1);
+}
+
+/* Improve quick stats in dark mode */
+.dark .book-quick-stats {
+  border-color: var(--primary-pink);
+  background: linear-gradient(135deg, rgba(222, 150, 190, 0.08) 0%, rgba(222, 150, 190, 0.03) 100%);
+  box-shadow: 0 4px 12px rgba(222, 150, 190, 0.1);
+}
+
+.dark .stat-item {
+  background: rgba(222, 150, 190, 0.03);
+  border: 1px solid rgba(222, 150, 190, 0.1);
+  border-radius: 8px;
+}
+
+.dark .stat-item:hover {
+  background: rgba(222, 150, 190, 0.08);
+  border-color: rgba(222, 150, 190, 0.2);
+}
+
+/* Enhanced book header in dark mode */
+.dark .book-header {
+  border-bottom-color: rgba(222, 150, 190, 0.3);
+  background: linear-gradient(135deg, rgba(222, 150, 190, 0.03) 0%, transparent 100%);
+  padding: 2rem;
+  border-radius: 12px;
+  margin-bottom: 2rem;
+}
+
+/* Improve meta items visibility */
+.dark .meta-item {
+  color: #e5e7eb;
+  padding: 0.5rem;
+  background: rgba(222, 150, 190, 0.05);
+  border-radius: 6px;
+  border: 1px solid rgba(222, 150, 190, 0.1);
+}
+
+.dark .meta-item span:first-child {
+  filter: brightness(1.2);
+}
+
+/* Better tab styling for dark mode */
+.dark .book-tabs {
+  background: rgba(222, 150, 190, 0.05);
+  border-radius: 12px;
+  padding: 1rem;
+  border: 1px solid rgba(222, 150, 190, 0.1);
+}
+
+.dark .tab-button {
+  color: #e5e7eb;
+  background: rgba(222, 150, 190, 0.1);
+  border: 1px solid rgba(222, 150, 190, 0.2);
+  border-radius: 8px;
+}
+
+.dark .tab-button:hover:not(.active) {
+  background: rgba(222, 150, 190, 0.15);
+  border-color: rgba(222, 150, 190, 0.3);
+  transform: translateY(-2px);
+}
+
+.dark .tab-button.active {
+  background: linear-gradient(135deg, var(--primary-pink) 0%, #c87ba8 100%);
+  border-color: var(--primary-pink);
+  box-shadow: 0 4px 15px rgba(222, 150, 190, 0.4);
+}
+
+/* Improve info cards in dark mode */
+.dark .info-card {
+  background: linear-gradient(135deg, rgba(222, 150, 190, 0.08) 0%, rgba(0, 0, 0, 0.3) 100%);
+  border: 1px solid rgba(222, 150, 190, 0.2);
+  box-shadow: 0 4px 12px rgba(222, 150, 190, 0.1);
+}
+
+.dark .info-card:hover {
+  background: linear-gradient(135deg, rgba(222, 150, 190, 0.12) 0%, rgba(0, 0, 0, 0.4) 100%);
+  border-color: var(--primary-pink);
+  box-shadow: 0 8px 25px rgba(222, 150, 190, 0.2);
+}
+
+/* Enhanced metadata sections */
+.dark .metadata-section {
+  background: linear-gradient(135deg, rgba(222, 150, 190, 0.05) 0%, rgba(0, 0, 0, 0.8) 100%);
+  border-color: rgba(222, 150, 190, 0.2);
+  box-shadow: 0 2px 8px rgba(222, 150, 190, 0.1);
+}
+
+.dark .metadata-section:hover {
+  background: linear-gradient(135deg, rgba(222, 150, 190, 0.08) 0%, rgba(0, 0, 0, 0.9) 100%);
+  border-color: var(--primary-pink);
+  box-shadow: 0 8px 25px rgba(222, 150, 190, 0.15);
+}
+
+/* Better discussion items in dark mode */
+.dark .discussion-item {
+  background: linear-gradient(135deg, rgba(222, 150, 190, 0.05) 0%, rgba(0, 0, 0, 0.8) 100%);
+  border-color: rgba(222, 150, 190, 0.2);
+  box-shadow: 0 4px 12px rgba(222, 150, 190, 0.1);
+}
+
+.dark .discussion-item:hover {
+  border-color: var(--primary-pink);
+  box-shadow: 0 8px 20px rgba(222, 150, 190, 0.15);
+}
+
+.dark .user-details h5 {
+  color: var(--primary-pink);
+}
+
+.dark .discussion-title {
+  color: #f9fafb;
+}
+
+.dark .discussion-text {
+  color: #d1d5db;
+}
+
+/* Improve reply items */
+.dark .reply-item {
+  background: rgba(222, 150, 190, 0.08);
+  border: 1px solid rgba(222, 150, 190, 0.1);
+  border-radius: 8px;
+}
+
+.dark .replies-section {
+  border-top-color: rgba(222, 150, 190, 0.2);
+  background: rgba(222, 150, 190, 0.02);
+  padding: 1rem;
+  border-radius: 8px;
+  margin-top: 1rem;
+}
+
+/* Enhanced modal styling for dark mode */
+.dark .modal-content {
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.95) 0%, rgba(222, 150, 190, 0.05) 100%);
+  border: 2px solid rgba(222, 150, 190, 0.3);
+  box-shadow: 0 20px 50px rgba(222, 150, 190, 0.2);
+}
+
+.dark .modal-overlay {
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(5px);
+}
+
+/* Better genre tags in dark mode */
+.dark .genre-tag, .dark .tag-item {
+  background: rgba(222, 150, 190, 0.15);
+  border-color: var(--primary-pink);
+  color: var(--primary-pink);
+  box-shadow: 0 2px 4px rgba(222, 150, 190, 0.1);
+}
+
+.dark .genre-tag:hover, .dark .tag-item:hover {
+  background: rgba(222, 150, 190, 0.25);
+  box-shadow: 0 4px 8px rgba(222, 150, 190, 0.2);
+  transform: translateY(-1px);
+}
+
+/* Improve reading progress display */
+.dark .reading-progress-display {
+  background: linear-gradient(135deg, rgba(222, 150, 190, 0.1) 0%, rgba(0, 0, 0, 0.3) 100%);
+  border-left-color: var(--primary-pink);
+  border: 1px solid rgba(222, 150, 190, 0.2);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(222, 150, 190, 0.1);
+}
+
+/* Better action buttons in dark mode */
+.dark .action-btn {
+  border-color: rgba(222, 150, 190, 0.3);
+  background: rgba(222, 150, 190, 0.05);
+  color: #e5e7eb;
+}
+
+.dark .action-btn:hover {
+  background: rgba(222, 150, 190, 0.15);
+  border-color: var(--primary-pink);
+  color: var(--primary-pink);
+}
+
+/* Improve form controls in dark mode */
+.dark .form-control {
+  background: rgba(222, 150, 190, 0.05);
+  border-color: rgba(222, 150, 190, 0.3);
+  color: #f9fafb;
+}
+
+.dark .form-control::placeholder {
+  color: #9ca3af;
+}
+
+/* Better rating stars in dark mode */
+.dark .star {
+  color: #4b5563;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.dark .star.active, .dark .star:hover {
+  color: #fbbf24;
+  text-shadow: 0 0 8px rgba(251, 191, 36, 0.3);
+}
+
+/* Add some visual flair for dark mode */
+.dark .book-detail-container::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at 20% 80%, rgba(222, 150, 190, 0.03) 0%, transparent 50%),
+              radial-gradient(circle at 80% 20%, rgba(222, 150, 190, 0.03) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Improve loading and error states */
+.dark .loading {
+  color: var(--primary-pink);
+  text-shadow: 0 1px 3px rgba(222, 150, 190, 0.3);
+}
+
+.dark .error {
+  background: rgba(239, 68, 68, 0.1);
+  border-left-color: #f87171;
+  color: #fecaca;
+}
+
+.dark .success {
+  background: rgba(34, 83, 48, 0.1);
+  border-left-color: var(--primary-pink);
+  color: #86efac;
+}
+
 /* ANIMATIONS */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(20px); }
@@ -1333,6 +1632,24 @@ body {
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* Add subtle animations for better UX */
+@media (prefers-reduced-motion: no-preference) {
+  .dark .info-card,
+  .dark .metadata-section,
+  .dark .discussion-item {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .dark .tab-button {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .dark .genre-tag,
+  .dark .tag-item {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
 }
 
 /* RESPONSIVE DESIGN */
