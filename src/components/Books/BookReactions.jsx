@@ -52,15 +52,6 @@ const BookReactions = ({ bookSlug, userReaction, onReaction, reactionStats }) =>
         <button className={`btn btn-secondary btn-small ${userReaction?.comment ? 'active' : ''}`} onClick={() => setShowCommentModal(true)}>💬 Tulis Komentar{userReaction?.comment && ' ✓'}</button>
       </div>
 
-      {reactionStats && (
-        <div className="reaction-stats">
-          <div className="stats-summary">
-            <span>Total reaksi: {reactionStats.total || 0}</span>
-            {reactionStats.averageRating && <span> • Rating rata-rata: {reactionStats.averageRating.toFixed(1)}/5</span>}
-          </div>
-        </div>
-      )}
-
       <Modal show={showRatingModal} onClose={() => setShowRatingModal(false)} title="Beri Rating">
         <div className="modal-body">
           <div className="form-group">
