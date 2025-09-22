@@ -18,7 +18,8 @@ const BookDetail = ({ book }) => {
     replyToReaction: null,
     userReaction: null,
     newReaction: { type: 'LIKE', rating: 5, comment: '', title: '' },
-    newReply: { comment: '' }
+    newReply: { comment: '' },
+    expandedReplies: new Set() // Track which comment threads are expanded
   })
 
   const [notification, setNotification] = useState(null)
@@ -82,19 +83,40 @@ const BookDetail = ({ book }) => {
     return { total: 0, likes: 0, loves: 0, dislikes: 0, angry: 0, sad: 0, comments: 0, ratings: 0, averageRating: 0 }
   }, [book.reactionStatsResponses])
 
-  // Get discussions with replies organized
+  // Enhanced function to build nested comment tree
+  const buildCommentTree = useCallback((reactions) => {
+    if (!reactions) return []
+
+    const comments = reactions.filter(r => r.comment && r.comment.trim() !== '')
+    const commentMap = new Map()
+    const rootComments = []
+
+    // First pass: create map of all comments
+    comments.forEach(comment => {
+      commentMap.set(comment.id, {
+        ...comment,
+        children: []
+      })
+    })
+
+    // Second pass: build tree structure
+    comments.forEach(comment => {
+      if (comment.parentId && commentMap.has(comment.parentId)) {
+        // This is a reply, add it to parent's children
+        commentMap.get(comment.parentId).children.push(commentMap.get(comment.id))
+      } else {
+        // This is a root comment
+        rootComments.push(commentMap.get(comment.id))
+      }
+    })
+
+    return rootComments
+  }, [])
+
+  // Get discussions with nested replies
   const getDiscussions = useCallback(() => {
-    if (!book.reactionResponses) return []
-
-    const reactions = book.reactionResponses.filter(r => r.comment && r.comment.trim() !== '')
-    const parentComments = reactions.filter(r => !r.parentId)
-    const replies = reactions.filter(r => r.parentId)
-
-    return parentComments.map(parent => ({
-      ...parent,
-      replies: replies.filter(reply => reply.parentId === parent.id)
-    }))
-  }, [book.reactionResponses])
+    return buildCommentTree(book.reactionResponses)
+  }, [book.reactionResponses, buildCommentTree])
 
   // Event handlers
   const handleStartReading = useCallback(() => navigate(`/${book.slug}/read`), [navigate, book.slug])
@@ -170,6 +192,94 @@ const BookDetail = ({ book }) => {
       showNotification(error.message || 'Gagal menambahkan balasan', 'error')
     }
   }, [isAuthenticated, book.slug, state.replyToReaction, state.newReply, showNotification])
+
+  // Function to handle reply to any comment (including nested replies)
+  const handleReplyToComment = useCallback((comment) => {
+    setState(prev => ({
+      ...prev,
+      showReplyModal: true,
+      replyToReaction: comment
+    }))
+  }, [])
+
+  // Function to toggle expanded replies
+  const toggleReplies = useCallback((commentId) => {
+    setState(prev => {
+      const newExpanded = new Set(prev.expandedReplies)
+      if (newExpanded.has(commentId)) {
+        newExpanded.delete(commentId)
+      } else {
+        newExpanded.add(commentId)
+      }
+      return { ...prev, expandedReplies: newExpanded }
+    })
+  }, [])
+
+  // Recursive component to render comment tree
+  const CommentItem = ({ comment, depth = 0 }) => (
+    <div className="discussion-item" style={{ marginLeft: `${depth * 1.5}rem` }}>
+      <div className="discussion-header">
+        <div className="user-info">
+          <div className="user-avatar">
+            {comment.userName?.charAt(0).toUpperCase() || '👤'}
+          </div>
+          <div className="user-details">
+            <h5>{comment.userName || 'Pengguna'}</h5>
+            <p>{formatDate(comment.createdAt)}</p>
+          </div>
+        </div>
+        <div className="reaction-info">
+          <span className="reaction-badge" style={{
+            backgroundColor: comment.reactionType === 'LIKE' ? '#dcfce7' :
+                            comment.reactionType === 'LOVE' ? '#fce7f3' :
+                            comment.reactionType === 'DISLIKE' ? '#fef2f2' : '#f3f4f6',
+            color: comment.reactionType === 'LIKE' ? '#166534' :
+                   comment.reactionType === 'LOVE' ? '#be185d' :
+                   comment.reactionType === 'DISLIKE' ? '#991b1b' : '#374151'
+          }}>
+            {reactionEmojis[comment.reactionType] || '💬'} {comment.reactionType}
+          </span>
+          {comment.rating && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+              <span>⭐</span>
+              <span style={{ fontWeight: '600' }}>{comment.rating}/5</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="discussion-content">
+        {comment.title && (
+          <div className="discussion-title">{comment.title}</div>
+        )}
+        <div className="discussion-text">{comment.comment}</div>
+      </div>
+
+      <div className="discussion-actions">
+        {isAuthenticated && (
+          <button
+            className="action-btn"
+            onClick={() => handleReplyToComment(comment)}
+          >
+            💬 Balas
+          </button>
+        )}
+        {comment.children?.length > 0 && (
+          <button
+            className="action-btn"
+            onClick={() => toggleReplies(comment.id)}
+          >
+            {state.expandedReplies.has(comment.id) ? '▼' : '▶'} {comment.children.length} balasan
+          </button>
+        )}
+      </div>
+
+      {/* Render nested replies */}
+      {state.expandedReplies.has(comment.id) && comment.children?.map(child => (
+        <CommentItem key={child.id} comment={child} depth={depth + 1} />
+      ))}
+    </div>
+  )
 
   const reactionStats = getReactionStats()
   const discussions = getDiscussions()
@@ -293,18 +403,46 @@ const BookDetail = ({ book }) => {
                 )}
               </div>
 
-              <div className="book-quick-stats">
+              {/* Fixed horizontal layout for quick stats */}
+              <div className="book-quick-stats" style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, 1fr)',
+                gap: '0.75rem',
+                '@media (min-width: 768px)': {
+                  gridTemplateColumns: 'repeat(4, 1fr)'
+                }
+              }}>
                 {[
                   { label: 'Dilihat', value: book.viewCount || 0, icon: '👁️' },
                   { label: 'Diunduh', value: book.downloadCount || 0, icon: '📥' },
                   { label: 'Rating', value: reactionStats.averageRating ? `${reactionStats.averageRating.toFixed(1)}/5` : 'Belum ada', icon: '⭐' },
                   { label: 'Reaksi', value: reactionStats.total, icon: '💬' }
                 ].map(stat => (
-                  <div key={stat.label} className="stat-item">
-                    <div className="stat-icon">{stat.icon}</div>
-                    <div className="stat-details">
-                      <div className="stat-label">{stat.label}</div>
-                      <div className="stat-value">
+                  <div key={stat.label} className="stat-item" style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.75rem',
+                    backgroundColor: theme === 'light' ? '#f9fafb' : '#1f2937',
+                    borderRadius: '8px',
+                    border: `1px solid ${theme === 'light' ? '#e5e7eb' : '#374151'}`
+                  }}>
+                    <div className="stat-icon" style={{ fontSize: '1.25rem' }}>{stat.icon}</div>
+                    <div className="stat-details" style={{ flex: 1, minWidth: 0 }}>
+                      <div className="stat-label" style={{
+                        fontSize: '0.75rem',
+                        color: theme === 'light' ? '#6b7280' : '#9ca3af',
+                        marginBottom: '0.125rem'
+                      }}>{stat.label}</div>
+                      <div className="stat-value" style={{
+                        fontSize: '0.875rem',
+                        fontWeight: '600',
+                        color: theme === 'light' ? '#111827' : '#f9fafb',
+                        lineHeight: '1.2',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}>
                         {typeof stat.value === 'number' ? formatNumber(stat.value) : stat.value}
                       </div>
                     </div>
@@ -586,86 +724,11 @@ const BookDetail = ({ book }) => {
                         <p>Jadilah yang pertama memberikan komentar!</p>
                       </div>
                     ) : (
-                      discussions.map(discussion => (
-                        <div key={discussion.id} className="discussion-item">
-                          <div className="discussion-header">
-                            <div className="user-info">
-                              <div className="user-avatar">
-                                {discussion.userName?.charAt(0).toUpperCase() || '👤'}
-                              </div>
-                              <div className="user-details">
-                                <h5>{discussion.userName || 'Pengguna'}</h5>
-                                <p>{formatDate(discussion.createdAt)}</p>
-                              </div>
-                            </div>
-                            <div className="reaction-info">
-                              <span className="reaction-badge" style={{
-                                backgroundColor: discussion.reactionType === 'LIKE' ? '#dcfce7' :
-                                                discussion.reactionType === 'LOVE' ? '#fce7f3' :
-                                                discussion.reactionType === 'DISLIKE' ? '#fef2f2' : '#f3f4f6',
-                                color: discussion.reactionType === 'LIKE' ? '#166534' :
-                                       discussion.reactionType === 'LOVE' ? '#be185d' :
-                                       discussion.reactionType === 'DISLIKE' ? '#991b1b' : '#374151'
-                              }}>
-                                {reactionEmojis[discussion.reactionType] || '💬'} {discussion.reactionType}
-                              </span>
-                              {discussion.rating && (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                                  <span>⭐</span>
-                                  <span style={{ fontWeight: '600' }}>{discussion.rating}/5</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="discussion-content">
-                            {discussion.title && (
-                              <div className="discussion-title">{discussion.title}</div>
-                            )}
-                            <div className="discussion-text">{discussion.comment}</div>
-                          </div>
-
-                          <div className="discussion-actions">
-                            {isAuthenticated && (
-                              <button
-                                className="action-btn"
-                                onClick={() => setState(prev => ({
-                                  ...prev,
-                                  showReplyModal: true,
-                                  replyToReaction: discussion
-                                }))}
-                              >
-                                💬 Balas
-                              </button>
-                            )}
-                            {discussion.replyCount > 0 && (
-                              <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>
-                                {discussion.replyCount} balasan
-                              </span>
-                            )}
-                          </div>
-
-                          {discussion.replies?.length > 0 && (
-                            <div className="replies-section">
-                              <h6 style={{ marginBottom: '0.75rem', color: '#6b7280' }}>Balasan:</h6>
-                              {discussion.replies.map(reply => (
-                                <div key={reply.id} className="reply-item">
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
-                                    <div className="user-avatar" style={{ width: '30px', height: '30px', fontSize: '0.75rem' }}>
-                                      {reply.userName?.charAt(0).toUpperCase() || '👤'}
-                                    </div>
-                                    <div>
-                                      <div style={{ fontWeight: '600', fontSize: '0.875rem' }}>{reply.userName || 'Pengguna'}</div>
-                                      <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>{formatDate(reply.createdAt)}</div>
-                                    </div>
-                                  </div>
-                                  <div style={{ marginLeft: '2.25rem', color: '#4b5563' }}>{reply.comment}</div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ))
+                      <div className="discussions-list">
+                        {discussions.map(discussion => (
+                          <CommentItem key={discussion.id} comment={discussion} depth={0} />
+                        ))}
+                      </div>
                     )}
                   </div>
                 </div>
