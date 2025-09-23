@@ -408,7 +408,7 @@ const BookDetail = ({ book }) => {
                 display: 'grid',
                 gridTemplateColumns: 'repeat(2, 1fr)',
                 gap: '0.75rem',
-                '@media (min-width: 768px)': {
+                '@media (minWidth: 768px)': {
                   gridTemplateColumns: 'repeat(4, 1fr)'
                 }
               }}>
@@ -491,21 +491,39 @@ const BookDetail = ({ book }) => {
                 )}
               </div>
 
-              {book.genres?.length > 0 && (
+              {book.genres && (
                 <div className="book-genres">
-                  {book.genres.map(genre => (
-                    <span
-                      key={genre.id}
-                      className="genre-tag"
-                      style={{
-                        backgroundColor: (genre.colorHex || (theme === 'light' ? '#225330' : '#de96be')) + '20',
-                        color: genre.colorHex || (theme === 'light' ? '#225330' : '#de96be'),
-                        borderColor: genre.colorHex || (theme === 'light' ? '#225330' : '#de96be')
-                      }}
-                    >
-                      {genre.name}
-                    </span>
-                  ))}
+                  {Array.isArray(book.genres) ? (
+                    // Jika genres adalah array of objects
+                    book.genres.map(genre => (
+                      <span
+                        key={genre.id || genre}
+                        className="genre-tag"
+                        style={{
+                          backgroundColor: (genre.colorHex || (theme === 'light' ? '#225330' : '#de96be')) + '20',
+                          color: genre.colorHex || (theme === 'light' ? '#225330' : '#de96be'),
+                          borderColor: genre.colorHex || (theme === 'light' ? '#225330' : '#de96be')
+                        }}
+                      >
+                        {genre.name || genre}
+                      </span>
+                    ))
+                  ) : (
+                    // Jika genres adalah string (dari backend)
+                    book.genres.split(', ').map((genre, index) => (
+                      <span
+                        key={index}
+                        className="genre-tag"
+                        style={{
+                          backgroundColor: (theme === 'light' ? '#225330' : '#de96be') + '20',
+                          color: theme === 'light' ? '#225330' : '#de96be',
+                          borderColor: theme === 'light' ? '#225330' : '#de96be'
+                        }}
+                      >
+                        {genre.trim()}
+                      </span>
+                    ))
+                  )}
                 </div>
               )}
 
@@ -630,16 +648,25 @@ const BookDetail = ({ book }) => {
                       </div>
                     </div>
 
-                    {book.contributors?.length > 0 && (
+                    {book.contributors && (
                       <div className="metadata-section">
                         <h4>🤝 Kontributor</h4>
                         <div className="metadata-items">
-                          {book.contributors.map((contributor, index) => (
-                            <div key={index} className="metadata-item">
-                              <span className="meta-label">{contributor.role}:</span>
-                              <span className="meta-value">{contributor.name}</span>
+                          {Array.isArray(book.contributors) ? (
+                            // Jika contributors adalah array of objects
+                            book.contributors.map((contributor, index) => (
+                              <div key={index} className="metadata-item">
+                                <span className="meta-label">{contributor.role}:</span>
+                                <span className="meta-value">{contributor.name}</span>
+                              </div>
+                            ))
+                          ) : (
+                            // Jika contributors adalah string (dari backend)
+                            <div className="metadata-item">
+                              <span className="meta-label">Kontributor:</span>
+                              <span className="meta-value">{book.contributors}</span>
                             </div>
-                          ))}
+                          )}
                         </div>
                       </div>
                     )}
@@ -678,23 +705,39 @@ const BookDetail = ({ book }) => {
                       </div>
                     </div>
 
-                    {book.genres?.length > 0 && (
+                    {book.genres && (
                       <div className="metadata-section tags-section">
                         <h4>🏷️ Genre & Tag</h4>
                         <div className="tags-container">
-                          {book.genres.map(genre => (
-                            <span
-                              key={genre.id}
-                              className="tag-item"
-                              style={{
-                                backgroundColor: (genre.colorHex || (theme === 'light' ? '#225330' : '#de96be')) + '20',
-                                color: genre.colorHex || (theme === 'light' ? '#225330' : '#de96be'),
-                                borderColor: genre.colorHex || (theme === 'light' ? '#225330' : '#de96be')
-                              }}
-                            >
-                              {genre.name} {genre.isFiction ? '(Fiksi)' : '(Non-Fiksi)'}
-                            </span>
-                          ))}
+                          {Array.isArray(book.genres) ? (
+                            book.genres.map(genre => (
+                              <span
+                                key={genre.id || genre}
+                                className="tag-item"
+                                style={{
+                                  backgroundColor: (genre.colorHex || (theme === 'light' ? '#225330' : '#de96be')) + '20',
+                                  color: genre.colorHex || (theme === 'light' ? '#225330' : '#de96be'),
+                                  borderColor: genre.colorHex || (theme === 'light' ? '#225330' : '#de96be')
+                                }}
+                              >
+                                {genre.name || genre} {genre.isFiction ? '(Fiksi)' : '(Non-Fiksi)'}
+                              </span>
+                            ))
+                          ) : (
+                            book.genres.split(', ').map((genre, index) => (
+                              <span
+                                key={index}
+                                className="tag-item"
+                                style={{
+                                  backgroundColor: (theme === 'light' ? '#225330' : '#de96be') + '20',
+                                  color: theme === 'light' ? '#225330' : '#de96be',
+                                  borderColor: theme === 'light' ? '#225330' : '#de96be'
+                                }}
+                              >
+                                {genre.trim()}
+                              </span>
+                            ))
+                          )}
                         </div>
                       </div>
                     )}
