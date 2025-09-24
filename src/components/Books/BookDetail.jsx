@@ -19,7 +19,9 @@ const BookDetail = ({ book }) => {
     userReaction: null,
     newReaction: { type: 'LIKE', rating: 5, comment: '', title: '' },
     newReply: { comment: '' },
-    expandedReplies: new Set() // Track which comment threads are expanded
+    expandedReplies: new Set(), // Track which comment threads are expanded
+    reactions: [], // Store reactions from backend
+    loading: false
   })
 
   const [notification, setNotification] = useState(null)
@@ -63,30 +65,73 @@ const BookDetail = ({ book }) => {
     setTimeout(() => setNotification(null), 4000)
   }, [])
 
-  // Get reaction stats from book data
-  const getReactionStats = useCallback(() => {
-    if (book.reactionStatsResponses && book.reactionStatsResponses.length > 0) {
-      const stats = book.reactionStatsResponses[0]
-      return {
-        total: (stats.totalLikes || 0) + (stats.totalLoves || 0) + (stats.totalDislikes || 0) +
-               (stats.totalAngry || 0) + (stats.totalSad || 0),
-        likes: stats.totalLikes || 0,
-        loves: stats.totalLoves || 0,
-        dislikes: stats.totalDislikes || 0,
-        angry: stats.totalAngry || 0,
-        sad: stats.totalSad || 0,
-        comments: stats.totalComments || 0,
-        ratings: stats.totalRatings || 0,
-        averageRating: stats.averageRating || 0
-      }
+  // Parse authors from backend string format
+  const getAuthors = useCallback(() => {
+    if (book.authorNames && book.authorSlugs) {
+      const names = book.authorNames.split(', ')
+      const slugs = book.authorSlugs.split(', ')
+      return names.map((name, index) => ({
+        id: index + 1,
+        name: name.trim(),
+        slug: slugs[index]?.trim() || name.toLowerCase().replace(/\s+/g, '-')
+      }))
     }
-    return { total: 0, likes: 0, loves: 0, dislikes: 0, angry: 0, sad: 0, comments: 0, ratings: 0, averageRating: 0 }
-  }, [book.reactionStatsResponses])
+    return []
+  }, [book.authorNames, book.authorSlugs])
+
+  // Parse genres from backend string format
+  const getGenres = useCallback(() => {
+    if (book.genres) {
+      return book.genres.split(', ').map((genre, index) => ({
+        id: index + 1,
+        name: genre.trim()
+      }))
+    }
+    return []
+  }, [book.genres])
+
+  // Get reaction stats from book data (adapted for new backend structure)
+  const getReactionStats = useCallback(() => {
+    return {
+      total: (book.totalLikes || 0) + (book.totalLoves || 0) + (book.totalDislikes || 0) +
+             (book.totalAngry || 0) + (book.totalSad || 0),
+      likes: book.totalLikes || 0,
+      loves: book.totalLoves || 0,
+      dislikes: book.totalDislikes || 0,
+      angry: book.totalAngry || 0,
+      sad: book.totalSad || 0,
+      comments: book.totalComments || 0,
+      ratings: book.totalRatings || 0,
+      averageRating: book.averageRating || 0
+    }
+  }, [book])
+
+  // Load reactions from backend
+  const loadReactions = useCallback(async () => {
+    if (!book.slug) return
+
+    try {
+      setState(prev => ({ ...prev, loading: true }))
+      const response = await bookService.getReactions(book.slug)
+
+      if (response.result === 'Success' && response.data) {
+        setState(prev => ({
+          ...prev,
+          reactions: response.data,
+          loading: false
+        }))
+      }
+    } catch (error) {
+      console.error('Error loading reactions:', error)
+      setState(prev => ({ ...prev, loading: false }))
+    }
+  }, [book.slug])
 
   // Enhanced function to build nested comment tree
   const buildCommentTree = useCallback((reactions) => {
-    if (!reactions) return []
+    if (!reactions || !Array.isArray(reactions)) return []
 
+    // Filter only comments (reactions with comment text)
     const comments = reactions.filter(r => r.comment && r.comment.trim() !== '')
     const commentMap = new Map()
     const rootComments = []
@@ -104,19 +149,32 @@ const BookDetail = ({ book }) => {
       if (comment.parentId && commentMap.has(comment.parentId)) {
         // This is a reply, add it to parent's children
         commentMap.get(comment.parentId).children.push(commentMap.get(comment.id))
-      } else {
-        // This is a root comment
+      } else if (!comment.parentId) {
+        // This is a root comment (parentId is null)
         rootComments.push(commentMap.get(comment.id))
       }
     })
 
+    // Sort by creation date (newest first for root, oldest first for replies)
+    rootComments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+
+    // Sort children (replies) by creation date (oldest first)
+    const sortChildren = (comment) => {
+      if (comment.children && comment.children.length > 0) {
+        comment.children.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+        comment.children.forEach(sortChildren)
+      }
+    }
+
+    rootComments.forEach(sortChildren)
+
     return rootComments
   }, [])
 
-  // Get discussions with nested replies
+  // Get discussions with nested replies (using loaded reactions)
   const getDiscussions = useCallback(() => {
-    return buildCommentTree(book.reactionResponses)
-  }, [book.reactionResponses, buildCommentTree])
+    return buildCommentTree(state.reactions)
+  }, [state.reactions, buildCommentTree])
 
   // Event handlers
   const handleStartReading = useCallback(() => navigate(`/${book.slug}/read`), [navigate, book.slug])
@@ -166,11 +224,12 @@ const BookDetail = ({ book }) => {
         newReaction: { type: 'LIKE', rating: 5, comment: '', title: '' }
       }))
       showNotification('Reaksi berhasil ditambahkan!', 'success')
-      window.location.reload()
+      // Reload reactions instead of full page reload
+      await loadReactions()
     } catch (error) {
       showNotification(error.message || 'Gagal menambahkan reaksi', 'error')
     }
-  }, [isAuthenticated, book.slug, state.newReaction, showNotification])
+  }, [isAuthenticated, book.slug, state.newReaction, showNotification, loadReactions])
 
   const handleAddReply = useCallback(async () => {
     if (!isAuthenticated) {
@@ -187,11 +246,12 @@ const BookDetail = ({ book }) => {
         newReply: { comment: '' }
       }))
       showNotification('Balasan berhasil ditambahkan!', 'success')
-      window.location.reload()
+      // Reload reactions instead of full page reload
+      await loadReactions()
     } catch (error) {
       showNotification(error.message || 'Gagal menambahkan balasan', 'error')
     }
-  }, [isAuthenticated, book.slug, state.replyToReaction, state.newReply, showNotification])
+  }, [isAuthenticated, book.slug, state.replyToReaction, state.newReply, showNotification, loadReactions])
 
   // Function to handle reply to any comment (including nested replies)
   const handleReplyToComment = useCallback((comment) => {
@@ -232,10 +292,14 @@ const BookDetail = ({ book }) => {
           <span className="reaction-badge" style={{
             backgroundColor: comment.reactionType === 'LIKE' ? '#dcfce7' :
                             comment.reactionType === 'LOVE' ? '#fce7f3' :
-                            comment.reactionType === 'DISLIKE' ? '#fef2f2' : '#f3f4f6',
+                            comment.reactionType === 'DISLIKE' ? '#fef2f2' :
+                            comment.reactionType === 'ANGRY' ? '#fef2f2' :
+                            comment.reactionType === 'SAD' ? '#fef3c7' : '#f3f4f6',
             color: comment.reactionType === 'LIKE' ? '#166534' :
                    comment.reactionType === 'LOVE' ? '#be185d' :
-                   comment.reactionType === 'DISLIKE' ? '#991b1b' : '#374151'
+                   comment.reactionType === 'DISLIKE' ? '#991b1b' :
+                   comment.reactionType === 'ANGRY' ? '#991b1b' :
+                   comment.reactionType === 'SAD' ? '#92400e' : '#374151'
           }}>
             {reactionEmojis[comment.reactionType] || '💬'} {comment.reactionType}
           </span>
@@ -281,18 +345,25 @@ const BookDetail = ({ book }) => {
     </div>
   )
 
+  const authors = getAuthors()
+  const genres = getGenres()
   const reactionStats = getReactionStats()
   const discussions = getDiscussions()
 
-  // Get user's existing reaction
+  // Load reactions when component mounts or book changes
   useEffect(() => {
-    if (isAuthenticated && user && book.reactionResponses) {
-      const userReaction = book.reactionResponses.find(r =>
-        r.userId === user.id || (r.user && r.user.id === user.id)
+    loadReactions()
+  }, [loadReactions])
+
+  // Get user's existing reaction (find from loaded reactions)
+  useEffect(() => {
+    if (isAuthenticated && user && state.reactions.length > 0) {
+      const userReaction = state.reactions.find(reaction =>
+        reaction.userId === user.id
       )
-      setState(prev => ({ ...prev, userReaction }))
+      setState(prev => ({ ...prev, userReaction: userReaction || null }))
     }
-  }, [isAuthenticated, user, book.reactionResponses])
+  }, [isAuthenticated, user, state.reactions])
 
   useEffect(() => {
     document.title = `${book.title} - Lentera Pustaka`
@@ -316,7 +387,7 @@ const BookDetail = ({ book }) => {
 
   const tabs = [
     { id: 'description', label: 'Deskripsi', icon: '📄' },
-    { id: 'details', label: 'Detail Lengkap', icon: 'ℹ️' },
+    { id: 'details', label: 'Detail', icon: 'ℹ️' },
     { id: 'discussions', label: `Diskusi (${discussions.length})`, icon: '💬' },
     { id: 'analytics', label: 'Statistik', icon: '📊' }
   ]
@@ -398,7 +469,7 @@ const BookDetail = ({ book }) => {
                     className="btn btn-secondary btn-small"
                     onClick={() => setState(prev => ({ ...prev, showReactionModal: true }))}
                   >
-                    {state.userReaction ? '✏️ Edit Reaksi' : '💭 Beri Reaksi'}
+                    {state.userReaction ? '✏️ Edit Reaksi' : '😊 Beri Reaksi'}
                   </button>
                 )}
               </div>
@@ -416,7 +487,7 @@ const BookDetail = ({ book }) => {
                   { label: 'Dilihat', value: book.viewCount || 0, icon: '👁️' },
                   { label: 'Diunduh', value: book.downloadCount || 0, icon: '📥' },
                   { label: 'Rating', value: reactionStats.averageRating ? `${reactionStats.averageRating.toFixed(1)}/5` : 'Belum ada', icon: '⭐' },
-                  { label: 'Reaksi', value: reactionStats.total, icon: '💬' }
+                  { label: 'Reaksi', value: reactionStats.total, icon: '😊' }
                 ].map(stat => (
                   <div key={stat.label} className="stat-item" style={{
                     display: 'flex',
@@ -455,12 +526,12 @@ const BookDetail = ({ book }) => {
           <div className="book-info-section">
             <div className="book-header">
               <h1 className="book-title">{book.title}</h1>
-              {book.authors?.length > 0 && (
+              {authors?.length > 0 && (
                 <div className="book-authors">
-                  oleh {book.authors.map((author, index) => (
+                  oleh {authors.map((author, index) => (
                     <span key={author.id} className="author-name">
                       {author.name}
-                      {index < book.authors.length - 1 && ', '}
+                      {index < authors.length - 1 && ', '}
                     </span>
                   ))}
                 </div>
@@ -491,50 +562,37 @@ const BookDetail = ({ book }) => {
                 )}
               </div>
 
-              {book.genres && (
+              {genres?.length > 0 && (
                 <div className="book-genres">
-                  {Array.isArray(book.genres) ? (
-                    // Jika genres adalah array of objects
-                    book.genres.map(genre => (
-                      <span
-                        key={genre.id || genre}
-                        className="genre-tag"
-                        style={{
-                          backgroundColor: (genre.colorHex || (theme === 'light' ? '#225330' : '#de96be')) + '20',
-                          color: genre.colorHex || (theme === 'light' ? '#225330' : '#de96be'),
-                          borderColor: genre.colorHex || (theme === 'light' ? '#225330' : '#de96be')
-                        }}
-                      >
-                        {genre.name || genre}
-                      </span>
-                    ))
-                  ) : (
-                    // Jika genres adalah string (dari backend)
-                    book.genres.split(', ').map((genre, index) => (
-                      <span
-                        key={index}
-                        className="genre-tag"
-                        style={{
-                          backgroundColor: (theme === 'light' ? '#225330' : '#de96be') + '20',
-                          color: theme === 'light' ? '#225330' : '#de96be',
-                          borderColor: theme === 'light' ? '#225330' : '#de96be'
-                        }}
-                      >
-                        {genre.trim()}
-                      </span>
-                    ))
-                  )}
+                  {genres.map(genre => (
+                    <span
+                      key={genre.id}
+                      className="genre-tag"
+                      style={{
+                        backgroundColor: (theme === 'light' ? '#225330' : '#de96be') + '20',
+                        color: theme === 'light' ? '#225330' : '#de96be',
+                        borderColor: theme === 'light' ? '#225330' : '#de96be'
+                      }}
+                    >
+                      {genre.name}
+                    </span>
+                  ))}
                 </div>
               )}
 
               {/* Reaction Stats Display */}
               <div style={{ marginTop: '1rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                {Object.entries(reactionStats).filter(([key, value]) =>
-                  key !== 'total' && key !== 'averageRating' && key !== 'ratings' && value > 0
-                ).map(([key, value]) => (
-                  <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                    <span>{reactionEmojis[key.toUpperCase()] || '👍'}</span>
-                    <span style={{ fontSize: '0.875rem', fontWeight: '600' }}>{value}</span>
+                {[
+                  { key: 'likes', value: book.totalLikes, emoji: '👍', label: 'Suka' },
+                  { key: 'loves', value: book.totalLoves, emoji: '❤️', label: 'Cinta' },
+                  { key: 'dislikes', value: book.totalDislikes, emoji: '👎', label: 'Tidak Suka' },
+                  { key: 'angry', value: book.totalAngry, emoji: '😠', label: 'Marah' },
+                  { key: 'sad', value: book.totalSad, emoji: '😢', label: 'Sedih' },
+                  { key: 'comments', value: book.totalComments, emoji: '💬', label: 'Komentar' }
+                ].filter(stat => stat.value > 0).map(stat => (
+                  <div key={stat.key} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                    <span>{stat.emoji}</span>
+                    <span style={{ fontSize: '0.875rem', fontWeight: '600' }}>{stat.value}</span>
                   </div>
                 ))}
               </div>
@@ -619,57 +677,16 @@ const BookDetail = ({ book }) => {
                     <div className="metadata-section">
                       <h4>👤 Informasi Penulis</h4>
                       <div className="metadata-items">
-                        {book.authors?.map(author => (
+                        {authors?.map(author => (
                           <div key={author.id}>
                             <div className="metadata-item">
                               <span className="meta-label">Nama:</span>
                               <span className="meta-value">{author.name}</span>
                             </div>
-                            {author.birthDate && (
-                              <div className="metadata-item">
-                                <span className="meta-label">Tanggal Lahir:</span>
-                                <span className="meta-value">{new Date(author.birthDate).toLocaleDateString('id-ID')}</span>
-                              </div>
-                            )}
-                            {author.birthPlace && (
-                              <div className="metadata-item">
-                                <span className="meta-label">Tempat Lahir:</span>
-                                <span className="meta-value">{author.birthPlace}</span>
-                              </div>
-                            )}
-                            {author.nationality && (
-                              <div className="metadata-item">
-                                <span className="meta-label">Kebangsaan:</span>
-                                <span className="meta-value">{author.nationality}</span>
-                              </div>
-                            )}
                           </div>
                         ))}
                       </div>
                     </div>
-
-                    {book.contributors && (
-                      <div className="metadata-section">
-                        <h4>🤝 Kontributor</h4>
-                        <div className="metadata-items">
-                          {Array.isArray(book.contributors) ? (
-                            // Jika contributors adalah array of objects
-                            book.contributors.map((contributor, index) => (
-                              <div key={index} className="metadata-item">
-                                <span className="meta-label">{contributor.role}:</span>
-                                <span className="meta-value">{contributor.name}</span>
-                              </div>
-                            ))
-                          ) : (
-                            // Jika contributors adalah string (dari backend)
-                            <div className="metadata-item">
-                              <span className="meta-label">Kontributor:</span>
-                              <span className="meta-value">{book.contributors}</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
 
                     <div className="metadata-section">
                       <h4>📚 Detail Publikasi</h4>
@@ -696,48 +713,32 @@ const BookDetail = ({ book }) => {
                             <span className="meta-value">{book.copyrightStatus}</span>
                           </div>
                         )}
-                        {book.isbn && (
+                        {book.edition && (
                           <div className="metadata-item">
-                            <span className="meta-label">ISBN:</span>
-                            <span className="meta-value">{book.isbn}</span>
+                            <span className="meta-label">Edisi:</span>
+                            <span className="meta-value">{book.edition}</span>
                           </div>
                         )}
                       </div>
                     </div>
 
-                    {book.genres && (
+                    {genres?.length > 0 && (
                       <div className="metadata-section tags-section">
                         <h4>🏷️ Genre & Tag</h4>
                         <div className="tags-container">
-                          {Array.isArray(book.genres) ? (
-                            book.genres.map(genre => (
-                              <span
-                                key={genre.id || genre}
-                                className="tag-item"
-                                style={{
-                                  backgroundColor: (genre.colorHex || (theme === 'light' ? '#225330' : '#de96be')) + '20',
-                                  color: genre.colorHex || (theme === 'light' ? '#225330' : '#de96be'),
-                                  borderColor: genre.colorHex || (theme === 'light' ? '#225330' : '#de96be')
-                                }}
-                              >
-                                {genre.name || genre} {genre.isFiction ? '(Fiksi)' : '(Non-Fiksi)'}
-                              </span>
-                            ))
-                          ) : (
-                            book.genres.split(', ').map((genre, index) => (
-                              <span
-                                key={index}
-                                className="tag-item"
-                                style={{
-                                  backgroundColor: (theme === 'light' ? '#225330' : '#de96be') + '20',
-                                  color: theme === 'light' ? '#225330' : '#de96be',
-                                  borderColor: theme === 'light' ? '#225330' : '#de96be'
-                                }}
-                              >
-                                {genre.trim()}
-                              </span>
-                            ))
-                          )}
+                          {genres.map(genre => (
+                            <span
+                              key={genre.id}
+                              className="tag-item"
+                              style={{
+                                backgroundColor: (theme === 'light' ? '#225330' : '#de96be') + '20',
+                                color: theme === 'light' ? '#225330' : '#de96be',
+                                borderColor: theme === 'light' ? '#225330' : '#de96be'
+                              }}
+                            >
+                              {genre.name}
+                            </span>
+                          ))}
                         </div>
                       </div>
                     )}
@@ -760,7 +761,12 @@ const BookDetail = ({ book }) => {
                       )}
                     </div>
 
-                    {discussions.length === 0 ? (
+                    {state.loading ? (
+                      <div className="text-center" style={{ padding: '3rem', color: '#6b7280' }}>
+                        <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>⏳</div>
+                        <p>Memuat diskusi...</p>
+                      </div>
+                    ) : discussions.length === 0 ? (
                       <div className="text-center" style={{ padding: '3rem', color: '#6b7280' }}>
                         <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>💬</div>
                         <p>Belum ada diskusi untuk buku ini.</p>
