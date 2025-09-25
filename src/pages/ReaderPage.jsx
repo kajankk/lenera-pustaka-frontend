@@ -27,13 +27,99 @@ const ReaderPage = () => {
     loadBook()
   }, [slug])
 
-  const BackButton = () => <button className="btn btn-secondary" onClick={() => navigate('/books')}>← Kembali</button>
+  const handleBackToDetail = () => {
+    navigate(`/books/${slug}`)
+  }
 
-  if (loading) return <div className="loading">Memuat ebook...</div>
-  if (error) return <div className="reader-error"><div className="error">{error}</div><BackButton /></div>
-  if (!bookData) return <div className="reader-error"><div className="error">Ebook tidak ditemukan</div><BackButton /></div>
+  const BackButton = () => (
+    <button className="btn btn-secondary" onClick={handleBackToDetail}>
+      ← Kembali ke Detail Buku
+    </button>
+  )
 
-  return <div className="reader-page"><button className="btn btn-secondary back-button" onClick={() => navigate('/books')}>← Kembali</button><EpubReader bookData={bookData} /></div>
+  const Breadcrumb = () => (
+    <nav className="breadcrumb" aria-label="breadcrumb">
+      <button
+        className="nav-link breadcrumb-item"
+        onClick={() => navigate('/')}
+        type="button"
+        style={{ background: 'none', border: 'none' }}
+      >
+        Beranda
+      </button>
+      <span className="breadcrumb-separator">›</span>
+      <button
+        className="nav-link breadcrumb-item"
+        onClick={() => navigate('/books')}
+        type="button"
+        style={{ background: 'none', border: 'none' }}
+      >
+        Perpustakaan
+      </button>
+      <span className="breadcrumb-separator">›</span>
+      <button
+        className="nav-link breadcrumb-item"
+        onClick={handleBackToDetail}
+        type="button"
+        style={{ background: 'none', border: 'none' }}
+      >
+        {bookData?.title || 'Detail Buku'}
+      </button>
+      <span className="breadcrumb-separator">›</span>
+      <span className="breadcrumb-current">Baca Buku</span>
+    </nav>
+  )
+
+  if (loading) {
+    return (
+      <div className="container">
+        <div className="loading">
+          <div className="loading-spinner"></div>
+          <p>Memuat ebook...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="container">
+        <Breadcrumb />
+        <div className="reader-error">
+          <div className="error">{error}</div>
+          <BackButton />
+        </div>
+      </div>
+    )
+  }
+
+  if (!bookData) {
+    return (
+      <div className="container">
+        <Breadcrumb />
+        <div className="reader-error">
+          <div className="error">Ebook tidak ditemukan</div>
+          <BackButton />
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="container">
+      <Breadcrumb />
+      <div className="reader-page">
+        <button
+          className="btn btn-secondary back-button"
+          onClick={handleBackToDetail}
+          style={{ marginBottom: '1rem' }}
+        >
+          ← Kembali ke Detail Buku
+        </button>
+        <EpubReader bookData={bookData} />
+      </div>
+    </div>
+  )
 }
 
 export default ReaderPage
