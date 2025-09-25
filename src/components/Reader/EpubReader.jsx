@@ -76,47 +76,29 @@ const EpubReader = ({ bookData }) => {
 
     const rend = epubBook.renderTo(bookRef.current, {
       width: '100%',
-      height: '700px', // Match CSS min-height
-      allowScriptedContent: true,
-      flow: 'paginated',
-      spread: 'none'
+      height: '600px',
+      allowScriptedContent: true
     })
 
     // Base styles
     rend.themes.default({
-      body: {
-        'font-family': 'inherit !important',
-        'line-height': '1.6 !important',
-        'padding': '2rem !important',
-        'margin': '0 !important'
-      },
-      p: {
-        'margin': '0 0 1rem 0 !important',
-        'text-align': 'justify !important'
-      },
-      a: {
-        'text-decoration': 'underline !important',
-        'color': 'inherit !important'
-      }
+      body: { 'font-family': 'inherit !important', 'line-height': '1.6 !important', 'padding': '2rem !important' },
+      p: { 'margin': '0 !important', 'text-align': 'justify !important' },
+      a: { 'text-decoration': 'underline !important', 'color': 'inherit !important' }
     })
 
     rend.themes.fontSize(`${state.fontSize}px`)
 
     // Display book
-    epubBook.ready.then(() => {
-      return rend.display(bookData.currentPosition || 0)
-    }).catch(() => {
-      setState(prev => ({ ...prev, isLoading: false }))
-    })
+    epubBook.ready.then(() => rend.display(bookData.currentPosition || 0))
+      .catch(() => setState(prev => ({ ...prev, isLoading: false })))
 
     // Load TOC
     epubBook.loaded.navigation.then(nav => {
       if (nav.toc && Array.isArray(nav.toc)) {
         setState(prev => ({ ...prev, toc: flattenToc(nav.toc) }))
       }
-    }).catch(() => {
-      setState(prev => ({ ...prev, toc: [] }))
-    })
+    }).catch(() => setState(prev => ({ ...prev, toc: [] })))
 
     // Handle events
     rend.on('relocated', (location) => {
@@ -134,23 +116,18 @@ const EpubReader = ({ bookData }) => {
 
     rend.on('rendered', () => {
       setState(prev => ({ ...prev, isLoading: false }))
-      // Disable text selection features for now
-      // try {
-      //   rend.on('selected', handleTextSelection)
-      // } catch (error) {
-      //   // Text selection not supported
-      // }
+      try {
+        rend.on('selected', handleTextSelection)
+      } catch (error) {
+        // Text selection not supported
+      }
     })
 
     setState(prev => ({ ...prev, book: epubBook, rendition: rend }))
 
     return () => {
-      try {
-        rend.destroy()
-        epubBook.destroy()
-      } catch (error) {
-        // Ignore cleanup errors
-      }
+      rend.destroy()
+      epubBook.destroy()
     }
   }, [bookData?.fileUrl])
 
@@ -174,8 +151,7 @@ const EpubReader = ({ bookData }) => {
     state.rendition.themes.override('color', colors.color)
     state.rendition.themes.override('background', colors.bg)
     state.rendition.themes.override('a', `color: ${colors.link} !important; text-decoration: underline !important;`)
-    state.rendition.themes.override('p', 'margin: 0 0 1rem 0 !important; text-align: justify !important;')
-    state.rendition.themes.override('body', 'padding: 2rem !important; margin: 0 !important;')
+    state.rendition.themes.override('body', 'padding: 2rem !important;')
   }, [theme, state.rendition, state.readingMode])
 
   // Close dropdown on outside click
@@ -245,49 +221,51 @@ const EpubReader = ({ bookData }) => {
     setState(prev => ({ ...prev, readingMode: prev.readingMode === 'cream' ? 'default' : 'cream' }))
   }
 
-  const handleAction = (action) => {
+  const handleHighlight = async (color = '#ffff00') => {
+    alert('Fitur akan segera tersedia!')
+  }
+
+  const handleAction = (action, data) => {
     const actions = {
       bookmark: () => {
         alert('Fitur akan segera tersedia!')
-        setState(prev => ({ ...prev, activePanel: null }))
+        setState(prev => ({ ...prev, showFloatingToolbar: false }))
       },
-      highlights: () => {
+      note: (content) => {
         alert('Fitur akan segera tersedia!')
-        setState(prev => ({ ...prev, activePanel: null }))
+        setState(prev => ({ ...prev, showFloatingToolbar: false, activePanel: null }))
       },
-      notes: () => {
+      translate: () => {
         alert('Fitur akan segera tersedia!')
-        setState(prev => ({ ...prev, activePanel: null }))
-      },
-      search: () => {
-        alert('Fitur akan segera tersedia!')
-        setState(prev => ({ ...prev, activePanel: null }))
+        setState(prev => ({ ...prev, activePanel: 'translation' }))
       },
       panel: (panel) => {
         setState(prev => ({ ...prev, activePanel: prev.activePanel === panel ? null : panel }))
       }
     }
-    actions[action]?.()
+    actions[action]?.(data)
   }
 
   const controls = [
-    { id: 'bookmarks', icon: '🔖', title: 'Bookmark', action: 'bookmark' },
-    { id: 'highlights', icon: '🖍️', title: 'Highlight', action: 'highlights' },
-    { id: 'notes', icon: '📝', title: 'Catatan', action: 'notes' },
-    { id: 'search', icon: '🔍', title: 'Pencarian', action: 'search' }
+    { id: 'bookmarks', icon: '🔖', title: 'Bookmark' },
+    { id: 'highlights', icon: '🖍️', title: 'Highlight' },
+    { id: 'notes', icon: '📝', title: 'Catatan' },
+    { id: 'search', icon: '🔍', title: 'Pencarian' }
+  ]
+
+  const highlightColors = [
+    { color: '#ffff00', icon: '🟡', title: 'Highlight Kuning' },
+    { color: '#90EE90', icon: '🟢', title: 'Highlight Hijau' }
   ]
 
   return (
     <div className="epub-reader" ref={readerContainerRef}>
       {/* Controls */}
-      <div className="reader-controls">
+      <div className="card reader-controls">
         <div className="reader-control-group">
           {/* TOC Dropdown */}
           <div className="toc-dropdown" ref={dropdownRef}>
-            <button
-              className="btn btn-secondary"
-              onClick={() => setState(prev => ({ ...prev, tocOpen: !prev.tocOpen }))}
-            >
+            <button className="btn btn-secondary" onClick={() => setState(prev => ({ ...prev, tocOpen: !prev.tocOpen }))}>
               Daftar Isi <span className={`dropdown-arrow ${state.tocOpen ? 'open' : ''}`}>▼</span>
             </button>
             {state.tocOpen && (
@@ -296,13 +274,8 @@ const EpubReader = ({ bookData }) => {
                 <div className="dropdown-content">
                   {state.toc.length > 0 ? (
                     state.toc.map((item, idx) => (
-                      <button
-                        key={idx}
-                        className="dropdown-item"
-                        onClick={() => goToChapter(item.href, item)}
-                        disabled={item.href === '#'}
-                        style={{ paddingLeft: `${1 + (item.level || 0) * 0.75}rem` }}
-                      >
+                      <button key={idx} className="dropdown-item" onClick={() => goToChapter(item.href, item)}
+                        disabled={item.href === '#'} style={{ paddingLeft: `${1 + (item.level || 0) * 0.75}rem` }}>
                         {item.label}
                       </button>
                     ))
@@ -316,23 +289,10 @@ const EpubReader = ({ bookData }) => {
 
           {/* Font Controls */}
           <div className="font-controls">
-            <button
-              className="btn btn-secondary btn-small"
-              onClick={() => handleFontSizeChange(-2)}
-            >
-              A-
-            </button>
+            <button className="btn btn-secondary btn-small" onClick={() => handleFontSizeChange(-2)}>A-</button>
             <span className="font-size-display">{state.fontSize}px</span>
-            <button
-              className="btn btn-secondary btn-small"
-              onClick={() => handleFontSizeChange(2)}
-            >
-              A+
-            </button>
-            <button
-              className={`btn btn-secondary ${state.readingMode === 'cream' ? 'active' : ''}`}
-              onClick={toggleReadingMode}
-            >
+            <button className="btn btn-secondary btn-small" onClick={() => handleFontSizeChange(2)}>A+</button>
+            <button className={`btn btn-secondary ${state.readingMode === 'cream' ? 'active' : ''}`} onClick={toggleReadingMode}>
               Mode
             </button>
           </div>
@@ -340,12 +300,8 @@ const EpubReader = ({ bookData }) => {
           {/* Feature Controls */}
           <div className="feature-controls">
             {controls.map(control => (
-              <button
-                key={control.id}
-                className="btn btn-secondary btn-small"
-                onClick={() => handleAction(control.action)}
-                title={control.title}
-              >
+              <button key={control.id} className={`btn btn-secondary btn-small ${state.activePanel === control.id ? 'active' : ''}`}
+                onClick={() => handleAction('panel', control.id)} title={control.title}>
                 {control.icon}
               </button>
             ))}
@@ -353,44 +309,73 @@ const EpubReader = ({ bookData }) => {
         </div>
       </div>
 
-      {/* Reader Content */}
-      <div className="epub-reader-viewport">
-        <div ref={bookRef} style={{ width: '100%', height: '100%' }}>
-          {state.isLoading && (
-            <div className="loading">
-              <div className="loading-spinner"></div>
-              <p>Memuat konten ebook...</p>
+      {/* Floating Toolbar */}
+      {state.showFloatingToolbar && state.selectedText && (
+        <div className="floating-toolbar card">
+          {highlightColors.map(({ color, icon, title }) => (
+            <button key={color} className="btn btn-secondary btn-small" onClick={() => handleHighlight(color)} title={title}>
+              {icon}
+            </button>
+          ))}
+          <button className="btn btn-secondary btn-small" onClick={() => handleAction('bookmark')} title="Bookmark">🔖</button>
+          <button className="btn btn-secondary btn-small" title="Tambah Catatan"
+            onClick={() => { const content = prompt('Masukkan catatan:'); if (content) handleAction('note', content) }}>📝</button>
+          <button className="btn btn-secondary btn-small" onClick={() => handleAction('translate')} title="Terjemahan">🌐</button>
+          <button className="btn btn-secondary btn-small" onClick={() => setState(prev => ({ ...prev, showFloatingToolbar: false }))} title="Tutup">✖️</button>
+        </div>
+      )}
+
+      {/* Panels */}
+      <div className="reader-panels">
+        {state.activePanel && (
+          <div className="panel card">
+            <div className="panel-header">
+              <h3>{controls.find(c => c.id === state.activePanel)?.title || 'Panel'}</h3>
+              <button className="btn btn-secondary btn-small" onClick={() => setState(prev => ({ ...prev, activePanel: null }))}>✖️</button>
             </div>
-          )}
+            <div className="panel-content">
+              {state.activePanel === 'search' ? (
+                <input type="text" placeholder="Cari dalam buku..." className="search-input"
+                  onChange={(e) => e.target.value && alert('Fitur akan segera tersedia!')} />
+              ) : state.activePanel === 'translation' ? (
+                <>
+                  <p><strong>Teks:</strong> {state.selectedText}</p>
+                  <p><strong>Terjemahan:</strong> [Akan segera tersedia]</p>
+                </>
+              ) : (
+                <p>Fitur akan segera tersedia!</p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Reader Content */}
+      <div className="epub-reader-content">
+        <div className="reader-viewport-container">
+          <div ref={bookRef} className="epub-reader-viewport" tabIndex={0}>
+            {state.isLoading && <div className="loading">Memuat konten ebook...</div>}
+          </div>
         </div>
       </div>
 
       {/* Progress */}
-      <div className="progress-section">
-        <div className="progress-text">
-          Progres Membaca: {state.progress}%
-          {state.totalPages > 0 && (
-            <span className="page-info"> | Halaman {state.currentPage} dari {state.totalPages}</span>
-          )}
+      <div className="card progress-section">
+        <div className="progress-info">
+          <div className="progress-text">
+            Progres Membaca: {state.progress}%
+            {state.totalPages > 0 && <span className="page-info"> | Halaman {state.currentPage} dari {state.totalPages}</span>}
+          </div>
+        </div>
+        <div className="progress-bar">
+          <div className="progress-fill" style={{ width: `${state.progress}%` }} />
         </div>
       </div>
 
       {/* Navigation */}
-      <div className="navigation-section">
-        <button
-          className="btn btn-primary"
-          onClick={() => handleNavigation('prev')}
-          disabled={!state.rendition}
-        >
-          ← Sebelumnya
-        </button>
-        <button
-          className="btn btn-primary"
-          onClick={() => handleNavigation('next')}
-          disabled={!state.rendition}
-        >
-          Selanjutnya →
-        </button>
+      <div className="card navigation-section">
+        <button className="btn btn-primary" onClick={() => handleNavigation('prev')}>← Sebelumnya</button>
+        <button className="btn btn-primary" onClick={() => handleNavigation('next')}>Selanjutnya →</button>
       </div>
     </div>
   )
