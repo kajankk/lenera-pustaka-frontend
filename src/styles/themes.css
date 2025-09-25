@@ -2749,9 +2749,205 @@ body {
   border-color: rgba(222, 150, 190, 0.25);
 }
 
-/* ACCESSIBILITY & PERFORMANCE */
-.card, .btn, .book-card { will-change: transform; }
-.book-card:hover { will-change: auto; }
+/* PERFORMANCE OPTIMIZATIONS */
+.btn, .book-card, .card, .discussion-item, .info-card, .metadata-section {
+  will-change: auto; /* Remove unnecessary will-change */
+}
+
+/* Optimize expensive animations */
+.btn::before, .btn-action::before, .book-cover-wrapper::before {
+  content: none; /* Disable expensive pseudo-element animations */
+}
+
+/* Remove complex box-shadows for better performance */
+:root {
+  --shadow-light: 0 2px 4px rgba(0,0,0,0.05);
+  --shadow-medium: 0 4px 8px rgba(0,0,0,0.08);
+  --shadow-hover: 0 6px 12px rgba(0,0,0,0.1);
+}
+
+/* Simplified hover effects for better performance */
+.btn {
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.btn:hover:not(:disabled) {
+  transform: none; /* Remove transform for better performance */
+}
+
+.book-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.book-card:hover {
+  transform: translateY(-2px); /* Reduced transform */
+}
+
+.card {
+  transition: box-shadow 0.2s ease;
+}
+
+.card:hover {
+  transform: none; /* Remove transform for better performance */
+  box-shadow: var(--shadow-medium);
+}
+
+/* Remove complex backdrop-filter on hover states */
+.light .card, .dark .card {
+  backdrop-filter: none; /* Remove backdrop blur for better performance */
+}
+
+.light .book-cover-section, .dark .book-cover-section {
+  backdrop-filter: none; /* Remove backdrop blur for better performance */
+}
+
+.light .modal-content, .dark .modal-content {
+  backdrop-filter: blur(10px); /* Keep only essential backdrop blur */
+}
+
+/* Optimize gradient backgrounds */
+.light {
+  background: #ffffff; /* Solid color instead of gradient */
+}
+
+.dark {
+  background: #0f172a; /* Solid color instead of gradient */
+}
+
+/* Remove expensive pseudo-element animations */
+.info-card::before, .metadata-section::before, .discussion-item::before {
+  display: none; /* Remove animated pseudo-elements */
+}
+
+.card::before {
+  display: none; /* Remove animated pseudo-elements */
+}
+
+/* Simplified button animations */
+.light .btn-primary {
+  background: var(--primary-green);
+  border-color: var(--primary-green);
+  color: white;
+}
+
+.light .btn-primary:hover:not(:disabled) {
+  background: #1a4728;
+  color: white;
+}
+
+.light .btn-secondary {
+  border-color: var(--primary-green);
+  color: var(--primary-green);
+  background: white;
+}
+
+.light .btn-secondary:hover:not(:disabled) {
+  background: var(--primary-green);
+  color: white;
+}
+
+.dark .btn-primary {
+  background: var(--primary-pink);
+  border-color: var(--primary-pink);
+  color: #1a202c;
+}
+
+.dark .btn-primary:hover:not(:disabled) {
+  background: #c7779a;
+  color: #1a202c;
+}
+
+.dark .btn-secondary {
+  border-color: var(--primary-pink);
+  color: var(--primary-pink);
+  background: rgba(30, 41, 59, 0.8);
+}
+
+.dark .btn-secondary:hover:not(:disabled) {
+  background: var(--primary-pink);
+  color: #1a202c;
+}
+
+/* Remove expensive animations from book actions */
+.btn-action {
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.btn-action:hover {
+  transform: none; /* Remove transform */
+}
+
+/* Optimize discussion items */
+.discussion-item {
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.discussion-item:hover {
+  transform: none; /* Remove transform */
+}
+
+/* Remove shimmer effects that cause lag */
+.book-cover-wrapper:hover::before,
+.genre-tag:hover::before,
+.tag-item:hover::before,
+.tab-button:hover::before {
+  display: none; /* Remove shimmer effects */
+}
+
+/* Optimize stat items */
+.stat-item {
+  transition: background-color 0.15s ease;
+}
+
+.stat-item:hover {
+  transform: none; /* Remove transform */
+}
+
+/* Optimize metadata items */
+.info-item, .metadata-item {
+  transition: background-color 0.15s ease;
+}
+
+.info-item:hover, .metadata-item:hover {
+  transform: none; /* Remove transform */
+}
+
+/* Remove expensive visual effects from feature cards */
+.feature-card::before {
+  display: none;
+}
+
+.feature-card {
+  transition: box-shadow 0.2s ease;
+}
+
+.feature-card:hover {
+  transform: translateY(-2px); /* Reduced transform */
+}
+
+/* Optimize action buttons */
+.action-btn {
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.action-btn:hover {
+  transform: none; /* Remove transform */
+}
+
+/* Remove complex nested selectors that can slow down CSS */
+.dark .info-card:hover,
+.dark .metadata-section:hover,
+.dark .discussion-item:hover {
+  transform: none;
+  box-shadow: var(--shadow-medium);
+}
+
+.light .info-card:hover,
+.light .metadata-section:hover,
+.light .discussion-item:hover {
+  transform: none;
+  box-shadow: var(--shadow-medium);
+}
 
 @media (prefers-contrast: high) {
   .card, .info-card, .metadata-section { border-width: 3px; }
