@@ -76,7 +76,7 @@ const EpubReader = ({ bookData }) => {
 
     const rend = epubBook.renderTo(bookRef.current, {
       width: '100%',
-      height: '600px',
+      height: '700px',
       allowScriptedContent: true
     })
 
