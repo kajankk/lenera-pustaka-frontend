@@ -57,7 +57,7 @@ body {
 /* HEADER */
 .header {
   border-bottom: 1px solid;
-  padding: 1rem 0; /* Reduced from 1.5rem */
+  padding: 1.5rem 0;
   margin-bottom: 2rem;
   position: sticky;
   top: 0;
@@ -79,11 +79,11 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 1.5rem; /* Reduced from 2rem */
+  gap: 2rem;
 }
 
 .logo img {
-  height: clamp(40px, 6vw, 55px); /* Reduced from 70px max */
+  height: clamp(60px, 8vw, 70px);
   width: auto;
   transition: var(--transition);
 }
@@ -1947,28 +1947,10 @@ body {
     padding: 0 1rem;
   }
 
-  /* Compressed header for mobile */
-  .header {
-    padding: 0.75rem 0; /* Even more compact on mobile */
-  }
-
   .nav {
-    flex-direction: row; /* Keep horizontal layout */
+    flex-direction: column;
     gap: 1rem;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .logo img {
-    height: clamp(35px, 5vw, 45px); /* Smaller logo on mobile */
-  }
-
-  .nav-links {
-    gap: clamp(1rem, 2vw, 1.5rem);
-  }
-
-  .nav-link {
-    font-size: 0.9rem; /* Slightly smaller text */
+    text-align: center;
   }
 
   .book-detail-main {

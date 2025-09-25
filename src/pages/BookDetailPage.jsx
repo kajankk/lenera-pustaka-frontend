@@ -35,21 +35,90 @@ const BookDetailPage = () => {
     fetchBookDetail()
   }, [slug])
 
+  const Breadcrumb = () => (
+    <nav className="breadcrumb" aria-label="breadcrumb">
+      <button
+        className="nav-link breadcrumb-item"
+        onClick={() => navigate('/')}
+        type="button"
+        style={{ background: 'none', border: 'none' }}
+      >
+        Beranda
+      </button>
+      <span className="breadcrumb-separator">›</span>
+      <button
+        className="nav-link breadcrumb-item"
+        onClick={() => navigate('/books')}
+        type="button"
+        style={{ background: 'none', border: 'none' }}
+      >
+        Perpustakaan
+      </button>
+      <span className="breadcrumb-separator">›</span>
+      <span className="breadcrumb-current">
+        {book?.title || 'Detail Buku'}
+      </span>
+    </nav>
+  )
+
   const ErrorPage = () => (
-    <div className="error-page">
-      <div className="error-icon">{error ? '❌' : '📖'}</div>
-      <h3>{error ? 'Terjadi Kesalahan' : 'Ebook Tidak Ditemukan'}</h3>
-      <p>{error || 'Ebook yang Anda cari tidak tersedia.'}</p>
-      <div className="error-actions">
-        <button className="btn btn-primary" onClick={() => navigate('/books')}>Kembali ke Daftar Buku</button>
-        {error && <button className="btn btn-secondary" onClick={() => window.location.reload()}>Coba Lagi</button>}
+    <div className="container">
+      <Breadcrumb />
+      <div className="error-page">
+        <div className="error-icon">{error ? '❌' : '📖'}</div>
+        <h3>{error ? 'Terjadi Kesalahan' : 'Ebook Tidak Ditemukan'}</h3>
+        <p>{error || 'Ebook yang Anda cari tidak tersedia.'}</p>
+        <div className="error-actions">
+          <button className="btn btn-primary" onClick={() => navigate('/books')}>Kembali ke Daftar Buku</button>
+          {error && <button className="btn btn-secondary" onClick={() => window.location.reload()}>Coba Lagi</button>}
+        </div>
       </div>
     </div>
   )
 
-  if (loading) return <div className="loading"><div className="loading-spinner"><div className="spinner"></div></div><div className="loading-icon">📚</div><p>Memuat detail ebook...</p></div>
+  if (loading) {
+    return (
+      <div className="container">
+        <nav className="breadcrumb" aria-label="breadcrumb">
+          <button
+            className="nav-link breadcrumb-item"
+            onClick={() => navigate('/')}
+            type="button"
+            style={{ background: 'none', border: 'none' }}
+          >
+            Beranda
+          </button>
+          <span className="breadcrumb-separator">›</span>
+          <button
+            className="nav-link breadcrumb-item"
+            onClick={() => navigate('/books')}
+            type="button"
+            style={{ background: 'none', border: 'none' }}
+          >
+            Perpustakaan
+          </button>
+          <span className="breadcrumb-separator">›</span>
+          <span className="breadcrumb-current">Memuat...</span>
+        </nav>
+        <div className="loading">
+          <div className="loading-spinner">
+            <div className="spinner"></div>
+          </div>
+          <div className="loading-icon">📚</div>
+          <p>Memuat detail ebook...</p>
+        </div>
+      </div>
+    )
+  }
+
   if (error || !book) return <ErrorPage />
-  return <BookDetail book={book} />
+
+  return (
+    <div className="container">
+      <Breadcrumb />
+      <BookDetail book={book} />
+    </div>
+  )
 }
 
 export default BookDetailPage

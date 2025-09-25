@@ -84,8 +84,25 @@ const BooksPage = () => {
     return pages
   }
 
+  const Breadcrumb = () => (
+    <nav className="breadcrumb" aria-label="breadcrumb">
+      <button
+        className="nav-link breadcrumb-item"
+        onClick={() => navigate('/')}
+        type="button"
+        style={{ background: 'none', border: 'none' }}
+      >
+        Beranda
+      </button>
+      <span className="breadcrumb-separator">›</span>
+      <span className="breadcrumb-current">Perpustakaan</span>
+    </nav>
+  )
+
   return (
-    <div>
+    <div className="container">
+      <Breadcrumb />
+
       <SearchForm onSearch={handleSearch} />
 
       {error && (
@@ -98,7 +115,10 @@ const BooksPage = () => {
       )}
 
       {loading ? (
-        <div className="loading">Memuat ebook...</div>
+        <div className="loading">
+          <div className="loading-spinner"></div>
+          <p>Memuat ebook...</p>
+        </div>
       ) : books.length === 0 ? (
         <div className="card text-center">
           <p>{Object.keys(searchParams).length > 0

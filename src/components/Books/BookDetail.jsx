@@ -65,6 +65,27 @@ const BookDetail = ({ book }) => {
     setTimeout(() => setNotification(null), 4000)
   }, [])
 
+  // Determine file format and navigate to appropriate reader
+  const getFileFormat = useCallback(() => {
+    // Check file format from book data
+    if (book.fileFormat) {
+      return book.fileFormat.toLowerCase()
+    }
+
+    // Fallback: check file extension from fileUrl
+    if (book.fileUrl) {
+      const url = book.fileUrl.toLowerCase()
+      if (url.includes('.pdf') || url.endsWith('.pdf')) {
+        return 'pdf'
+      } else if (url.includes('.epub') || url.endsWith('.epub')) {
+        return 'epub'
+      }
+    }
+
+    // Default to epub if cannot determine
+    return 'epub'
+  }, [book.fileFormat, book.fileUrl])
+
   // Parse authors from backend string format
   const getAuthors = useCallback(() => {
     if (book.authorNames && book.authorSlugs) {
@@ -177,21 +198,33 @@ const BookDetail = ({ book }) => {
   }, [state.reactions, buildCommentTree])
 
   // Event handlers
-  const handleStartReading = useCallback(() => navigate(`/${book.slug}/read`), [navigate, book.slug])
+  const handleStartReading = useCallback(() => {
+    const fileFormat = getFileFormat()
+
+    // Navigate to appropriate reader based on file format
+    if (fileFormat === 'pdf') {
+      navigate(`/${book.slug}/read-pdf`)
+    } else {
+      // Default to epub reader for epub files and unknown formats
+      navigate(`/${book.slug}/read`)
+    }
+  }, [navigate, book.slug, getFileFormat])
 
   const handleDownload = useCallback(async () => {
     if (state.isDownloading) return
     setState(prev => ({ ...prev, isDownloading: true }))
     try {
-      const filename = `${book.title.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_')}.epub`
+      const fileFormat = getFileFormat()
+      const extension = fileFormat === 'pdf' ? 'pdf' : 'epub'
+      const filename = `${book.title.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_')}.${extension}`
       await bookService.downloadBook(book.slug, filename)
-      showNotification('Buku berhasil diunduh!', 'success')
+      showNotification(`Buku berhasil diunduh dalam format ${extension.toUpperCase()}!`, 'success')
     } catch (error) {
       showNotification(error.message || 'Gagal mengunduh ebook. Silakan coba lagi.', 'error')
     } finally {
       setState(prev => ({ ...prev, isDownloading: false }))
     }
-  }, [state.isDownloading, book, showNotification])
+  }, [state.isDownloading, book, showNotification, getFileFormat])
 
   const handleShare = useCallback(() => {
     const url = window.location.href
@@ -349,6 +382,7 @@ const BookDetail = ({ book }) => {
   const genres = getGenres()
   const reactionStats = getReactionStats()
   const discussions = getDiscussions()
+  const fileFormat = getFileFormat()
 
   // Load reactions when component mounts or book changes
   useEffect(() => {
@@ -415,17 +449,6 @@ const BookDetail = ({ book }) => {
       )}
 
       <div className="book-detail-container">
-        <div className="breadcrumb">
-          <button
-            className="btn btn-secondary btn-small"
-            onClick={() => navigate('/books')}
-          >
-            ← Kembali ke Daftar Buku
-          </button>
-          <span className="breadcrumb-separator">/</span>
-          <span className="breadcrumb-current">{book.title}</span>
-        </div>
-
         <div className="book-detail-main">
           <div className="book-cover-section">
             <div className="book-cover-wrapper">
@@ -443,7 +466,7 @@ const BookDetail = ({ book }) => {
               ) : null}
               <div className={`book-cover-placeholder ${book.coverImageUrl ? 'hidden' : ''}`}>
                 <div className="placeholder-icon">📚</div>
-                <div className="placeholder-text">Cover EPUB</div>
+                <div className="placeholder-text">Cover {fileFormat.toUpperCase()}</div>
               </div>
             </div>
 
@@ -458,7 +481,7 @@ const BookDetail = ({ book }) => {
                 disabled={state.isDownloading}
               >
                 <span>{state.isDownloading ? '⏳' : '💾'}</span>
-                <span>{state.isDownloading ? 'Mengunduh...' : 'Unduh EPUB'}</span>
+                <span>{state.isDownloading ? 'Mengunduh...' : `Unduh ${fileFormat.toUpperCase()}`}</span>
               </button>
               <div className="action-row">
                 <button className="btn btn-secondary btn-small" onClick={handleShare}>
@@ -553,6 +576,10 @@ const BookDetail = ({ book }) => {
                 <div className="meta-item">
                   <span>📂</span>
                   <span>{book.category}</span>
+                </div>
+                <div className="meta-item">
+                  <span>📄</span>
+                  <span>{fileFormat.toUpperCase()}</span>
                 </div>
                 {book.copyrightStatus && (
                   <div className="meta-item">
@@ -653,7 +680,7 @@ const BookDetail = ({ book }) => {
                       <div className="info-items">
                         <div className="info-item">
                           <span>Format File:</span>
-                          <span>{book.fileFormat?.toUpperCase() || 'EPUB'}</span>
+                          <span>{fileFormat.toUpperCase()}</span>
                         </div>
                         <div className="info-item">
                           <span>Ukuran File:</span>
@@ -839,7 +866,7 @@ const BookDetail = ({ book }) => {
                         </div>
                         <div className="info-item">
                           <span>📁 Format File:</span>
-                          <span>{book.fileFormat?.toUpperCase() || 'EPUB'}</span>
+                          <span>{fileFormat.toUpperCase()}</span>
                         </div>
                         <div className="info-item">
                           <span>💾 Ukuran File:</span>
