@@ -39,8 +39,6 @@ const EpubReader = ({ bookData }) => {
     return result
   }
 
-  // Removed scrollToReader function since it's no longer needed
-
   const handleTextSelection = useCallback(() => {
     if (!state.rendition) return
     try {
@@ -168,7 +166,6 @@ const EpubReader = ({ bookData }) => {
   const handleNavigation = (direction) => {
     if (state.rendition) {
       state.rendition[direction]()
-      // Removed scrollToReader call - no longer needed
     }
   }
 
@@ -197,7 +194,6 @@ const EpubReader = ({ bookData }) => {
         try {
           await method()
           setState(prev => ({ ...prev, tocOpen: false }))
-          // Removed scrollToReader call - no longer needed
           return
         } catch (err) {
           continue
@@ -348,29 +344,99 @@ const EpubReader = ({ bookData }) => {
         )}
       </div>
 
-      {/* Main Reading Container - Area baca dan navigasi dalam satu kontainer */}
-      <div className="card epub-reader-content">
+      {/* Main Reading Container with Side Navigation */}
+      <div className="card epub-reader-content" style={{ position: 'relative' }}>
+        {/* Previous Button - Left Side */}
+        <button
+          className="nav-side-button nav-prev"
+          onClick={() => handleNavigation('prev')}
+          style={{
+            position: 'absolute',
+            left: '8px',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            zIndex: 10,
+            width: '40px',
+            height: '40px',
+            borderRadius: '50%',
+            border: '2px solid',
+            background: 'rgba(255, 255, 255, 0.9)',
+            color: 'var(--primary-green)',
+            borderColor: 'var(--primary-green)',
+            fontSize: '18px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+            fontWeight: 'bold'
+          }}
+          onMouseEnter={(e) => {
+            e.target.style.background = 'var(--primary-green)'
+            e.target.style.color = 'white'
+            e.target.style.transform = 'translateY(-50%) scale(1.05)'
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.background = 'rgba(255, 255, 255, 0.9)'
+            e.target.style.color = 'var(--primary-green)'
+            e.target.style.transform = 'translateY(-50%) scale(1)'
+          }}
+        >
+          ‹
+        </button>
+
         {/* Reader Viewport */}
-        <div className="reader-viewport-container">
+        <div className="reader-viewport-container" style={{ margin: '0 60px' }}>
           <div ref={bookRef} className="epub-reader-viewport" tabIndex={0}>
             {state.isLoading && <div className="loading">Memuat konten ebook...</div>}
           </div>
         </div>
 
-        {/* Navigation - Sekarang dalam kontainer yang sama dengan area baca */}
-        <div className="navigation-section" style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          gap: '1.5rem',
-          marginTop: '1.5rem',
-          padding: '1.5rem',
-          borderRadius: 'var(--border-radius)',
-          border: '1px solid'
-        }}>
-          <button className="btn btn-primary" onClick={() => handleNavigation('prev')}>← Sebelumnya</button>
-          <button className="btn btn-primary" onClick={() => handleNavigation('next')}>Selanjutnya →</button>
-        </div>
+        {/* Next Button - Right Side */}
+        <button
+          className="nav-side-button nav-next"
+          onClick={() => handleNavigation('next')}
+          style={{
+            position: 'absolute',
+            right: '8px',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            zIndex: 10,
+            width: '40px',
+            height: '40px',
+            borderRadius: '50%',
+            border: '2px solid',
+            background: 'rgba(255, 255, 255, 0.9)',
+            color: 'var(--primary-green)',
+            borderColor: 'var(--primary-green)',
+            fontSize: '18px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+            fontWeight: 'bold'
+          }}
+          onMouseEnter={(e) => {
+            e.target.style.background = 'var(--primary-green)'
+            e.target.style.color = 'white'
+            e.target.style.transform = 'translateY(-50%) scale(1.05)'
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.background = 'rgba(255, 255, 255, 0.9)'
+            e.target.style.color = 'var(--primary-green)'
+            e.target.style.transform = 'translateY(-50%) scale(1)'
+          }}
+        >
+          ›
+        </button>
+
+
       </div>
+
+
     </div>
   )
 }
