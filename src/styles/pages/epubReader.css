@@ -71,6 +71,15 @@
   background: rgba(15, 23, 42, 0.95) !important;
 }
 
+.epub-reader-content {
+  overflow: hidden !important;
+  border-radius: var(--border-radius-lg) !important;
+}
+
+.epub-reader-viewport {
+  overflow: hidden !important;
+}
+
 /* Side Navigation Buttons */
 .nav-side-button {
   position: absolute;
