@@ -72,7 +72,7 @@ const EpubReader = ({ bookData }) => {
 
     const rend = epubBook.renderTo(bookRef.current, {
       width: '100%',
-      height: '700px',
+      height: '100%',
       allowScriptedContent: true
     })
 
@@ -387,8 +387,23 @@ const EpubReader = ({ bookData }) => {
         </button>
 
         {/* Reader Viewport */}
-        <div className="reader-viewport-container" style={{ margin: '0 60px' }}>
-          <div ref={bookRef} className="epub-reader-viewport" tabIndex={0}>
+        <div className="reader-viewport-container" style={{
+          margin: '0 50px'
+        }}>
+          <div
+            ref={bookRef}
+            className="epub-reader-viewport"
+            tabIndex={0}
+            style={{
+              width: '100%',
+              height: 'calc(100vh - 300px)',
+              maxHeight: '600px',
+              minHeight: '400px',
+              border: '2px solid',
+              borderRadius: 'var(--border-radius-lg)',
+              boxShadow: 'var(--shadow-medium)'
+            }}
+          >
             {state.isLoading && <div className="loading">Memuat konten ebook...</div>}
           </div>
         </div>
