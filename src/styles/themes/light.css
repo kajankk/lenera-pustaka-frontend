@@ -1,0 +1,184 @@
+/* LIGHT THEME STYLES */
+
+.light {
+  background: #ffffff;
+  color: #1a202c;
+}
+
+/* Text Colors */
+.light .hero-title { color: var(--primary-green); }
+.light .book-title { color: var(--primary-green); }
+.light .section-title { color: var(--primary-green); }
+.light .author-name { color: var(--primary-green); }
+.light .feature-title { color: var(--primary-green); }
+.light .discussion-title { color: #1f2937; }
+.light .discussion-text { color: #4b5563; }
+.light .user-details h5 { color: #1f2937; }
+.light .loading { color: var(--primary-green); }
+
+/* Section Title After Element */
+.light .section-title::after {
+  background: linear-gradient(90deg, var(--primary-green), #16a34a);
+}
+
+/* Loading Spinner */
+.light .loading-spinner {
+  border-top-color: var(--primary-green);
+}
+
+/* Error & Success States - Dark Theme */
+.dark .error {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+  border-color: #f87171;
+}
+
+.dark .success {
+  background: rgba(34, 197, 94, 0.2);
+  color: #86efac;
+  border-color: #16a34a;
+}
+
+.dark .loading { color: var(--primary-pink); }
+.dark .loading-spinner { border-top-color: var(--primary-pink); }
+
+/* Meta Items */
+.light .meta-item {
+  background: rgba(34, 83, 48, 0.05);
+  color: #4b5563;
+}
+
+.light .meta-item:hover {
+  background: rgba(34, 83, 48, 0.1);
+}
+
+.light .meta-value { color: var(--primary-green); }
+
+/* Info Items */
+.light .info-item {
+  background: rgba(34, 83, 48, 0.03);
+  border-bottom-color: rgba(34, 83, 48, 0.1);
+}
+
+.light .info-item:hover {
+  background: rgba(34, 83, 48, 0.08);
+}
+
+.light .info-item span:last-child { color: var(--primary-green); }
+
+/* Metadata Items */
+.light .metadata-item:hover {
+  background: rgba(34, 83, 48, 0.05);
+}
+
+/* Font Size Display */
+.light .font-size-display {
+  background: rgba(255, 255, 255, 0.8);
+  color: var(--primary-green);
+}
+
+/* Font Controls */
+.light .font-controls {
+  background: rgba(34, 83, 48, 0.05);
+  border-color: rgba(34, 83, 48, 0.2);
+}
+
+/* Progress Section */
+.light .progress-section {
+  background: rgba(34, 83, 48, 0.05);
+  border-color: rgba(34, 83, 48, 0.15);
+}
+
+/* Stat Items */
+.light .stat-item {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(34, 83, 48, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.light .stat-item::before {
+  background: linear-gradient(90deg, var(--primary-green), #16a34a);
+}
+
+.light .stat-item:hover {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(34, 83, 48, 0.2);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.light .stat-value { color: var(--primary-green); }
+
+/* Genre Tags */
+.light .genre-tag, .light .tag-item {
+  background: rgba(34, 83, 48, 0.08);
+  border-color: var(--primary-green);
+  color: var(--primary-green);
+}
+
+.light .genre-tag::before, .light .tag-item::before {
+  background: var(--primary-green);
+}
+
+.light .genre-tag:hover, .light .tag-item:hover {
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(34, 83, 48, 0.3);
+}
+
+/* Book Cover Placeholder */
+.light .book-cover-placeholder {
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  color: var(--primary-green);
+  border: 2px dashed rgba(34, 83, 48, 0.2);
+}
+
+/* Breadcrumb */
+.light .breadcrumb {
+  background: rgba(34, 83, 48, 0.05);
+  border-color: rgba(34, 83, 48, 0.15);
+}
+
+.light .breadcrumb-separator {
+  color: var(--primary-green);
+}
+
+/* Feature Card */
+.light .feature-card {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(34, 83, 48, 0.1);
+}
+
+.light .feature-card::before {
+  background: linear-gradient(90deg, var(--primary-green), #16a34a);
+}
+
+.light .feature-card:hover {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(34, 83, 48, 0.2);
+}
+
+/* Pagination */
+.light .pagination {
+  background: rgba(34, 83, 48, 0.05);
+  border-color: rgba(34, 83, 48, 0.15);
+}
+
+/* Reaction Badge Colors */
+.light .reaction-badge.positive {
+  background: rgba(34, 197, 94, 0.1);
+  color: #166534;
+  border: 1px solid #22c55e;
+}
+
+.light .reaction-badge.negative {
+  background: rgba(239, 68, 68, 0.1);
+  color: #991b1b;
+  border: 1px solid #ef4444;
+}
+
+.light .reaction-badge.neutral {
+  background: rgba(107, 114, 128, 0.1);
+  color: #374151;
+  border: 1px solid #6b7280;
+}

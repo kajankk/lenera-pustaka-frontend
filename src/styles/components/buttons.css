@@ -1,0 +1,312 @@
+/* BUTTON COMPONENT STYLES */
+
+.btn {
+  padding: 0.875rem 1.75rem;
+  border: 2px solid;
+  border-radius: var(--border-radius);
+  background: none;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 600;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  text-align: center;
+  transition: var(--transition);
+  font-family: inherit;
+  white-space: nowrap;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-small {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  min-width: 44px;
+}
+
+.btn.active {
+  transform: scale(0.98);
+}
+
+/* Light Theme Buttons */
+.light .btn-primary {
+  background: var(--primary-green);
+  border-color: var(--primary-green);
+  color: white;
+}
+
+.light .btn-primary:hover:not(:disabled) {
+  background: #1a4728;
+  color: white;
+}
+
+.light .btn-secondary {
+  border-color: var(--primary-green);
+  color: var(--primary-green);
+  background: white;
+}
+
+.light .btn-secondary:hover:not(:disabled) {
+  background: var(--primary-green);
+  color: white;
+}
+
+.light .btn.active {
+  background: var(--primary-green);
+  color: white;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Dark Theme Buttons */
+.dark .btn-primary {
+  background: var(--primary-pink);
+  border-color: var(--primary-pink);
+  color: #1a202c;
+}
+
+.dark .btn-primary:hover:not(:disabled) {
+  background: #c7779a;
+  color: #1a202c;
+}
+
+.dark .btn-secondary {
+  border-color: var(--primary-pink);
+  color: var(--primary-pink);
+  background: rgba(30, 41, 59, 0.8);
+}
+
+.dark .btn-secondary:hover:not(:disabled) {
+  background: var(--primary-pink);
+  color: #1a202c;
+}
+
+.dark .btn.active {
+  background: var(--primary-pink);
+  color: #1a202c;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+}
+
+/* Action Buttons */
+.btn-action {
+  font-weight: 700;
+  padding: 1rem;
+  border-radius: var(--border-radius);
+  border: none;
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  justify-content: center;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  position: relative;
+  overflow: hidden;
+}
+
+.light .btn-action.btn-primary {
+  background: linear-gradient(135deg, var(--primary-green) 0%, #16a34a 100%);
+  color: white;
+  box-shadow: 0 4px 15px rgba(34, 83, 48, 0.3);
+}
+
+.light .btn-action.btn-primary:hover {
+  background: linear-gradient(135deg, #1a4728 0%, #15803d 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(34, 83, 48, 0.4);
+}
+
+.light .btn-action.btn-secondary {
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+  color: white;
+  box-shadow: 0 4px 15px rgba(107, 114, 128, 0.3);
+}
+
+.light .btn-action.btn-secondary:hover {
+  background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(107, 114, 128, 0.4);
+}
+
+.dark .btn-action.btn-primary {
+  background: linear-gradient(135deg, var(--primary-pink) 0%, #f472b6 100%);
+  color: #1a202c;
+  box-shadow: 0 4px 15px rgba(222, 150, 190, 0.3);
+}
+
+.dark .btn-action.btn-primary:hover {
+  background: linear-gradient(135deg, #c7779a 0%, #ec4899 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(222, 150, 190, 0.4);
+}
+
+.dark .btn-action.btn-secondary {
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+  color: white;
+  box-shadow: 0 4px 15px rgba(107, 114, 128, 0.3);
+}
+
+.dark .btn-action.btn-secondary:hover {
+  background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(107, 114, 128, 0.4);
+}
+
+/* Action Buttons in Rows */
+.action-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.action-row .btn {
+  font-size: 0.875rem;
+  padding: 0.75rem;
+}
+
+/* Discussion Action Buttons */
+.action-btn {
+  background: none;
+  border: 2px solid;
+  padding: 0.75rem 1.25rem;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.light .action-btn {
+  border-color: rgba(34, 83, 48, 0.3);
+  color: var(--primary-green);
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.light .action-btn:hover {
+  background: var(--primary-green);
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(34, 83, 48, 0.3);
+}
+
+.dark .action-btn {
+  border-color: rgba(222, 150, 190, 0.4);
+  color: var(--primary-pink);
+  background: rgba(30, 41, 59, 0.5);
+}
+
+.dark .action-btn:hover {
+  background: var(--primary-pink);
+  color: #1a202c;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(222, 150, 190, 0.3);
+}
+
+/* Tab Buttons */
+.tab-button {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  border-radius: var(--border-radius);
+  transition: var(--transition);
+  position: relative;
+  white-space: nowrap;
+  background: none;
+  border: 2px solid transparent;
+  cursor: pointer;
+  font-weight: 600;
+  overflow: hidden;
+}
+
+.light .tab-button {
+  color: #6b7280;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.light .tab-button:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.8);
+  color: var(--primary-green);
+  transform: translateY(-2px);
+}
+
+.light .tab-button.active {
+  background: linear-gradient(135deg, var(--primary-green) 0%, #16a34a 100%);
+  color: white;
+  border-color: var(--primary-green);
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(34, 83, 48, 0.3);
+}
+
+.dark .tab-button {
+  color: #9ca3af;
+  background: rgba(30, 41, 59, 0.5);
+}
+
+.dark .tab-button:hover:not(.active) {
+  background: rgba(30, 41, 59, 0.8);
+  color: var(--primary-pink);
+  transform: translateY(-2px);
+}
+
+.dark .tab-button.active {
+  background: linear-gradient(135deg, var(--primary-pink) 0%, #f472b6 100%);
+  color: #1a202c;
+  border-color: var(--primary-pink);
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(222, 150, 190, 0.3);
+}
+
+.tab-icon {
+  font-size: 1.125rem;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.1));
+}
+
+.tab-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+/* Responsive Button Styles */
+@media (max-width: 480px) {
+  .btn {
+    padding: 0.75rem 1.25rem;
+    font-size: 0.9rem;
+  }
+
+  .btn-action {
+    padding: 0.875rem;
+    font-size: 0.9rem;
+  }
+
+  .action-btn {
+    padding: 0.6rem 1rem;
+    font-size: 0.85rem;
+  }
+
+  .tab-button {
+    min-width: 120px;
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+  }
+
+  .action-row {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+}

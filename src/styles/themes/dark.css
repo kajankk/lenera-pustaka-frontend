@@ -1,0 +1,168 @@
+/* DARK THEME STYLES */
+
+.dark {
+  background: #0f172a;
+  color: #f1f5f9;
+}
+
+/* Text Colors */
+.dark .hero-title { color: var(--primary-pink); }
+.dark .book-title { color: var(--primary-pink); }
+.dark .section-title { color: var(--primary-pink); }
+.dark .author-name { color: var(--primary-pink); }
+.dark .feature-title { color: var(--primary-pink); }
+.dark .discussion-title { color: #f9fafb; }
+.dark .discussion-text { color: #d1d5db; }
+.dark .user-details h5 { color: #f9fafb; }
+.dark .loading { color: var(--primary-pink); }
+
+/* Section Title After Element */
+.dark .section-title::after {
+  background: linear-gradient(90deg, var(--primary-pink), #f472b6);
+}
+
+/* Loading Spinner */
+.dark .loading-spinner {
+  border-top-color: var(--primary-pink);
+}
+
+/* Meta Items */
+.dark .meta-item {
+  background: rgba(222, 150, 190, 0.08);
+  color: #d1d5db;
+}
+
+.dark .meta-item:hover {
+  background: rgba(222, 150, 190, 0.12);
+}
+
+.dark .meta-value { color: var(--primary-pink); }
+
+/* Info Items */
+.dark .info-item {
+  background: rgba(222, 150, 190, 0.05);
+  border-bottom-color: rgba(222, 150, 190, 0.15);
+}
+
+.dark .info-item:hover {
+  background: rgba(222, 150, 190, 0.1);
+}
+
+.dark .info-item span:last-child { color: var(--primary-pink); }
+
+/* Metadata Items */
+.dark .metadata-item:hover {
+  background: rgba(222, 150, 190, 0.08);
+}
+
+/* Font Size Display */
+.dark .font-size-display {
+  background: rgba(30, 41, 59, 0.8);
+  color: var(--primary-pink);
+}
+
+/* Font Controls */
+.dark .font-controls {
+  background: rgba(222, 150, 190, 0.08);
+  border-color: rgba(222, 150, 190, 0.3);
+}
+
+/* Progress Section */
+.dark .progress-section {
+  background: rgba(222, 150, 190, 0.08);
+  border-color: rgba(222, 150, 190, 0.25);
+}
+
+/* Stat Items */
+.dark .stat-item {
+  background: rgba(30, 41, 59, 0.6);
+  border-color: rgba(222, 150, 190, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.dark .stat-item::before {
+  background: linear-gradient(90deg, var(--primary-pink), #f472b6);
+}
+
+.dark .stat-item:hover {
+  background: rgba(30, 41, 59, 0.8);
+  border-color: rgba(222, 150, 190, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.dark .stat-value { color: var(--primary-pink); }
+
+/* Genre Tags */
+.dark .genre-tag, .dark .tag-item {
+  background: rgba(222, 150, 190, 0.1);
+  border-color: var(--primary-pink);
+  color: var(--primary-pink);
+}
+
+.dark .genre-tag::before, .dark .tag-item::before {
+  background: var(--primary-pink);
+}
+
+.dark .genre-tag:hover, .dark .tag-item:hover {
+  color: #1a202c;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(222, 150, 190, 0.3);
+}
+
+/* Book Cover Placeholder */
+.dark .book-cover-placeholder {
+  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  color: var(--primary-pink);
+  border: 2px dashed rgba(222, 150, 190, 0.3);
+}
+
+/* Breadcrumb */
+.dark .breadcrumb {
+  background: rgba(222, 150, 190, 0.08);
+  border-color: rgba(222, 150, 190, 0.25);
+}
+
+.dark .breadcrumb-separator {
+  color: var(--primary-pink);
+}
+
+/* Feature Card */
+.dark .feature-card {
+  background: rgba(30, 41, 59, 0.6);
+  border-color: rgba(222, 150, 190, 0.2);
+}
+
+.dark .feature-card::before {
+  background: linear-gradient(90deg, var(--primary-pink), #f472b6);
+}
+
+.dark .feature-card:hover {
+  background: rgba(30, 41, 59, 0.8);
+  border-color: rgba(222, 150, 190, 0.3);
+}
+
+/* Pagination */
+.dark .pagination {
+  background: rgba(222, 150, 190, 0.08);
+  border-color: rgba(222, 150, 190, 0.25);
+}
+
+/* Reaction Badge Colors */
+.dark .reaction-badge.positive {
+  background: rgba(34, 197, 94, 0.2);
+  color: #86efac;
+  border: 1px solid #16a34a;
+}
+
+.dark .reaction-badge.negative {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+  border: 1px solid #f87171;
+}
+
+.dark .reaction-badge.neutral {
+  background: rgba(107, 114, 128, 0.2);
+  color: #d1d5db;
+  border: 1px solid #9ca3af;
+}

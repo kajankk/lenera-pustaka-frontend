@@ -1,0 +1,32 @@
+/* CSS VARIABLES - BASE CONFIGURATION */
+:root {
+  /* Primary Colors */
+  --primary-green: #225330;
+  --primary-pink: #de96be;
+
+  /* Transitions */
+  --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Shadows */
+  --shadow-light: 0 2px 4px rgba(0,0,0,0.05);
+  --shadow-medium: 0 4px 8px rgba(0,0,0,0.08);
+  --shadow-hover: 0 6px 12px rgba(0,0,0,0.1);
+
+  /* Gradients */
+  --gradient-light: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  --gradient-dark: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
+
+  /* Border Radius */
+  --border-radius: 12px;
+  --border-radius-lg: 16px;
+
+  /* Spacing */
+  --spacing-unit: 0.25rem;
+}
+
+/* Color Scheme Detection */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+  }
+}

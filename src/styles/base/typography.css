@@ -1,0 +1,174 @@
+/* TYPOGRAPHY STYLES */
+
+/* Headings */
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.hero-title {
+  font-size: clamp(2.5rem, 8vw, 4rem);
+  font-weight: 900;
+  margin-bottom: 1.5rem;
+  line-height: 1.1;
+  background: linear-gradient(135deg, currentColor 0%, currentColor 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+}
+
+.section-title {
+  font-size: 1.5rem;
+  margin-bottom: 2rem;
+  font-weight: 800;
+  position: relative;
+  padding-bottom: 1rem;
+}
+
+.section-title::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 60px;
+  height: 3px;
+  border-radius: 2px;
+}
+
+.book-title {
+  font-size: clamp(2rem, 5vw, 3rem);
+  font-weight: 800;
+  line-height: 1.2;
+  margin-bottom: 1.5rem;
+  background: linear-gradient(135deg, currentColor 0%, currentColor 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  position: relative;
+}
+
+.discussion-title {
+  font-weight: 700;
+  font-size: 1.1rem;
+  margin-bottom: 0.75rem;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  line-height: 1.4;
+}
+
+/* Text Elements */
+.hero-subtitle {
+  font-size: clamp(1.1rem, 4vw, 1.4rem);
+  margin-bottom: 2.5rem;
+  opacity: 0.8;
+  max-width: 700px;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.6;
+}
+
+.book-authors {
+  font-size: 1.25rem;
+  margin-bottom: 1.5rem;
+  opacity: 0.9;
+  font-weight: 500;
+}
+
+.author-name {
+  font-weight: 700;
+  transition: var(--transition);
+  cursor: pointer;
+}
+
+.author-name:hover {
+  opacity: 0.8;
+  transform: translateY(-1px);
+}
+
+.description-text {
+  font-size: 1.1rem;
+  line-height: 1.8;
+  text-align: justify;
+  max-width: 800px;
+}
+
+.description-text p {
+  margin-bottom: 1.5rem;
+  text-indent: 2rem;
+}
+
+.description-text p:first-child {
+  text-indent: 0;
+  font-size: 1.15rem;
+  font-weight: 500;
+}
+
+.discussion-text {
+  line-height: 1.7;
+  font-size: 1rem;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Feature Text */
+.feature-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+}
+
+.feature-subtitle {
+  font-size: 1rem;
+  opacity: 0.8;
+  line-height: 1.6;
+}
+
+/* Progress Text */
+.progress-text {
+  font-size: 1rem;
+  margin-bottom: 1rem;
+  font-weight: 500;
+}
+
+/* Placeholder Text */
+.placeholder-text {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* User Details */
+.user-details h5 {
+  margin: 0;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.user-details p {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+  opacity: 0.7;
+}
+
+/* Responsive Typography */
+@media (max-width: 480px) {
+  .user-details h5 {
+    font-size: 0.95rem;
+    line-height: 1.3;
+    margin-bottom: 0.25rem;
+  }
+
+  .user-details p {
+    font-size: 0.8rem;
+    line-height: 1.2;
+  }
+
+  .discussion-title {
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .discussion-text {
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+}

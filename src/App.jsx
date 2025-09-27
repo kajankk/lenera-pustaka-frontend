@@ -8,6 +8,7 @@ import BookDetailPage from './pages/BookDetailPage'
 import DashboardPage from './pages/DashboardPage'
 import ReaderPage from './pages/ReaderPage'
 import { useTheme } from './hooks/useTheme'
+import './styles/index.css'
 
 function App() {
   const { theme } = useTheme()
