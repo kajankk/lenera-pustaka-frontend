@@ -7,13 +7,15 @@ const EpubReader = ({ bookData }) => {
   const bookRef = useRef(null)
   const readerContainerRef = useRef(null)
   const dropdownRef = useRef(null)
+  const dropdownButtonRef = useRef(null)
 
   const [state, setState] = useState({
     book: null,
     rendition: null,
     toc: [],
-    fontSize: 16,
+    fontSize: 14,
     readingMode: 'default',
+    textAlign: 'justify',
     isLoading: true,
     progress: 0,
     tocOpen: false,
@@ -79,8 +81,11 @@ const EpubReader = ({ bookData }) => {
     // Base styles
     rend.themes.default({
       body: { 'font-family': 'inherit !important', 'line-height': '1.6 !important', 'padding': '2rem !important' },
-      p: { 'margin': '0 !important', 'text-align': 'justify !important' },
-      a: { 'text-decoration': 'underline !important', 'color': 'inherit !important' }
+      p: { 'margin': '0 !important', 'text-align': `${state.textAlign} !important` },
+      a: { 'text-decoration': 'underline !important', 'color': 'inherit !important' },
+      'ol li, ul li': { 'text-align': `${state.textAlign} !important` },
+      'blockquote': { 'text-align': `${state.textAlign} !important` },
+      'div': { 'text-align': `${state.textAlign} !important` }
     })
 
     rend.themes.fontSize(`${state.fontSize}px`)
@@ -98,20 +103,102 @@ const EpubReader = ({ bookData }) => {
 
     // Handle events
     rend.on('relocated', (location) => {
-      const spineItem = epubBook.spine.get(location.start.cfi)
-      if (spineItem) {
-        const newProgress = Math.round((spineItem.index / Math.max(1, epubBook.spine.length - 1)) * 100)
-        setState(prev => ({
-          ...prev,
+      setState(prevState => {
+        const newProgress = Math.round((epubBook.spine.get(location.start.cfi)?.index || 0) / Math.max(1, epubBook.spine.length - 1) * 100)
+        const currentState = {
+          ...prevState,
           progress: newProgress,
-          currentPage: spineItem.index + 1,
+          currentPage: (epubBook.spine.get(location.start.cfi)?.index || 0) + 1,
           totalPages: epubBook.spine.length
-        }))
-      }
+        }
+
+        // Re-inject CSS setelah navigasi dengan state yang benar
+        setTimeout(() => {
+          const textAlignCSS = `
+            /* Target hanya elemen konten teks, bukan heading */
+            p, div:not(.titlepage):not(.epub-type-titlepage), span:not(.chapter-title), li, blockquote p, td, th {
+              text-align: ${currentState.textAlign} !important;
+            }
+            body p {
+              text-align: ${currentState.textAlign} !important;
+              text-indent: ${currentState.textAlign === 'justify' ? '1.5em' : '0'} !important;
+            }
+            /* Pastikan heading tetap center */
+            h1, h2, h3, h4, h5, h6, .chapter-title, .titlepage *, .epub-type-titlepage * {
+              text-align: center !important;
+            }
+            /* List items mengikuti setting alignment */
+            ol li, ul li {
+              text-align: ${currentState.textAlign} !important;
+              text-indent: 0 !important;
+            }
+            /* Separator dan ornament tetap center */
+            p.separator, p.ornament, p.divider {
+              text-align: center !important;
+            }
+          `
+
+          rend.getContents().forEach(content => {
+            const doc = content.document
+            let style = doc.getElementById('custom-text-align')
+            if (!style) {
+              style = doc.createElement('style')
+              style.id = 'custom-text-align'
+              doc.head.appendChild(style)
+            }
+            style.textContent = textAlignCSS
+          })
+        }, 300)
+
+        return currentState
+      })
     })
 
-    rend.on('rendered', () => {
-      setState(prev => ({ ...prev, isLoading: false }))
+    rend.on('rendered', (section) => {
+      setState(prevState => {
+        const currentState = { ...prevState, isLoading: false }
+
+        // Inject CSS ke setiap section yang baru di-render dengan state terbaru
+        setTimeout(() => {
+          const textAlignCSS = `
+            /* Target hanya elemen konten teks, bukan heading */
+            p, div:not(.titlepage):not(.epub-type-titlepage), span:not(.chapter-title), li, blockquote p, td, th {
+              text-align: ${currentState.textAlign} !important;
+            }
+            body p {
+              text-align: ${currentState.textAlign} !important;
+              text-indent: ${currentState.textAlign === 'justify' ? '1.5em' : '0'} !important;
+            }
+            /* Pastikan heading tetap center */
+            h1, h2, h3, h4, h5, h6, .chapter-title, .titlepage *, .epub-type-titlepage * {
+              text-align: center !important;
+            }
+            /* List items mengikuti setting alignment */
+            ol li, ul li {
+              text-align: ${currentState.textAlign} !important;
+              text-indent: 0 !important;
+            }
+            /* Separator dan ornament tetap center */
+            p.separator, p.ornament, p.divider {
+              text-align: center !important;
+            }
+          `
+
+          rend.getContents().forEach(content => {
+            const doc = content.document
+            let style = doc.getElementById('custom-text-align')
+            if (!style) {
+              style = doc.createElement('style')
+              style.id = 'custom-text-align'
+              doc.head.appendChild(style)
+            }
+            style.textContent = textAlignCSS
+          })
+        }, 200)
+
+        return currentState
+      })
+
       try {
         rend.on('selected', handleTextSelection)
       } catch (error) {
@@ -127,12 +214,58 @@ const EpubReader = ({ bookData }) => {
     }
   }, [bookData?.fileUrl])
 
-  // Update font size
+  // Update font size and text alignment dengan CSS injection
   useEffect(() => {
     if (state.rendition) {
       state.rendition.themes.fontSize(`${state.fontSize}px`)
+
+      // Fungsi untuk inject CSS - hanya target elemen teks, bukan heading
+      const injectTextAlignCSS = (alignment) => {
+        const textAlignCSS = `
+          /* Target hanya elemen konten teks, biarkan heading tetap center */
+          p, div:not(.titlepage):not(.epub-type-titlepage), span:not(.chapter-title), li, blockquote p, td, th {
+            text-align: ${alignment} !important;
+          }
+          body p {
+            text-align: ${alignment} !important;
+            text-indent: ${alignment === 'justify' ? '1.5em' : '0'} !important;
+          }
+          /* Pastikan heading tetap center */
+          h1, h2, h3, h4, h5, h6, .chapter-title, .titlepage *, .epub-type-titlepage * {
+            text-align: center !important;
+          }
+          /* List items mengikuti setting alignment */
+          ol li, ul li {
+            text-align: ${alignment} !important;
+            text-indent: 0 !important;
+          }
+          /* Separator dan ornament tetap center */
+          p.separator, p.ornament, p.divider {
+            text-align: center !important;
+          }
+        `
+
+        // Inject CSS ke dalam setiap iframe
+        state.rendition.getContents().forEach(content => {
+          const doc = content.document
+          let style = doc.getElementById('custom-text-align')
+          if (!style) {
+            style = doc.createElement('style')
+            style.id = 'custom-text-align'
+            doc.head.appendChild(style)
+          }
+          style.textContent = textAlignCSS
+        })
+      }
+
+      // Inject dengan alignment yang benar
+      injectTextAlignCSS(state.textAlign)
+
+      // Override themes juga, tapi lebih selektif
+      state.rendition.themes.override('p, div, span, li, blockquote', `text-align: ${state.textAlign} !important;`)
+      state.rendition.themes.override('h1, h2, h3, h4, h5, h6', `text-align: center !important;`)
     }
-  }, [state.fontSize, state.rendition])
+  }, [state.fontSize, state.textAlign, state.rendition])
 
   // Apply themes
   useEffect(() => {
@@ -148,12 +281,19 @@ const EpubReader = ({ bookData }) => {
     state.rendition.themes.override('background', colors.bg)
     state.rendition.themes.override('a', `color: ${colors.link} !important; text-decoration: underline !important;`)
     state.rendition.themes.override('body', 'padding: 2rem !important;')
+    // Override text alignment dengan targeting yang lebih kuat
+    state.rendition.themes.override('p', `text-align: ${state.textAlign} !important; margin: 0 !important;`)
+    state.rendition.themes.override('ol li, ul li', `text-align: ${state.textAlign} !important;`)
+    state.rendition.themes.override('blockquote', `text-align: ${state.textAlign} !important;`)
+    state.rendition.themes.override('div', `text-align: ${state.textAlign} !important;`)
+    state.rendition.themes.override('.chapter p, .epub-type-chapter p', `text-align: ${state.textAlign} !important;`)
   }, [theme, state.rendition, state.readingMode])
 
   // Close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target) &&
+          !dropdownButtonRef.current?.contains(event.target)) {
         setState(prev => ({ ...prev, tocOpen: false }))
       }
     }
@@ -215,6 +355,10 @@ const EpubReader = ({ bookData }) => {
     setState(prev => ({ ...prev, readingMode: prev.readingMode === 'cream' ? 'default' : 'cream' }))
   }
 
+  const toggleTextAlign = () => {
+    setState(prev => ({ ...prev, textAlign: prev.textAlign === 'justify' ? 'left' : 'justify' }))
+  }
+
   const handleHighlight = async (color = '#ffff00') => {
     alert('Fitur akan segera tersedia!')
   }
@@ -258,18 +402,22 @@ const EpubReader = ({ bookData }) => {
       <div className="card reader-controls">
         <div className="reader-control-group">
           {/* TOC Dropdown */}
-          <div className="toc-dropdown" ref={dropdownRef}>
-            <button className="btn btn-secondary" onClick={() => setState(prev => ({ ...prev, tocOpen: !prev.tocOpen }))}>
+          <div className="toc-dropdown">
+            <button
+              ref={dropdownButtonRef}
+              className="btn btn-secondary"
+              onClick={() => setState(prev => ({ ...prev, tocOpen: !prev.tocOpen }))}
+            >
               Daftar Isi <span className={`dropdown-arrow ${state.tocOpen ? 'open' : ''}`}>▼</span>
             </button>
             {state.tocOpen && (
-              <div className="dropdown-menu">
+              <div className="dropdown-menu" ref={dropdownRef}>
                 <div className="dropdown-header">Daftar Isi</div>
                 <div className="dropdown-content">
                   {state.toc.length > 0 ? (
                     state.toc.map((item, idx) => (
                       <button key={idx} className="dropdown-item" onClick={() => goToChapter(item.href, item)}
-                        disabled={item.href === '#'} style={{ paddingLeft: `${1 + (item.level || 0) * 0.75}rem` }}>
+                        disabled={item.href === '#'} style={{ paddingLeft: `${1.5 + (item.level || 0) * 0.75}rem` }}>
                         {item.label}
                       </button>
                     ))
@@ -288,6 +436,9 @@ const EpubReader = ({ bookData }) => {
             <button className="btn btn-secondary btn-small" onClick={() => handleFontSizeChange(2)}>A+</button>
             <button className={`btn btn-secondary ${state.readingMode === 'cream' ? 'active' : ''}`} onClick={toggleReadingMode}>
               Mode
+            </button>
+            <button className={`btn btn-secondary btn-small ${state.textAlign === 'left' ? 'active' : ''}`} onClick={toggleTextAlign} title="Perataan Teks">
+              {state.textAlign === 'justify' ? '≡' : '≣'}
             </button>
           </div>
 
@@ -447,11 +598,7 @@ const EpubReader = ({ bookData }) => {
         >
           ›
         </button>
-
-
       </div>
-
-
     </div>
   )
 }

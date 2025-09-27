@@ -13,6 +13,8 @@
   padding: 1.5rem;
   border-radius: var(--border-radius-lg);
   border: 1px solid;
+  /* Pastikan tidak ada overflow hidden di sini */
+  overflow: visible;
 }
 
 .light .reader-controls {
@@ -33,6 +35,8 @@
   gap: 1.5rem;
   align-items: center;
   justify-content: center;
+  /* Pastikan tidak ada overflow hidden */
+  overflow: visible;
 }
 
 .font-controls {
@@ -189,9 +193,11 @@
   font-weight: 600;
 }
 
-/* TOC Dropdown */
+/* TOC Dropdown - PERBAIKAN UTAMA */
 .toc-dropdown {
   position: relative;
+  /* Pastikan z-index sangat tinggi */
+  z-index: 9999;
 }
 
 .dropdown-arrow {
@@ -207,25 +213,35 @@
   position: absolute;
   top: calc(100% + 0.5rem);
   left: 0;
-  min-width: 300px;
+  min-width: 320px;
   max-width: 500px;
-  max-height: 400px;
+  max-height: 450px; /* Tingkatkan tinggi maksimum */
   overflow-y: auto;
   border-radius: var(--border-radius);
-  box-shadow: var(--shadow-hover);
-  z-index: 100;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  z-index: 99999; /* Z-index super tinggi */
   border: 2px solid;
   animation: slideUp 0.2s ease;
+
+  /* PERBAIKAN: Pastikan dropdown bisa keluar dari kontainer */
+  position: fixed !important;
+  /* Akan diatur posisinya via JavaScript */
+}
+
+/* Fallback jika fixed tidak bekerja */
+.dropdown-menu.relative-position {
+  position: absolute !important;
+  /* Reset ke absolute jika diperlukan */
 }
 
 .light .dropdown-menu {
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.98);
   border-color: rgba(34, 83, 48, 0.2);
   backdrop-filter: blur(20px);
 }
 
 .dark .dropdown-menu {
-  background: rgba(15, 23, 42, 0.95);
+  background: rgba(15, 23, 42, 0.98);
   border-color: rgba(222, 150, 190, 0.3);
   backdrop-filter: blur(20px);
 }
@@ -235,6 +251,9 @@
   font-weight: 700;
   font-size: 1rem;
   border-bottom: 2px solid;
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .light .dropdown-header {
@@ -251,12 +270,14 @@
 
 .dropdown-content {
   padding: 0.75rem 0;
+  max-height: 350px; /* Batasi tinggi konten */
+  overflow-y: auto;
 }
 
 .dropdown-item {
   width: 100%;
   text-align: left;
-  padding: 0.75rem 1.5rem;
+  padding: 0.875rem 1.5rem;
   border: none;
   background: none;
   cursor: pointer;
@@ -264,6 +285,9 @@
   line-height: 1.5;
   transition: var(--transition);
   border-left: 4px solid transparent;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .dropdown-item:hover:not(:disabled) {
@@ -301,6 +325,35 @@
   font-size: 0.9rem;
   opacity: 0.6;
   font-style: italic;
+}
+
+/* Scrollbar untuk dropdown */
+.dropdown-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.dropdown-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dropdown-content::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+.dark .dropdown-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Overlay untuk menutup dropdown */
+.dropdown-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9998;
+  background: transparent;
 }
 
 /* Reader Settings */
@@ -411,7 +464,13 @@
 
   .dropdown-menu {
     min-width: 280px;
-    max-width: 400px;
+    max-width: calc(100vw - 2rem);
+    max-height: 400px;
+    /* Pada mobile, gunakan positioning yang lebih fleksibel */
+    position: fixed !important;
+    left: 1rem !important;
+    right: 1rem !important;
+    width: auto !important;
   }
 
   .reader-settings {
@@ -462,9 +521,10 @@
 
   .dropdown-menu {
     min-width: 260px;
-    max-width: calc(100vw - 2rem);
-    left: 50%;
-    transform: translateX(-50%);
+    max-width: calc(100vw - 1rem);
+    left: 0.5rem !important;
+    right: 0.5rem !important;
+    max-height: 350px;
   }
 
   .progress-section {
@@ -486,4 +546,70 @@
   .epub-reader.fullscreen .epub-reader-viewport {
     height: calc(100vh - 120px) !important;
   }
+}
+
+/* Animasi untuk dropdown */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Floating Toolbar Styles */
+.floating-toolbar {
+  position: fixed;
+  z-index: 10000;
+  padding: 0.5rem;
+  display: flex;
+  gap: 0.5rem;
+  border-radius: var(--border-radius);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25);
+}
+
+/* Panel Styles */
+.reader-panels {
+  position: relative;
+  z-index: 100;
+}
+
+.panel {
+  margin-top: 1rem;
+  padding: 1rem;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid;
+}
+
+.panel-content {
+  line-height: 1.6;
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid;
+  border-radius: var(--border-radius);
+  font-size: 0.9rem;
+}
+
+.light .search-input {
+  border-color: rgba(34, 83, 48, 0.2);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.dark .search-input {
+  border-color: rgba(222, 150, 190, 0.3);
+  background: rgba(30, 41, 59, 0.9);
+  color: white;
 }
