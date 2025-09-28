@@ -64,9 +64,19 @@ const EpubReader = ({ bookData }) => {
     }
   }, [state.rendition])
 
-  // FIXED: Better CSS injection to prevent margin shift
+  // FIXED: Better CSS injection to prevent margin shift (Chrome compatible)
   const applyFixedStyles = (rendition) => {
     if (!rendition) return
+
+    // Force Chrome to respect our styles by clearing cache and reapplying
+    const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor)
+
+    if (isChrome) {
+      // Clear any cached styles for Chrome
+      try {
+        rendition.themes.default({})
+      } catch (e) {}
+    }
 
     // Override default epub.js styles that cause margin shifts
     rendition.themes.override('body', {
@@ -77,15 +87,27 @@ const EpubReader = ({ bookData }) => {
       'text-align': 'justify !important',
       'overflow-x': 'hidden !important',
       'box-sizing': 'border-box !important',
-      'max-width': '100% !important'
+      'max-width': '100% !important',
+      'position': 'relative !important', // Chrome fix
+      'transform': 'translateZ(0) !important' // Force GPU acceleration in Chrome
     })
 
-    // Prevent content shifting
+    // Prevent content shifting - Chrome specific fixes
     rendition.themes.override('html', {
       'margin': '0 !important',
       'padding': '0 !important',
       'overflow-x': 'hidden !important',
-      'box-sizing': 'border-box !important'
+      'box-sizing': 'border-box !important',
+      'position': 'relative !important', // Chrome fix
+      'width': '100% !important'
+    })
+
+    // Chrome container stability fix
+    rendition.themes.override('.epub-container', {
+      'position': 'relative !important',
+      'overflow': 'hidden !important',
+      'width': '100% !important',
+      'transform': 'translateZ(0) !important'
     })
 
     // Fix paragraph margins
@@ -94,20 +116,42 @@ const EpubReader = ({ bookData }) => {
       'text-align': 'justify !important',
       'text-indent': '1.5em !important',
       'orphans': '2 !important',
-      'widows': '2 !important'
+      'widows': '2 !important',
+      'position': 'relative !important' // Chrome stability
     })
 
     // Fix heading margins
     rendition.themes.override('h1, h2, h3, h4, h5, h6', {
       'margin': '2em 0 1em 0 !important',
       'text-align': 'center !important',
-      'page-break-after': 'avoid !important'
+      'page-break-after': 'avoid !important',
+      'position': 'relative !important'
     })
 
-    // Fix container width to prevent shifts
+    // Fix container width to prevent shifts - Enhanced for Chrome
     rendition.themes.override('*', {
-      'box-sizing': 'border-box !important'
+      'box-sizing': 'border-box !important',
+      'backface-visibility': 'hidden !important' // Chrome rendering fix
     })
+
+    // Chrome-specific iframe content fixes
+    if (isChrome) {
+      setTimeout(() => {
+        try {
+          const iframe = rendition.manager.views._views[0]?.iframe
+          if (iframe && iframe.contentDocument) {
+            const iframeBody = iframe.contentDocument.body
+            if (iframeBody) {
+              iframeBody.style.margin = '0'
+              iframeBody.style.padding = '30px 40px'
+              iframeBody.style.overflow = 'hidden'
+              iframeBody.style.position = 'relative'
+              iframeBody.style.transform = 'translateZ(0)'
+            }
+          }
+        } catch (e) {}
+      }, 50)
+    }
   }
 
   // Initialize EPUB
@@ -156,8 +200,16 @@ const EpubReader = ({ bookData }) => {
         }))
       }
 
-      // FIXED: Reapply styles after each page change to prevent shifts
-      setTimeout(() => applyFixedStyles(rend), 100)
+      // FIXED: Enhanced Chrome compatibility - Multiple reapplications
+      const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor)
+      if (isChrome) {
+        // Chrome needs multiple attempts
+        setTimeout(() => applyFixedStyles(rend), 50)
+        setTimeout(() => applyFixedStyles(rend), 150)
+        setTimeout(() => applyFixedStyles(rend), 300)
+      } else {
+        setTimeout(() => applyFixedStyles(rend), 100)
+      }
     })
 
     rend.on('rendered', () => {
@@ -227,12 +279,21 @@ const EpubReader = ({ bookData }) => {
     }
   }, [state.tocOpen])
 
-  // FIXED: Improved navigation with style consistency
+  // FIXED: Improved navigation with Chrome-specific handling
   const handleNavigation = (direction) => {
     if (state.rendition) {
       state.rendition[direction]().then(() => {
-        // Reapply styles after navigation to prevent shifts
-        setTimeout(() => applyFixedStyles(state.rendition), 150)
+        // Enhanced Chrome compatibility
+        const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor)
+        if (isChrome) {
+          // Chrome needs immediate + delayed style application
+          applyFixedStyles(state.rendition)
+          setTimeout(() => applyFixedStyles(state.rendition), 50)
+          setTimeout(() => applyFixedStyles(state.rendition), 150)
+          setTimeout(() => applyFixedStyles(state.rendition), 300)
+        } else {
+          setTimeout(() => applyFixedStyles(state.rendition), 150)
+        }
       }).catch(() => {
         // Handle navigation errors gracefully
       })
