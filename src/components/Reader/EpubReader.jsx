@@ -64,96 +64,6 @@ const EpubReader = ({ bookData }) => {
     }
   }, [state.rendition])
 
-  // FIXED: Better CSS injection to prevent margin shift (Chrome compatible)
-  const applyFixedStyles = (rendition) => {
-    if (!rendition) return
-
-    // Force Chrome to respect our styles by clearing cache and reapplying
-    const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor)
-
-    if (isChrome) {
-      // Clear any cached styles for Chrome
-      try {
-        rendition.themes.default({})
-      } catch (e) {}
-    }
-
-    // Override default epub.js styles that cause margin shifts
-    rendition.themes.override('body', {
-      'margin': '0 !important',
-      'padding': '30px 40px !important', // REDUCED: Fixed padding
-      'font-family': 'inherit !important',
-      'line-height': '1.6 !important',
-      'text-align': 'justify !important',
-      'overflow-x': 'hidden !important',
-      'box-sizing': 'border-box !important',
-      'max-width': '100% !important',
-      'position': 'relative !important', // Chrome fix
-      'transform': 'translateZ(0) !important' // Force GPU acceleration in Chrome
-    })
-
-    // Prevent content shifting - Chrome specific fixes
-    rendition.themes.override('html', {
-      'margin': '0 !important',
-      'padding': '0 !important',
-      'overflow-x': 'hidden !important',
-      'box-sizing': 'border-box !important',
-      'position': 'relative !important', // Chrome fix
-      'width': '100% !important'
-    })
-
-    // Chrome container stability fix
-    rendition.themes.override('.epub-container', {
-      'position': 'relative !important',
-      'overflow': 'hidden !important',
-      'width': '100% !important',
-      'transform': 'translateZ(0) !important'
-    })
-
-    // Fix paragraph margins
-    rendition.themes.override('p', {
-      'margin': '0 0 1em 0 !important',
-      'text-align': 'justify !important',
-      'text-indent': '1.5em !important',
-      'orphans': '2 !important',
-      'widows': '2 !important',
-      'position': 'relative !important' // Chrome stability
-    })
-
-    // Fix heading margins
-    rendition.themes.override('h1, h2, h3, h4, h5, h6', {
-      'margin': '2em 0 1em 0 !important',
-      'text-align': 'center !important',
-      'page-break-after': 'avoid !important',
-      'position': 'relative !important'
-    })
-
-    // Fix container width to prevent shifts - Enhanced for Chrome
-    rendition.themes.override('*', {
-      'box-sizing': 'border-box !important',
-      'backface-visibility': 'hidden !important' // Chrome rendering fix
-    })
-
-    // Chrome-specific iframe content fixes
-    if (isChrome) {
-      setTimeout(() => {
-        try {
-          const iframe = rendition.manager.views._views[0]?.iframe
-          if (iframe && iframe.contentDocument) {
-            const iframeBody = iframe.contentDocument.body
-            if (iframeBody) {
-              iframeBody.style.margin = '0'
-              iframeBody.style.padding = '30px 40px'
-              iframeBody.style.overflow = 'hidden'
-              iframeBody.style.position = 'relative'
-              iframeBody.style.transform = 'translateZ(0)'
-            }
-          }
-        } catch (e) {}
-      }, 50)
-    }
-  }
-
   // Initialize EPUB
   useEffect(() => {
     if (!bookData?.fileUrl) return
@@ -161,18 +71,18 @@ const EpubReader = ({ bookData }) => {
     setState(prev => ({ ...prev, isLoading: true }))
     const epubBook = ePub(bookData.fileUrl)
 
-    // FIXED: Add gap and width options to prevent margin shifts
     const rend = epubBook.renderTo(bookRef.current, {
       width: '100%',
       height: '100%',
-      allowScriptedContent: true,
-      gap: 30, // REDUCED: Horizontal padding/margin
-      flow: 'paginated', // Ensure paginated mode
-      manager: 'default' // Use default manager for stability
+      allowScriptedContent: true
     })
 
-    // Apply fixed styles immediately
-    applyFixedStyles(rend)
+    // Base styles
+    rend.themes.default({
+      body: { 'font-family': 'inherit !important', 'line-height': '1.6 !important', 'padding': '2rem !important' },
+      p: { 'margin': '0 !important', 'text-align': 'justify !important' },
+      a: { 'text-decoration': 'underline !important', 'color': 'inherit !important' }
+    })
 
     rend.themes.fontSize(`${state.fontSize}px`)
 
@@ -199,35 +109,15 @@ const EpubReader = ({ bookData }) => {
           totalPages: epubBook.spine.length
         }))
       }
-
-      // FIXED: Enhanced Chrome compatibility - Multiple reapplications
-      const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor)
-      if (isChrome) {
-        // Chrome needs multiple attempts
-        setTimeout(() => applyFixedStyles(rend), 50)
-        setTimeout(() => applyFixedStyles(rend), 150)
-        setTimeout(() => applyFixedStyles(rend), 300)
-      } else {
-        setTimeout(() => applyFixedStyles(rend), 100)
-      }
     })
 
     rend.on('rendered', () => {
       setState(prev => ({ ...prev, isLoading: false }))
-
-      // FIXED: Apply styles after render
-      applyFixedStyles(rend)
-
       try {
         rend.on('selected', handleTextSelection)
       } catch (error) {
         // Text selection not supported
       }
-    })
-
-    // FIXED: Apply styles on resize to maintain consistency
-    rend.on('resized', () => {
-      setTimeout(() => applyFixedStyles(rend), 100)
     })
 
     setState(prev => ({ ...prev, book: epubBook, rendition: rend }))
@@ -238,16 +128,14 @@ const EpubReader = ({ bookData }) => {
     }
   }, [bookData?.fileUrl])
 
-  // Update font size with style reapplication
+  // Update font size
   useEffect(() => {
     if (state.rendition) {
       state.rendition.themes.fontSize(`${state.fontSize}px`)
-      // FIXED: Reapply fixed styles after font change
-      setTimeout(() => applyFixedStyles(state.rendition), 100)
     }
   }, [state.fontSize, state.rendition])
 
-  // Apply themes with fixed styles
+  // Apply themes
   useEffect(() => {
     if (!state.rendition) return
 
@@ -260,9 +148,7 @@ const EpubReader = ({ bookData }) => {
     state.rendition.themes.override('color', colors.color)
     state.rendition.themes.override('background', colors.bg)
     state.rendition.themes.override('a', `color: ${colors.link} !important; text-decoration: underline !important;`)
-
-    // FIXED: Reapply fixed styles after theme change
-    applyFixedStyles(state.rendition)
+    state.rendition.themes.override('body', 'padding: 2rem !important;')
   }, [theme, state.rendition, state.readingMode])
 
   // Close dropdown on outside click
@@ -279,24 +165,9 @@ const EpubReader = ({ bookData }) => {
     }
   }, [state.tocOpen])
 
-  // FIXED: Improved navigation with Chrome-specific handling
   const handleNavigation = (direction) => {
     if (state.rendition) {
-      state.rendition[direction]().then(() => {
-        // Enhanced Chrome compatibility
-        const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor)
-        if (isChrome) {
-          // Chrome needs immediate + delayed style application
-          applyFixedStyles(state.rendition)
-          setTimeout(() => applyFixedStyles(state.rendition), 50)
-          setTimeout(() => applyFixedStyles(state.rendition), 150)
-          setTimeout(() => applyFixedStyles(state.rendition), 300)
-        } else {
-          setTimeout(() => applyFixedStyles(state.rendition), 150)
-        }
-      }).catch(() => {
-        // Handle navigation errors gracefully
-      })
+      state.rendition[direction]()
     }
   }
 
@@ -325,8 +196,6 @@ const EpubReader = ({ bookData }) => {
         try {
           await method()
           setState(prev => ({ ...prev, tocOpen: false }))
-          // FIXED: Apply styles after chapter navigation
-          setTimeout(() => applyFixedStyles(state.rendition), 150)
           return
         } catch (err) {
           continue
@@ -335,6 +204,7 @@ const EpubReader = ({ bookData }) => {
       throw new Error('All navigation methods failed')
     } catch (error) {
       console.warn('Navigation failed for:', href, error.message)
+      // Don't show alert for failed navigation, just close TOC
       setState(prev => ({ ...prev, tocOpen: false }))
     }
   }
@@ -480,11 +350,8 @@ const EpubReader = ({ bookData }) => {
         )}
       </div>
 
-      {/* FIXED: Improved main reading container */}
-      <div className="card epub-reader-content" style={{
-        position: 'relative',
-        overflow: 'hidden' // Prevent horizontal overflow
-      }}>
+      {/* Main Reading Container with Side Navigation */}
+      <div className="card epub-reader-content" style={{ position: 'relative' }}>
         {/* Previous Button - Left Side */}
         <button
           className="nav-side-button nav-prev"
@@ -525,11 +392,9 @@ const EpubReader = ({ bookData }) => {
           ‹
         </button>
 
-        {/* FIXED: Reader Viewport with stable margins */}
+        {/* Reader Viewport */}
         <div className="reader-viewport-container" style={{
-          margin: '0 50px',
-          position: 'relative',
-          overflow: 'hidden'
+          margin: '0 50px'
         }}>
           <div
             ref={bookRef}
@@ -542,9 +407,7 @@ const EpubReader = ({ bookData }) => {
               minHeight: '400px',
               border: '2px solid',
               borderRadius: 'var(--border-radius-lg)',
-              boxShadow: 'var(--shadow-medium)',
-              overflow: 'hidden', // FIXED: Prevent content overflow
-              position: 'relative'
+              boxShadow: 'var(--shadow-medium)'
             }}
           >
             {state.isLoading && <div className="loading">Memuat konten ebook...</div>}
