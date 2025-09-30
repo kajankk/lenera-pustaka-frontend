@@ -13,20 +13,30 @@ const BookDetail = ({ book }) => {
     isDownloading: false,
     activeTab: 'description',
     showShareModal: false,
-    showReactionModal: false,
+    showEmotionModal: false,
+    showRatingModal: false,
+    showCommentModal: false,
     showReplyModal: false,
+    showReactToCommentModal: false,
+    showEditCommentModal: false,
+    editingComment: null,
     replyToReaction: null,
+    reactToComment: null,
     userReaction: null,
-    newReaction: { type: 'LIKE', rating: 5, comment: '', title: '' },
+    userRating: null,
+    newEmotion: { type: 'LIKE' },
+    newRating: { rating: 5 },
+    newComment: { comment: '', title: '', rating: null },
+    editComment: { comment: '', title: '', rating: null },
     newReply: { comment: '' },
-    expandedReplies: new Set(), // Track which comment threads are expanded
-    reactions: [], // Store reactions from backend
+    newCommentReaction: { type: 'LIKE' },
+    expandedReplies: new Set(),
+    reactions: [],
     loading: false
   })
 
   const [notification, setNotification] = useState(null)
 
-  // Utility functions
   const formatFileSize = useCallback((bytes) => {
     if (!bytes) return 'N/A'
     const sizes = ['B', 'KB', 'MB', 'GB']
@@ -65,28 +75,16 @@ const BookDetail = ({ book }) => {
     setTimeout(() => setNotification(null), 4000)
   }, [])
 
-  // Determine file format and navigate to appropriate reader
   const getFileFormat = useCallback(() => {
-    // Check file format from book data
-    if (book.fileFormat) {
-      return book.fileFormat.toLowerCase()
-    }
-
-    // Fallback: check file extension from fileUrl
+    if (book.fileFormat) return book.fileFormat.toLowerCase()
     if (book.fileUrl) {
       const url = book.fileUrl.toLowerCase()
-      if (url.includes('.pdf') || url.endsWith('.pdf')) {
-        return 'pdf'
-      } else if (url.includes('.epub') || url.endsWith('.epub')) {
-        return 'epub'
-      }
+      if (url.includes('.pdf') || url.endsWith('.pdf')) return 'pdf'
+      if (url.includes('.epub') || url.endsWith('.epub')) return 'epub'
     }
-
-    // Default to epub if cannot determine
     return 'epub'
   }, [book.fileFormat, book.fileUrl])
 
-  // Parse authors from backend string format
   const getAuthors = useCallback(() => {
     if (book.authorNames && book.authorSlugs) {
       const names = book.authorNames.split(', ')
@@ -100,7 +98,6 @@ const BookDetail = ({ book }) => {
     return []
   }, [book.authorNames, book.authorSlugs])
 
-  // Parse genres from backend string format
   const getGenres = useCallback(() => {
     if (book.genres) {
       return book.genres.split(', ').map((genre, index) => ({
@@ -111,7 +108,6 @@ const BookDetail = ({ book }) => {
     return []
   }, [book.genres])
 
-  // Get reaction stats from book data (adapted for new backend structure)
   const getReactionStats = useCallback(() => {
     return {
       total: (book.totalLikes || 0) + (book.totalLoves || 0) + (book.totalDislikes || 0) +
@@ -127,14 +123,11 @@ const BookDetail = ({ book }) => {
     }
   }, [book])
 
-  // Load reactions from backend
   const loadReactions = useCallback(async () => {
     if (!book.slug) return
-
     try {
       setState(prev => ({ ...prev, loading: true }))
       const response = await bookService.getReactions(book.slug)
-
       if (response.result === 'Success' && response.data) {
         setState(prev => ({
           ...prev,
@@ -148,38 +141,26 @@ const BookDetail = ({ book }) => {
     }
   }, [book.slug])
 
-  // Enhanced function to build nested comment tree
   const buildCommentTree = useCallback((reactions) => {
     if (!reactions || !Array.isArray(reactions)) return []
-
-    // Filter only comments (reactions with comment text)
     const comments = reactions.filter(r => r.comment && r.comment.trim() !== '')
     const commentMap = new Map()
     const rootComments = []
 
-    // First pass: create map of all comments
     comments.forEach(comment => {
-      commentMap.set(comment.id, {
-        ...comment,
-        children: []
-      })
+      commentMap.set(comment.id, { ...comment, children: [] })
     })
 
-    // Second pass: build tree structure
     comments.forEach(comment => {
       if (comment.parentId && commentMap.has(comment.parentId)) {
-        // This is a reply, add it to parent's children
         commentMap.get(comment.parentId).children.push(commentMap.get(comment.id))
       } else if (!comment.parentId) {
-        // This is a root comment (parentId is null)
         rootComments.push(commentMap.get(comment.id))
       }
     })
 
-    // Sort by creation date (newest first for root, oldest first for replies)
     rootComments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
 
-    // Sort children (replies) by creation date (oldest first)
     const sortChildren = (comment) => {
       if (comment.children && comment.children.length > 0) {
         comment.children.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
@@ -188,24 +169,18 @@ const BookDetail = ({ book }) => {
     }
 
     rootComments.forEach(sortChildren)
-
     return rootComments
   }, [])
 
-  // Get discussions with nested replies (using loaded reactions)
   const getDiscussions = useCallback(() => {
     return buildCommentTree(state.reactions)
   }, [state.reactions, buildCommentTree])
 
-  // Event handlers
   const handleStartReading = useCallback(() => {
     const fileFormat = getFileFormat()
-
-    // Navigate to appropriate reader based on file format
     if (fileFormat === 'pdf') {
       navigate(`/${book.slug}/read-pdf`)
     } else {
-      // Default to epub reader for epub files and unknown formats
       navigate(`/${book.slug}/read`)
     }
   }, [navigate, book.slug, getFileFormat])
@@ -242,34 +217,114 @@ const BookDetail = ({ book }) => {
     }
   }, [book.title, book.description, showNotification])
 
-  const handleAddReaction = useCallback(async () => {
+  const handleAddEmotion = useCallback(async () => {
     if (!isAuthenticated) {
       showNotification('Silakan login untuk memberikan reaksi', 'warning')
       return
     }
-
     try {
-      const response = await bookService.addReaction(book.slug, state.newReaction)
-      setState(prev => ({
-        ...prev,
-        userReaction: response.data,
-        showReactionModal: false,
-        newReaction: { type: 'LIKE', rating: 5, comment: '', title: '' }
-      }))
-      showNotification('Reaksi berhasil ditambahkan!', 'success')
-      // Reload reactions instead of full page reload
+      const payload = {
+        type: state.newEmotion.type,
+        reactionId: state.userReaction?.id || null
+      }
+      await bookService.addReaction(book.slug, payload)
+      setState(prev => ({ ...prev, showEmotionModal: false, newEmotion: { type: 'LIKE' } }))
+      showNotification(state.userReaction ? 'Reaksi berhasil diupdate!' : 'Reaksi berhasil ditambahkan!', 'success')
       await loadReactions()
     } catch (error) {
       showNotification(error.message || 'Gagal menambahkan reaksi', 'error')
     }
-  }, [isAuthenticated, book.slug, state.newReaction, showNotification, loadReactions])
+  }, [isAuthenticated, book.slug, state.newEmotion, state.userReaction, showNotification, loadReactions])
+
+  const handleAddRating = useCallback(async () => {
+    if (!isAuthenticated) {
+      showNotification('Silakan login untuk memberikan rating', 'warning')
+      return
+    }
+    try {
+      const payload = {
+        type: 'RATING',
+        rating: state.newRating.rating,
+        reactionId: state.userRating?.id || state.userReaction?.id || null
+      }
+      await bookService.addReaction(book.slug, payload)
+      setState(prev => ({ ...prev, showRatingModal: false, newRating: { rating: 5 } }))
+      showNotification(state.userRating ? 'Rating berhasil diupdate!' : 'Rating berhasil ditambahkan!', 'success')
+      await loadReactions()
+    } catch (error) {
+      showNotification(error.message || 'Gagal menambahkan rating', 'error')
+    }
+  }, [isAuthenticated, book.slug, state.newRating, state.userRating, state.userReaction, showNotification, loadReactions])
+
+  const handleAddComment = useCallback(async () => {
+    if (!isAuthenticated) {
+      showNotification('Silakan login untuk menulis komentar', 'warning')
+      return
+    }
+    if (!state.newComment.comment.trim()) {
+      showNotification('Komentar tidak boleh kosong', 'warning')
+      return
+    }
+    try {
+      const payload = {
+        type: 'COMMENT',
+        comment: state.newComment.comment,
+        title: state.newComment.title || null,
+        rating: state.newComment.rating || null
+      }
+      await bookService.addReaction(book.slug, payload)
+      setState(prev => ({
+        ...prev,
+        showCommentModal: false,
+        newComment: { comment: '', title: '', rating: null }
+      }))
+      showNotification('Komentar berhasil ditambahkan!', 'success')
+      await loadReactions()
+    } catch (error) {
+      showNotification(error.message || 'Gagal menambahkan komentar', 'error')
+    }
+  }, [isAuthenticated, book.slug, state.newComment, showNotification, loadReactions])
+
+  const handleUpdateComment = useCallback(async () => {
+    if (!isAuthenticated) {
+      showNotification('Silakan login untuk mengupdate komentar', 'warning')
+      return
+    }
+    if (!state.editComment.comment.trim()) {
+      showNotification('Komentar tidak boleh kosong', 'warning')
+      return
+    }
+    try {
+      const payload = {
+        type: 'COMMENT',
+        comment: state.editComment.comment,
+        title: state.editComment.title || null,
+        rating: state.editComment.rating || null,
+        reactionId: state.editingComment.id
+      }
+      await bookService.addReaction(book.slug, payload)
+      setState(prev => ({
+        ...prev,
+        showEditCommentModal: false,
+        editingComment: null,
+        editComment: { comment: '', title: '', rating: null }
+      }))
+      showNotification('Komentar berhasil diupdate!', 'success')
+      await loadReactions()
+    } catch (error) {
+      showNotification(error.message || 'Gagal mengupdate komentar', 'error')
+    }
+  }, [isAuthenticated, book.slug, state.editComment, state.editingComment, showNotification, loadReactions])
 
   const handleAddReply = useCallback(async () => {
     if (!isAuthenticated) {
       showNotification('Silakan login untuk membalas komentar', 'warning')
       return
     }
-
+    if (!state.newReply.comment.trim()) {
+      showNotification('Balasan tidak boleh kosong', 'warning')
+      return
+    }
     try {
       await bookService.addReply(book.slug, state.replyToReaction.id, state.newReply)
       setState(prev => ({
@@ -279,14 +334,72 @@ const BookDetail = ({ book }) => {
         newReply: { comment: '' }
       }))
       showNotification('Balasan berhasil ditambahkan!', 'success')
-      // Reload reactions instead of full page reload
       await loadReactions()
     } catch (error) {
       showNotification(error.message || 'Gagal menambahkan balasan', 'error')
     }
   }, [isAuthenticated, book.slug, state.replyToReaction, state.newReply, showNotification, loadReactions])
 
-  // Function to handle reply to any comment (including nested replies)
+  const handleAddCommentReaction = useCallback(async () => {
+    if (!isAuthenticated) {
+      showNotification('Silakan login untuk memberikan reaksi', 'warning')
+      return
+    }
+    try {
+      const payload = {
+        type: state.newCommentReaction.type,
+        parentId: state.reactToComment.id
+      }
+      await bookService.addReaction(book.slug, payload)
+      setState(prev => ({
+        ...prev,
+        showReactToCommentModal: false,
+        reactToComment: null,
+        newCommentReaction: { type: 'LIKE' }
+      }))
+      showNotification('Reaksi pada komentar berhasil ditambahkan!', 'success')
+      await loadReactions()
+    } catch (error) {
+      showNotification(error.message || 'Gagal menambahkan reaksi', 'error')
+    }
+  }, [isAuthenticated, book.slug, state.newCommentReaction, state.reactToComment, showNotification, loadReactions])
+
+  const handleDeleteReaction = useCallback(async (reactionId) => {
+    if (!window.confirm('Apakah Anda yakin ingin menghapus ini?')) return
+    try {
+      await bookService.removeReaction(book.slug, reactionId)
+      showNotification('Berhasil dihapus!', 'success')
+      await loadReactions()
+    } catch (error) {
+      showNotification(error.message || 'Gagal menghapus', 'error')
+    }
+  }, [book.slug, showNotification, loadReactions])
+
+  const handleDeleteEmotion = useCallback(async () => {
+    if (!state.userReaction) return
+    if (!window.confirm('Hapus reaksi emosi Anda?')) return
+    try {
+      await bookService.removeReaction(book.slug, state.userReaction.id)
+      showNotification('Reaksi berhasil dihapus!', 'success')
+      await loadReactions()
+    } catch (error) {
+      showNotification(error.message || 'Gagal menghapus reaksi', 'error')
+    }
+  }, [book.slug, state.userReaction, showNotification, loadReactions])
+
+  const handleDeleteRating = useCallback(async () => {
+    const targetReaction = state.userRating || state.userReaction
+    if (!targetReaction) return
+    if (!window.confirm('Hapus rating Anda?')) return
+    try {
+      await bookService.removeReaction(book.slug, targetReaction.id)
+      showNotification('Rating berhasil dihapus!', 'success')
+      await loadReactions()
+    } catch (error) {
+      showNotification(error.message || 'Gagal menghapus rating', 'error')
+    }
+  }, [book.slug, state.userRating, state.userReaction, showNotification, loadReactions])
+
   const handleReplyToComment = useCallback((comment) => {
     setState(prev => ({
       ...prev,
@@ -295,7 +408,27 @@ const BookDetail = ({ book }) => {
     }))
   }, [])
 
-  // Function to toggle expanded replies
+  const handleReactToComment = useCallback((comment) => {
+    setState(prev => ({
+      ...prev,
+      showReactToCommentModal: true,
+      reactToComment: comment
+    }))
+  }, [])
+
+  const handleEditComment = useCallback((comment) => {
+    setState(prev => ({
+      ...prev,
+      showEditCommentModal: true,
+      editingComment: comment,
+      editComment: {
+        comment: comment.comment || '',
+        title: comment.title || '',
+        rating: comment.rating || null
+      }
+    }))
+  }, [])
+
   const toggleReplies = useCallback((commentId) => {
     setState(prev => {
       const newExpanded = new Set(prev.expandedReplies)
@@ -308,75 +441,74 @@ const BookDetail = ({ book }) => {
     })
   }, [])
 
-  // Recursive component to render comment tree
-  const CommentItem = ({ comment, depth = 0 }) => (
-    <div className="discussion-item" style={{ marginLeft: `${depth * 1.5}rem` }}>
-      <div className="discussion-header">
-        <div className="user-info">
-          <div className="user-avatar">
-            {comment.userName?.charAt(0).toUpperCase() || '👤'}
+  const CommentItem = ({ comment, depth = 0 }) => {
+    const isOwner = user && comment.userId === user.id
+
+    return (
+      <div className="discussion-item" style={{ marginLeft: `${depth * 1.5}rem` }}>
+        <div className="discussion-header">
+          <div className="user-info">
+            <div className="user-avatar">
+              {comment.userName?.charAt(0).toUpperCase() || '👤'}
+            </div>
+            <div className="user-details">
+              <h5>{comment.userName || 'Pengguna'}</h5>
+              <p>{formatDate(comment.createdAt)}</p>
+            </div>
           </div>
-          <div className="user-details">
-            <h5>{comment.userName || 'Pengguna'}</h5>
-            <p>{formatDate(comment.createdAt)}</p>
+          <div className="reaction-info">
+            {comment.rating && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                <span>⭐</span>
+                <span style={{ fontWeight: '600' }}>{comment.rating}/5</span>
+              </div>
+            )}
           </div>
         </div>
-        <div className="reaction-info">
-          <span className="reaction-badge" style={{
-            backgroundColor: comment.reactionType === 'LIKE' ? '#dcfce7' :
-                            comment.reactionType === 'LOVE' ? '#fce7f3' :
-                            comment.reactionType === 'DISLIKE' ? '#fef2f2' :
-                            comment.reactionType === 'ANGRY' ? '#fef2f2' :
-                            comment.reactionType === 'SAD' ? '#fef3c7' : '#f3f4f6',
-            color: comment.reactionType === 'LIKE' ? '#166534' :
-                   comment.reactionType === 'LOVE' ? '#be185d' :
-                   comment.reactionType === 'DISLIKE' ? '#991b1b' :
-                   comment.reactionType === 'ANGRY' ? '#991b1b' :
-                   comment.reactionType === 'SAD' ? '#92400e' : '#374151'
-          }}>
-            {reactionEmojis[comment.reactionType] || '💬'} {comment.reactionType}
-          </span>
-          {comment.rating && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-              <span>⭐</span>
-              <span style={{ fontWeight: '600' }}>{comment.rating}/5</span>
-            </div>
+
+        <div className="discussion-content">
+          {comment.title && (
+            <div className="discussion-title">{comment.title}</div>
+          )}
+          <div className="discussion-text">{comment.comment}</div>
+        </div>
+
+        <div className="discussion-actions">
+          {isAuthenticated && !isOwner && (
+            <>
+              <button className="action-btn" onClick={() => handleReplyToComment(comment)}>
+                💬 Balas
+              </button>
+              {!comment.parentId && (
+                <button className="action-btn" onClick={() => handleReactToComment(comment)}>
+                  😊 Reaksi
+                </button>
+              )}
+            </>
+          )}
+          {isOwner && (
+            <>
+              <button className="action-btn" onClick={() => handleEditComment(comment)}>
+                ✏️ Edit
+              </button>
+              <button className="action-btn" style={{ color: '#dc2626' }} onClick={() => handleDeleteReaction(comment.id)}>
+                🗑️ Hapus
+              </button>
+            </>
+          )}
+          {comment.children?.length > 0 && (
+            <button className="action-btn" onClick={() => toggleReplies(comment.id)}>
+              {state.expandedReplies.has(comment.id) ? '▼' : '▶'} {comment.children.length} balasan
+            </button>
           )}
         </div>
-      </div>
 
-      <div className="discussion-content">
-        {comment.title && (
-          <div className="discussion-title">{comment.title}</div>
-        )}
-        <div className="discussion-text">{comment.comment}</div>
+        {state.expandedReplies.has(comment.id) && comment.children?.map(child => (
+          <CommentItem key={child.id} comment={child} depth={depth + 1} />
+        ))}
       </div>
-
-      <div className="discussion-actions">
-        {isAuthenticated && (
-          <button
-            className="action-btn"
-            onClick={() => handleReplyToComment(comment)}
-          >
-            💬 Balas
-          </button>
-        )}
-        {comment.children?.length > 0 && (
-          <button
-            className="action-btn"
-            onClick={() => toggleReplies(comment.id)}
-          >
-            {state.expandedReplies.has(comment.id) ? '▼' : '▶'} {comment.children.length} balasan
-          </button>
-        )}
-      </div>
-
-      {/* Render nested replies */}
-      {state.expandedReplies.has(comment.id) && comment.children?.map(child => (
-        <CommentItem key={child.id} comment={child} depth={depth + 1} />
-      ))}
-    </div>
-  )
+    )
+  }
 
   const authors = getAuthors()
   const genres = getGenres()
@@ -384,39 +516,30 @@ const BookDetail = ({ book }) => {
   const discussions = getDiscussions()
   const fileFormat = getFileFormat()
 
-  // Load reactions when component mounts or book changes
   useEffect(() => {
     loadReactions()
   }, [loadReactions])
 
-  // Get user's existing reaction (find from loaded reactions)
   useEffect(() => {
     if (isAuthenticated && user && state.reactions.length > 0) {
-      const userReaction = state.reactions.find(reaction =>
-        reaction.userId === user.id
+      const userMainReaction = state.reactions.find(r =>
+        r.userId === user.id && !r.parentId && !r.comment
       )
-      setState(prev => ({ ...prev, userReaction: userReaction || null }))
+
+      const userRating = state.reactions.find(r =>
+        r.userId === user.id && !r.parentId && !r.comment && r.reactionType === 'RATING'
+      )
+
+      setState(prev => ({
+        ...prev,
+        userReaction: userMainReaction || null,
+        userRating: userRating || null
+      }))
     }
   }, [isAuthenticated, user, state.reactions])
 
   useEffect(() => {
     document.title = `${book.title} - Lentera Pustaka`
-    const setMeta = (name, content) => {
-      let meta = document.querySelector(`meta[name="${name}"]`) || document.querySelector(`meta[property="${name}"]`)
-      if (!meta) {
-        meta = document.createElement('meta')
-        meta.setAttribute(name.startsWith('og:') || name.startsWith('twitter:') ? 'property' : 'name', name)
-        document.head.appendChild(meta)
-      }
-      meta.setAttribute('content', content)
-    }
-    setMeta('description', book.description || `Baca "${book.title}" di Lentera Pustaka`)
-    setMeta('og:title', book.title)
-    setMeta('og:description', book.description || `Baca "${book.title}" di Lentera Pustaka`)
-    setMeta('og:type', 'book')
-    setMeta('og:url', window.location.href)
-    if (book.coverImageUrl) setMeta('og:image', book.coverImageUrl)
-    setMeta('twitter:card', 'summary_large_image')
   }, [book])
 
   const tabs = [
@@ -431,8 +554,7 @@ const BookDetail = ({ book }) => {
     LOVE: '❤️',
     DISLIKE: '👎',
     ANGRY: '😠',
-    SAD: '😢',
-    COMMENT: '💬'
+    SAD: '😢'
   }
 
   return (
@@ -488,23 +610,70 @@ const BookDetail = ({ book }) => {
                   🔗 Bagikan
                 </button>
                 {isAuthenticated && (
-                  <button
-                    className="btn btn-secondary btn-small"
-                    onClick={() => setState(prev => ({ ...prev, showReactionModal: true }))}
-                  >
-                    {state.userReaction ? '✏️ Edit Reaksi' : '😊 Beri Reaksi'}
-                  </button>
+                  <>
+                    <button
+                      className="btn btn-secondary btn-small"
+                      onClick={() => setState(prev => ({
+                        ...prev,
+                        showEmotionModal: true,
+                        newEmotion: { type: state.userReaction?.reactionType || 'LIKE' }
+                      }))}
+                    >
+                      {state.userReaction ? '✏️ Edit Reaksi' : '😊 Beri Reaksi'}
+                    </button>
+                    <button
+                      className="btn btn-secondary btn-small"
+                      onClick={() => setState(prev => ({
+                        ...prev,
+                        showRatingModal: true,
+                        newRating: { rating: state.userRating?.rating || state.userReaction?.rating || 5 }
+                      }))}
+                    >
+                      {state.userRating || state.userReaction?.rating ? '✏️ Edit Rating' : '⭐ Beri Rating'}
+                    </button>
+                  </>
                 )}
               </div>
 
-              {/* Fixed horizontal layout for quick stats */}
+              {isAuthenticated && (state.userReaction || state.userRating) && (
+                <div style={{
+                  padding: '0.75rem',
+                  background: theme === 'light' ? '#f0fdf4' : '#064e3b',
+                  borderRadius: '8px',
+                  fontSize: '0.875rem'
+                }}>
+                  <div style={{ fontWeight: '600', marginBottom: '0.5rem' }}>Reaksi Anda:</div>
+                  {state.userReaction && state.userReaction.reactionType !== 'RATING' && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                      <span>{reactionEmojis[state.userReaction.reactionType]} {state.userReaction.reactionType}</span>
+                      <button
+                        className="btn btn-secondary btn-small"
+                        style={{ marginLeft: 'auto', padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                        onClick={handleDeleteEmotion}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+                  {(state.userRating || state.userReaction?.rating) && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span>⭐ Rating: {state.userRating?.rating || state.userReaction?.rating}/5</span>
+                      <button
+                        className="btn btn-secondary btn-small"
+                        style={{ marginLeft: 'auto', padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                        onClick={handleDeleteRating}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="book-quick-stats" style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(2, 1fr)',
-                gap: '0.75rem',
-                '@media (minWidth: 768px)': {
-                  gridTemplateColumns: 'repeat(4, 1fr)'
-                }
+                gap: '0.75rem'
               }}>
                 {[
                   { label: 'Dilihat', value: book.viewCount || 0, icon: '👁️' },
@@ -581,12 +750,6 @@ const BookDetail = ({ book }) => {
                   <span>📄</span>
                   <span>{fileFormat.toUpperCase()}</span>
                 </div>
-                {book.copyrightStatus && (
-                  <div className="meta-item">
-                    <span>©️</span>
-                    <span>{book.copyrightStatus}</span>
-                  </div>
-                )}
               </div>
 
               {genres?.length > 0 && (
@@ -607,7 +770,6 @@ const BookDetail = ({ book }) => {
                 </div>
               )}
 
-              {/* Reaction Stats Display */}
               <div style={{ marginTop: '1rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                 {[
                   { key: 'likes', value: book.totalLikes, emoji: '👍', label: 'Suka' },
@@ -686,12 +848,6 @@ const BookDetail = ({ book }) => {
                           <span>Ukuran File:</span>
                           <span>{formatFileSize(book.fileSize)}</span>
                         </div>
-                        {book.fileUrl && (
-                          <div className="info-item">
-                            <span>Status File:</span>
-                            <span style={{ color: theme === 'light' ? '#225330' : '#de96be', fontWeight: '600' }}>✅ Tersedia</span>
-                          </div>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -734,18 +890,6 @@ const BookDetail = ({ book }) => {
                           <span className="meta-label">Kategori:</span>
                           <span className="meta-value">{book.category}</span>
                         </div>
-                        {book.copyrightStatus && (
-                          <div className="metadata-item">
-                            <span className="meta-label">Status Hak Cipta:</span>
-                            <span className="meta-value">{book.copyrightStatus}</span>
-                          </div>
-                        )}
-                        {book.edition && (
-                          <div className="metadata-item">
-                            <span className="meta-label">Edisi:</span>
-                            <span className="meta-value">{book.edition}</span>
-                          </div>
-                        )}
                       </div>
                     </div>
 
@@ -781,7 +925,7 @@ const BookDetail = ({ book }) => {
                       {isAuthenticated && (
                         <button
                           className="btn btn-primary btn-small"
-                          onClick={() => setState(prev => ({ ...prev, showReactionModal: true }))}
+                          onClick={() => setState(prev => ({ ...prev, showCommentModal: true }))}
                         >
                           💬 Tulis Komentar
                         </button>
@@ -842,7 +986,7 @@ const BookDetail = ({ book }) => {
                     <div className="info-card">
                       <h4>😊 Distribusi Reaksi</h4>
                       <div className="info-items">
-                        {Object.entries(reactionStats).filter(([key, value]) =>
+                        {Object.entries(reactionStats).filter(([key]) =>
                           ['likes', 'loves', 'dislikes', 'angry', 'sad'].includes(key)
                         ).map(([key, value]) => (
                           <div key={key} className="info-item">
@@ -915,133 +1059,315 @@ const BookDetail = ({ book }) => {
                     📋 Salin Link
                   </button>
                 </div>
-                <div>
-                  <h4 style={{ marginBottom: '0.75rem' }}>Bagikan ke:</h4>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    <a
-                      href={`https://wa.me/?text=${encodeURIComponent(`${book.title} - ${window.location.href}`)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn btn-secondary btn-small"
-                      style={{ textDecoration: 'none', textAlign: 'center' }}
-                    >
-                      💬 WhatsApp
-                    </a>
-                    <a
-                      href={`https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent(book.title)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn btn-secondary btn-small"
-                      style={{ textDecoration: 'none', textAlign: 'center' }}
-                    >
-                      ✈️ Telegram
-                    </a>
-                    <a
-                      href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(book.title)}&url=${encodeURIComponent(window.location.href)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn btn-secondary btn-small"
-                      style={{ textDecoration: 'none', textAlign: 'center' }}
-                    >
-                      🐦 Twitter
-                    </a>
-                  </div>
-                </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* Reaction Modal */}
-        {state.showReactionModal && (
-          <div className="modal-overlay" onClick={() => setState(prev => ({ ...prev, showReactionModal: false }))}>
+        {/* Emotion Modal */}
+        {state.showEmotionModal && (
+          <div className="modal-overlay" onClick={() => setState(prev => ({ ...prev, showEmotionModal: false }))}>
             <div className="modal-content card" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
-                <h3>{state.userReaction ? 'Edit Reaksi' : 'Berikan Reaksi'}</h3>
+                <h3>{state.userReaction ? 'Edit Reaksi Emosi' : 'Berikan Reaksi Emosi'}</h3>
                 <button
                   className="btn btn-secondary btn-small"
-                  onClick={() => setState(prev => ({ ...prev, showReactionModal: false }))}
+                  onClick={() => setState(prev => ({ ...prev, showEmotionModal: false }))}
                 >
                   ✕
                 </button>
               </div>
               <div className="modal-body">
                 <div className="form-group">
-                  <label>Jenis Reaksi:</label>
-                  <select
-                    className="form-control select-control"
-                    value={state.newReaction.type}
-                    onChange={(e) => setState(prev => ({
-                      ...prev,
-                      newReaction: { ...prev.newReaction, type: e.target.value }
-                    }))}
-                  >
-                    <option value="LIKE">👍 Suka</option>
-                    <option value="LOVE">❤️ Cinta</option>
-                    <option value="DISLIKE">👎 Tidak Suka</option>
-                    <option value="ANGRY">😠 Marah</option>
-                    <option value="SAD">😢 Sedih</option>
-                    <option value="COMMENT">💬 Komentar</option>
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label>Rating (1-5):</label>
-                  <div className="rating-input">
-                    {[1, 2, 3, 4, 5].map(star => (
-                      <span
-                        key={star}
-                        className={`star ${star <= state.newReaction.rating ? 'active' : ''}`}
+                  <label>Pilih Reaksi Emosi:</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem', marginTop: '0.5rem' }}>
+                    {['LIKE', 'LOVE', 'DISLIKE', 'ANGRY', 'SAD'].map(emotion => (
+                      <button
+                        key={emotion}
+                        className={`btn ${state.newEmotion.type === emotion ? 'btn-primary' : 'btn-secondary'}`}
                         onClick={() => setState(prev => ({
                           ...prev,
-                          newReaction: { ...prev.newReaction, rating: star }
+                          newEmotion: { type: emotion }
                         }))}
                       >
-                        ⭐
-                      </span>
+                        {reactionEmojis[emotion]} {emotion}
+                      </button>
                     ))}
                   </div>
-                </div>
-
-                <div className="form-group">
-                  <label>Judul (opsional):</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={state.newReaction.title}
-                    onChange={(e) => setState(prev => ({
-                      ...prev,
-                      newReaction: { ...prev.newReaction, title: e.target.value }
-                    }))}
-                    placeholder="Berikan judul untuk reaksi Anda..."
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Komentar:</label>
-                  <textarea
-                    className="form-control textarea-control"
-                    value={state.newReaction.comment}
-                    onChange={(e) => setState(prev => ({
-                      ...prev,
-                      newReaction: { ...prev.newReaction, comment: e.target.value }
-                    }))}
-                    placeholder="Tulis komentar Anda tentang buku ini..."
-                  />
                 </div>
 
                 <div className="modal-actions">
                   <button
                     className="btn btn-secondary"
-                    onClick={() => setState(prev => ({ ...prev, showReactionModal: false }))}
+                    onClick={() => setState(prev => ({ ...prev, showEmotionModal: false }))}
                   >
                     Batal
                   </button>
                   <button
                     className="btn btn-primary"
-                    onClick={handleAddReaction}
+                    onClick={handleAddEmotion}
                   >
                     {state.userReaction ? 'Update Reaksi' : 'Kirim Reaksi'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Rating Modal */}
+        {state.showRatingModal && (
+          <div className="modal-overlay" onClick={() => setState(prev => ({ ...prev, showRatingModal: false }))}>
+            <div className="modal-content card" onClick={e => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3>{state.userRating || state.userReaction?.rating ? 'Edit Rating' : 'Berikan Rating'}</h3>
+                <button
+                  className="btn btn-secondary btn-small"
+                  onClick={() => setState(prev => ({ ...prev, showRatingModal: false }))}
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="modal-body">
+                <div className="form-group">
+                  <label>Rating (1-5):</label>
+                  <div className="rating-input" style={{ display: 'flex', gap: '0.5rem', fontSize: '2rem', justifyContent: 'center', margin: '1rem 0' }}>
+                    {[1, 2, 3, 4, 5].map(star => (
+                      <span
+                        key={star}
+                        className={`star ${star <= state.newRating.rating ? 'active' : ''}`}
+                        onClick={() => setState(prev => ({
+                          ...prev,
+                          newRating: { rating: star }
+                        }))}
+                        style={{ cursor: 'pointer', opacity: star <= state.newRating.rating ? 1 : 0.3 }}
+                      >
+                        ⭐
+                      </span>
+                    ))}
+                  </div>
+                  <p style={{ textAlign: 'center', color: '#6b7280' }}>Rating Anda: {state.newRating.rating}/5</p>
+                </div>
+
+                <div className="modal-actions">
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => setState(prev => ({ ...prev, showRatingModal: false }))}
+                  >
+                    Batal
+                  </button>
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleAddRating}
+                  >
+                    {state.userRating || state.userReaction?.rating ? 'Update Rating' : 'Kirim Rating'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Comment Modal */}
+        {state.showCommentModal && (
+          <div className="modal-overlay" onClick={() => setState(prev => ({ ...prev, showCommentModal: false }))}>
+            <div className="modal-content card" onClick={e => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3>Tulis Komentar</h3>
+                <button
+                  className="btn btn-secondary btn-small"
+                  onClick={() => setState(prev => ({ ...prev, showCommentModal: false }))}
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="modal-body">
+                <div className="form-group">
+                  <label>Judul (opsional):</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={state.newComment.title}
+                    onChange={(e) => setState(prev => ({
+                      ...prev,
+                      newComment: { ...prev.newComment, title: e.target.value }
+                    }))}
+                    placeholder="Berikan judul untuk komentar Anda..."
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Komentar: *</label>
+                  <textarea
+                    className="form-control textarea-control"
+                    value={state.newComment.comment}
+                    onChange={(e) => setState(prev => ({
+                      ...prev,
+                      newComment: { ...prev.newComment, comment: e.target.value }
+                    }))}
+                    placeholder="Tulis komentar Anda tentang buku ini..."
+                    rows="5"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Rating (opsional):</label>
+                  <div className="rating-input" style={{ display: 'flex', gap: '0.5rem', fontSize: '1.5rem', margin: '0.5rem 0' }}>
+                    {[1, 2, 3, 4, 5].map(star => (
+                      <span
+                        key={star}
+                        className={`star ${state.newComment.rating && star <= state.newComment.rating ? 'active' : ''}`}
+                        onClick={() => setState(prev => ({
+                          ...prev,
+                          newComment: {
+                            ...prev.newComment,
+                            rating: prev.newComment.rating === star ? null : star
+                          }
+                        }))}
+                        style={{ cursor: 'pointer', opacity: state.newComment.rating && star <= state.newComment.rating ? 1 : 0.3 }}
+                      >
+                        ⭐
+                      </span>
+                    ))}
+                    {state.newComment.rating && (
+                      <button
+                        className="btn btn-secondary btn-small"
+                        style={{ marginLeft: '0.5rem' }}
+                        onClick={() => setState(prev => ({
+                          ...prev,
+                          newComment: { ...prev.newComment, rating: null }
+                        }))}
+                      >
+                        ✕ Hapus Rating
+                      </button>
+                    )}
+                  </div>
+                  {state.newComment.rating && (
+                    <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>Rating: {state.newComment.rating}/5</p>
+                  )}
+                </div>
+
+                <div className="modal-actions">
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => setState(prev => ({
+                      ...prev,
+                      showCommentModal: false,
+                      newComment: { comment: '', title: '', rating: null }
+                    }))}
+                  >
+                    Batal
+                  </button>
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleAddComment}
+                    disabled={!state.newComment.comment.trim()}
+                  >
+                    Kirim Komentar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Comment Modal */}
+        {state.showEditCommentModal && (
+          <div className="modal-overlay" onClick={() => setState(prev => ({ ...prev, showEditCommentModal: false }))}>
+            <div className="modal-content card" onClick={e => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3>Edit Komentar</h3>
+                <button
+                  className="btn btn-secondary btn-small"
+                  onClick={() => setState(prev => ({ ...prev, showEditCommentModal: false }))}
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="modal-body">
+                <div className="form-group">
+                  <label>Judul (opsional):</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={state.editComment.title}
+                    onChange={(e) => setState(prev => ({
+                      ...prev,
+                      editComment: { ...prev.editComment, title: e.target.value }
+                    }))}
+                    placeholder="Berikan judul untuk komentar Anda..."
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Komentar: *</label>
+                  <textarea
+                    className="form-control textarea-control"
+                    value={state.editComment.comment}
+                    onChange={(e) => setState(prev => ({
+                      ...prev,
+                      editComment: { ...prev.editComment, comment: e.target.value }
+                    }))}
+                    placeholder="Tulis komentar Anda tentang buku ini..."
+                    rows="5"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Rating (opsional):</label>
+                  <div className="rating-input" style={{ display: 'flex', gap: '0.5rem', fontSize: '1.5rem', margin: '0.5rem 0' }}>
+                    {[1, 2, 3, 4, 5].map(star => (
+                      <span
+                        key={star}
+                        className={`star ${state.editComment.rating && star <= state.editComment.rating ? 'active' : ''}`}
+                        onClick={() => setState(prev => ({
+                          ...prev,
+                          editComment: {
+                            ...prev.editComment,
+                            rating: prev.editComment.rating === star ? null : star
+                          }
+                        }))}
+                        style={{ cursor: 'pointer', opacity: state.editComment.rating && star <= state.editComment.rating ? 1 : 0.3 }}
+                      >
+                        ⭐
+                      </span>
+                    ))}
+                    {state.editComment.rating && (
+                      <button
+                        className="btn btn-secondary btn-small"
+                        style={{ marginLeft: '0.5rem' }}
+                        onClick={() => setState(prev => ({
+                          ...prev,
+                          editComment: { ...prev.editComment, rating: null }
+                        }))}
+                      >
+                        ✕ Hapus Rating
+                      </button>
+                    )}
+                  </div>
+                  {state.editComment.rating && (
+                    <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>Rating: {state.editComment.rating}/5</p>
+                  )}
+                </div>
+
+                <div className="modal-actions">
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => setState(prev => ({
+                      ...prev,
+                      showEditCommentModal: false,
+                      editingComment: null,
+                      editComment: { comment: '', title: '', rating: null }
+                    }))}
+                  >
+                    Batal
+                  </button>
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleUpdateComment}
+                    disabled={!state.editComment.comment.trim()}
+                  >
+                    Update Komentar
                   </button>
                 </div>
               </div>
@@ -1073,15 +1399,16 @@ const BookDetail = ({ book }) => {
                 </div>
 
                 <div className="form-group">
-                  <label>Balasan Anda:</label>
+                  <label>Balasan: *</label>
                   <textarea
                     className="form-control textarea-control"
                     value={state.newReply.comment}
                     onChange={(e) => setState(prev => ({
                       ...prev,
-                      newReply: { ...prev.newReply, comment: e.target.value }
+                      newReply: { comment: e.target.value }
                     }))}
                     placeholder="Tulis balasan Anda..."
+                    rows="4"
                   />
                 </div>
 
@@ -1103,6 +1430,71 @@ const BookDetail = ({ book }) => {
                     disabled={!state.newReply.comment.trim()}
                   >
                     Kirim Balasan
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* React to Comment Modal */}
+        {state.showReactToCommentModal && (
+          <div className="modal-overlay" onClick={() => setState(prev => ({ ...prev, showReactToCommentModal: false }))}>
+            <div className="modal-content card" onClick={e => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3>Beri Reaksi pada Komentar</h3>
+                <button
+                  className="btn btn-secondary btn-small"
+                  onClick={() => setState(prev => ({ ...prev, showReactToCommentModal: false }))}
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="modal-body">
+                <div style={{ padding: '1rem', background: theme === 'light' ? '#f9fafb' : '#1f2937', borderRadius: '8px', marginBottom: '1rem' }}>
+                  <div style={{ fontWeight: '600', marginBottom: '0.5rem' }}>
+                    Memberi reaksi pada komentar dari {state.reactToComment?.userName}:
+                  </div>
+                  <div style={{ color: '#6b7280', fontStyle: 'italic' }}>
+                    "{state.reactToComment?.comment}"
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>Pilih Reaksi:</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem', marginTop: '0.5rem' }}>
+                    {['LIKE', 'LOVE', 'DISLIKE', 'ANGRY', 'SAD'].map(emotion => (
+                      <button
+                        key={emotion}
+                        className={`btn ${state.newCommentReaction.type === emotion ? 'btn-primary' : 'btn-secondary'}`}
+                        onClick={() => setState(prev => ({
+                          ...prev,
+                          newCommentReaction: { type: emotion }
+                        }))}
+                      >
+                        {reactionEmojis[emotion]} {emotion}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="modal-actions">
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => setState(prev => ({
+                      ...prev,
+                      showReactToCommentModal: false,
+                      reactToComment: null,
+                      newCommentReaction: { type: 'LIKE' }
+                    }))}
+                  >
+                    Batal
+                  </button>
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleAddCommentReaction}
+                  >
+                    Kirim Reaksi
                   </button>
                 </div>
               </div>
