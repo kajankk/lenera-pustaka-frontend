@@ -13,23 +13,18 @@ const BookDetail = ({ book }) => {
     isDownloading: false,
     activeTab: 'description',
     showShareModal: false,
-    showEmotionModal: false,
     showRatingModal: false,
-    showCommentModal: false,
+    showReviewModal: false,
     showReplyModal: false,
-    showReactToCommentModal: false,
-    showEditCommentModal: false,
-    editingComment: null,
-    replyToReaction: null,
-    reactToComment: null,
-    userReaction: null,
+    showEditReviewModal: false,
+    editingReview: null,
+    replyToReview: null,
     userRating: null,
-    newEmotion: { type: 'LIKE' },
+    userReview: null,
     newRating: { rating: 5 },
-    newComment: { comment: '', title: '', rating: null },
-    editComment: { comment: '', title: '', rating: null },
+    newReview: { comment: '', title: '' },
+    editReview: { comment: '', title: '' },
     newReply: { comment: '' },
-    newCommentReaction: { type: 'LIKE' },
     expandedReplies: new Set(),
     reactions: [],
     loading: false
@@ -110,13 +105,6 @@ const BookDetail = ({ book }) => {
 
   const getReactionStats = useCallback(() => {
     return {
-      total: (book.totalLikes || 0) + (book.totalLoves || 0) + (book.totalDislikes || 0) +
-             (book.totalAngry || 0) + (book.totalSad || 0),
-      likes: book.totalLikes || 0,
-      loves: book.totalLoves || 0,
-      dislikes: book.totalDislikes || 0,
-      angry: book.totalAngry || 0,
-      sad: book.totalSad || 0,
       comments: book.totalComments || 0,
       ratings: book.totalRatings || 0,
       averageRating: book.averageRating || 0
@@ -141,40 +129,39 @@ const BookDetail = ({ book }) => {
     }
   }, [book.slug])
 
-  const buildCommentTree = useCallback((reactions) => {
+  const buildReviewTree = useCallback((reactions) => {
     if (!reactions || !Array.isArray(reactions)) return []
-    const comments = reactions.filter(r => r.comment && r.comment.trim() !== '')
-    const commentMap = new Map()
-    const rootComments = []
+    const reviews = reactions.filter(r => r.reactionType === 'COMMENT' && !r.parentId)
+    const reviewMap = new Map()
+    const rootReviews = []
 
-    comments.forEach(comment => {
-      commentMap.set(comment.id, { ...comment, children: [] })
+    reviews.forEach(review => {
+      reviewMap.set(review.id, { ...review, replies: [], feedbacks: [] })
     })
 
-    comments.forEach(comment => {
-      if (comment.parentId && commentMap.has(comment.parentId)) {
-        commentMap.get(comment.parentId).children.push(commentMap.get(comment.id))
-      } else if (!comment.parentId) {
-        rootComments.push(commentMap.get(comment.id))
+    reactions.forEach(reaction => {
+      if (reaction.parentId && reviewMap.has(reaction.parentId)) {
+        if (reaction.reactionType === 'COMMENT') {
+          reviewMap.get(reaction.parentId).replies.push(reaction)
+        } else if (reaction.reactionType === 'HELPFUL' || reaction.reactionType === 'NOT_HELPFUL') {
+          reviewMap.get(reaction.parentId).feedbacks.push(reaction)
+        }
+      } else if (!reaction.parentId && reaction.reactionType === 'COMMENT') {
+        rootReviews.push(reviewMap.get(reaction.id))
       }
     })
 
-    rootComments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    rootReviews.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    rootReviews.forEach(review => {
+      review.replies.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+    })
 
-    const sortChildren = (comment) => {
-      if (comment.children && comment.children.length > 0) {
-        comment.children.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
-        comment.children.forEach(sortChildren)
-      }
-    }
-
-    rootComments.forEach(sortChildren)
-    return rootComments
+    return rootReviews
   }, [])
 
-  const getDiscussions = useCallback(() => {
-    return buildCommentTree(state.reactions)
-  }, [state.reactions, buildCommentTree])
+  const getReviews = useCallback(() => {
+    return buildReviewTree(state.reactions)
+  }, [state.reactions, buildReviewTree])
 
   const handleStartReading = useCallback(() => {
     const fileFormat = getFileFormat()
@@ -217,108 +204,82 @@ const BookDetail = ({ book }) => {
     }
   }, [book.title, book.description, showNotification])
 
-  const handleAddEmotion = useCallback(async () => {
-    if (!isAuthenticated) {
-      showNotification('Silakan login untuk memberikan reaksi', 'warning')
-      return
-    }
-    try {
-      const payload = {
-        type: state.newEmotion.type,
-        reactionId: state.userReaction?.id || null
-      }
-      await bookService.addReaction(book.slug, payload)
-      setState(prev => ({ ...prev, showEmotionModal: false, newEmotion: { type: 'LIKE' } }))
-      showNotification(state.userReaction ? 'Reaksi berhasil diupdate!' : 'Reaksi berhasil ditambahkan!', 'success')
-      await loadReactions()
-    } catch (error) {
-      showNotification(error.message || 'Gagal menambahkan reaksi', 'error')
-    }
-  }, [isAuthenticated, book.slug, state.newEmotion, state.userReaction, showNotification, loadReactions])
-
   const handleAddRating = useCallback(async () => {
     if (!isAuthenticated) {
       showNotification('Silakan login untuk memberikan rating', 'warning')
       return
     }
     try {
-      const payload = {
+      await bookService.addReaction(book.slug, {
         type: 'RATING',
-        rating: state.newRating.rating,
-        reactionId: state.userRating?.id || state.userReaction?.id || null
-      }
-      await bookService.addReaction(book.slug, payload)
+        rating: state.newRating.rating
+      })
       setState(prev => ({ ...prev, showRatingModal: false, newRating: { rating: 5 } }))
       showNotification(state.userRating ? 'Rating berhasil diupdate!' : 'Rating berhasil ditambahkan!', 'success')
       await loadReactions()
     } catch (error) {
       showNotification(error.message || 'Gagal menambahkan rating', 'error')
     }
-  }, [isAuthenticated, book.slug, state.newRating, state.userRating, state.userReaction, showNotification, loadReactions])
+  }, [isAuthenticated, book.slug, state.newRating, state.userRating, showNotification, loadReactions])
 
-  const handleAddComment = useCallback(async () => {
+  const handleAddReview = useCallback(async () => {
     if (!isAuthenticated) {
-      showNotification('Silakan login untuk menulis komentar', 'warning')
+      showNotification('Silakan login untuk menulis review', 'warning')
       return
     }
-    if (!state.newComment.comment.trim()) {
-      showNotification('Komentar tidak boleh kosong', 'warning')
+    if (!state.newReview.comment.trim()) {
+      showNotification('Review tidak boleh kosong', 'warning')
       return
     }
     try {
-      const payload = {
+      await bookService.addReaction(book.slug, {
         type: 'COMMENT',
-        comment: state.newComment.comment,
-        title: state.newComment.title || null,
-        rating: state.newComment.rating || null
-      }
-      await bookService.addReaction(book.slug, payload)
+        comment: state.newReview.comment,
+        title: state.newReview.title || null
+      })
       setState(prev => ({
         ...prev,
-        showCommentModal: false,
-        newComment: { comment: '', title: '', rating: null }
+        showReviewModal: false,
+        newReview: { comment: '', title: '' }
       }))
-      showNotification('Komentar berhasil ditambahkan!', 'success')
+      showNotification(state.userReview ? 'Review berhasil diupdate!' : 'Review berhasil ditambahkan!', 'success')
       await loadReactions()
     } catch (error) {
-      showNotification(error.message || 'Gagal menambahkan komentar', 'error')
+      showNotification(error.message || 'Gagal menambahkan review', 'error')
     }
-  }, [isAuthenticated, book.slug, state.newComment, showNotification, loadReactions])
+  }, [isAuthenticated, book.slug, state.newReview, state.userReview, showNotification, loadReactions])
 
-  const handleUpdateComment = useCallback(async () => {
+  const handleUpdateReview = useCallback(async () => {
     if (!isAuthenticated) {
-      showNotification('Silakan login untuk mengupdate komentar', 'warning')
+      showNotification('Silakan login untuk mengupdate review', 'warning')
       return
     }
-    if (!state.editComment.comment.trim()) {
-      showNotification('Komentar tidak boleh kosong', 'warning')
+    if (!state.editReview.comment.trim()) {
+      showNotification('Review tidak boleh kosong', 'warning')
       return
     }
     try {
-      const payload = {
+      await bookService.addReaction(book.slug, {
         type: 'COMMENT',
-        comment: state.editComment.comment,
-        title: state.editComment.title || null,
-        rating: state.editComment.rating || null,
-        reactionId: state.editingComment.id
-      }
-      await bookService.addReaction(book.slug, payload)
+        comment: state.editReview.comment,
+        title: state.editReview.title || null
+      })
       setState(prev => ({
         ...prev,
-        showEditCommentModal: false,
-        editingComment: null,
-        editComment: { comment: '', title: '', rating: null }
+        showEditReviewModal: false,
+        editingReview: null,
+        editReview: { comment: '', title: '' }
       }))
-      showNotification('Komentar berhasil diupdate!', 'success')
+      showNotification('Review berhasil diupdate!', 'success')
       await loadReactions()
     } catch (error) {
-      showNotification(error.message || 'Gagal mengupdate komentar', 'error')
+      showNotification(error.message || 'Gagal mengupdate review', 'error')
     }
-  }, [isAuthenticated, book.slug, state.editComment, state.editingComment, showNotification, loadReactions])
+  }, [isAuthenticated, book.slug, state.editReview, showNotification, loadReactions])
 
   const handleAddReply = useCallback(async () => {
     if (!isAuthenticated) {
-      showNotification('Silakan login untuk membalas komentar', 'warning')
+      showNotification('Silakan login untuk membalas review', 'warning')
       return
     }
     if (!state.newReply.comment.trim()) {
@@ -326,11 +287,15 @@ const BookDetail = ({ book }) => {
       return
     }
     try {
-      await bookService.addReply(book.slug, state.replyToReaction.id, state.newReply)
+      await bookService.addReaction(book.slug, {
+        type: 'COMMENT',
+        comment: state.newReply.comment,
+        parentId: state.replyToReview.id
+      })
       setState(prev => ({
         ...prev,
         showReplyModal: false,
-        replyToReaction: null,
+        replyToReview: null,
         newReply: { comment: '' }
       }))
       showNotification('Balasan berhasil ditambahkan!', 'success')
@@ -338,31 +303,24 @@ const BookDetail = ({ book }) => {
     } catch (error) {
       showNotification(error.message || 'Gagal menambahkan balasan', 'error')
     }
-  }, [isAuthenticated, book.slug, state.replyToReaction, state.newReply, showNotification, loadReactions])
+  }, [isAuthenticated, book.slug, state.replyToReview, state.newReply, showNotification, loadReactions])
 
-  const handleAddCommentReaction = useCallback(async () => {
+  const handleFeedback = useCallback(async (reviewId, feedbackType) => {
     if (!isAuthenticated) {
-      showNotification('Silakan login untuk memberikan reaksi', 'warning')
+      showNotification('Silakan login untuk memberikan feedback', 'warning')
       return
     }
     try {
-      const payload = {
-        type: state.newCommentReaction.type,
-        parentId: state.reactToComment.id
-      }
-      await bookService.addReaction(book.slug, payload)
-      setState(prev => ({
-        ...prev,
-        showReactToCommentModal: false,
-        reactToComment: null,
-        newCommentReaction: { type: 'LIKE' }
-      }))
-      showNotification('Reaksi pada komentar berhasil ditambahkan!', 'success')
+      await bookService.addReaction(book.slug, {
+        type: feedbackType,
+        parentId: reviewId
+      })
+      showNotification('Feedback berhasil ditambahkan!', 'success')
       await loadReactions()
     } catch (error) {
-      showNotification(error.message || 'Gagal menambahkan reaksi', 'error')
+      showNotification(error.message || 'Gagal menambahkan feedback', 'error')
     }
-  }, [isAuthenticated, book.slug, state.newCommentReaction, state.reactToComment, showNotification, loadReactions])
+  }, [isAuthenticated, book.slug, showNotification, loadReactions])
 
   const handleDeleteReaction = useCallback(async (reactionId) => {
     if (!window.confirm('Apakah Anda yakin ingin menghapus ini?')) return
@@ -375,137 +333,145 @@ const BookDetail = ({ book }) => {
     }
   }, [book.slug, showNotification, loadReactions])
 
-  const handleDeleteEmotion = useCallback(async () => {
-    if (!state.userReaction) return
-    if (!window.confirm('Hapus reaksi emosi Anda?')) return
-    try {
-      await bookService.removeReaction(book.slug, state.userReaction.id)
-      showNotification('Reaksi berhasil dihapus!', 'success')
-      await loadReactions()
-    } catch (error) {
-      showNotification(error.message || 'Gagal menghapus reaksi', 'error')
-    }
-  }, [book.slug, state.userReaction, showNotification, loadReactions])
-
   const handleDeleteRating = useCallback(async () => {
-    const targetReaction = state.userRating || state.userReaction
-    if (!targetReaction) return
+    if (!state.userRating) return
     if (!window.confirm('Hapus rating Anda?')) return
     try {
-      await bookService.removeReaction(book.slug, targetReaction.id)
+      await bookService.removeReaction(book.slug, state.userRating.id)
       showNotification('Rating berhasil dihapus!', 'success')
       await loadReactions()
     } catch (error) {
       showNotification(error.message || 'Gagal menghapus rating', 'error')
     }
-  }, [book.slug, state.userRating, state.userReaction, showNotification, loadReactions])
+  }, [book.slug, state.userRating, showNotification, loadReactions])
 
-  const handleReplyToComment = useCallback((comment) => {
+  const handleReplyToReview = useCallback((review) => {
     setState(prev => ({
       ...prev,
       showReplyModal: true,
-      replyToReaction: comment
+      replyToReview: review
     }))
   }, [])
 
-  const handleReactToComment = useCallback((comment) => {
+  const handleEditReview = useCallback((review) => {
     setState(prev => ({
       ...prev,
-      showReactToCommentModal: true,
-      reactToComment: comment
-    }))
-  }, [])
-
-  const handleEditComment = useCallback((comment) => {
-    setState(prev => ({
-      ...prev,
-      showEditCommentModal: true,
-      editingComment: comment,
-      editComment: {
-        comment: comment.comment || '',
-        title: comment.title || '',
-        rating: comment.rating || null
+      showEditReviewModal: true,
+      editingReview: review,
+      editReview: {
+        comment: review.comment || '',
+        title: review.title || ''
       }
     }))
   }, [])
 
-  const toggleReplies = useCallback((commentId) => {
+  const toggleReplies = useCallback((reviewId) => {
     setState(prev => {
       const newExpanded = new Set(prev.expandedReplies)
-      if (newExpanded.has(commentId)) {
-        newExpanded.delete(commentId)
+      if (newExpanded.has(reviewId)) {
+        newExpanded.delete(reviewId)
       } else {
-        newExpanded.add(commentId)
+        newExpanded.add(reviewId)
       }
       return { ...prev, expandedReplies: newExpanded }
     })
   }, [])
 
-  const CommentItem = ({ comment, depth = 0 }) => {
-    const isOwner = user && comment.userId === user.id
+  const ReviewItem = ({ review }) => {
+    const isOwner = user && String(review.userId) === String(user.id)
+    const helpfulCount = review.feedbacks?.filter(f => f.reactionType === 'HELPFUL').length || 0
+    const notHelpfulCount = review.feedbacks?.filter(f => f.reactionType === 'NOT_HELPFUL').length || 0
+    const userFeedback = user ? review.feedbacks?.find(f => String(f.userId) === String(user.id)) : null
 
     return (
-      <div className="discussion-item" style={{ marginLeft: `${depth * 1.5}rem` }}>
+      <div className="discussion-item">
         <div className="discussion-header">
           <div className="user-info">
             <div className="user-avatar">
-              {comment.userName?.charAt(0).toUpperCase() || '👤'}
+              {review.userName?.charAt(0).toUpperCase() || '👤'}
             </div>
             <div className="user-details">
-              <h5>{comment.userName || 'Pengguna'}</h5>
-              <p>{formatDate(comment.createdAt)}</p>
+              <h5>{review.userName || 'Pengguna'}</h5>
+              <p>{formatDate(review.createdAt)}</p>
             </div>
-          </div>
-          <div className="reaction-info">
-            {comment.rating && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                <span>⭐</span>
-                <span style={{ fontWeight: '600' }}>{comment.rating}/5</span>
-              </div>
-            )}
           </div>
         </div>
 
         <div className="discussion-content">
-          {comment.title && (
-            <div className="discussion-title">{comment.title}</div>
+          {review.title && (
+            <div className="discussion-title">{review.title}</div>
           )}
-          <div className="discussion-text">{comment.comment}</div>
+          <div className="discussion-text">{review.comment}</div>
         </div>
 
         <div className="discussion-actions">
           {isAuthenticated && !isOwner && (
             <>
-              <button className="action-btn" onClick={() => handleReplyToComment(comment)}>
+              <button className="action-btn" onClick={() => handleReplyToReview(review)}>
                 💬 Balas
               </button>
-              {!comment.parentId && (
-                <button className="action-btn" onClick={() => handleReactToComment(comment)}>
-                  😊 Reaksi
-                </button>
-              )}
+              <button 
+                className={`action-btn ${userFeedback?.reactionType === 'HELPFUL' ? 'active' : ''}`}
+                onClick={() => handleFeedback(review.id, 'HELPFUL')}
+              >
+                👍 Membantu ({helpfulCount})
+              </button>
+              <button 
+                className={`action-btn ${userFeedback?.reactionType === 'NOT_HELPFUL' ? 'active' : ''}`}
+                onClick={() => handleFeedback(review.id, 'NOT_HELPFUL')}
+              >
+                👎 Tidak Membantu ({notHelpfulCount})
+              </button>
             </>
           )}
-          {isOwner && (
+          {isAuthenticated && isOwner && (
             <>
-              <button className="action-btn" onClick={() => handleEditComment(comment)}>
+              <button className="action-btn" onClick={() => handleEditReview(review)}>
                 ✏️ Edit
               </button>
-              <button className="action-btn" style={{ color: '#dc2626' }} onClick={() => handleDeleteReaction(comment.id)}>
+              <button className="action-btn" style={{ color: '#dc2626' }} onClick={() => handleDeleteReaction(review.id)}>
                 🗑️ Hapus
               </button>
+              <div style={{ marginLeft: 'auto', fontSize: '0.875rem', color: '#6b7280' }}>
+                👍 {helpfulCount} · 👎 {notHelpfulCount}
+              </div>
             </>
           )}
-          {comment.children?.length > 0 && (
-            <button className="action-btn" onClick={() => toggleReplies(comment.id)}>
-              {state.expandedReplies.has(comment.id) ? '▼' : '▶'} {comment.children.length} balasan
+          {review.replies?.length > 0 && (
+            <button className="action-btn" onClick={() => toggleReplies(review.id)}>
+              {state.expandedReplies.has(review.id) ? '▼' : '▶'} {review.replies.length} balasan
             </button>
           )}
         </div>
 
-        {state.expandedReplies.has(comment.id) && comment.children?.map(child => (
-          <CommentItem key={child.id} comment={child} depth={depth + 1} />
-        ))}
+        {state.expandedReplies.has(review.id) && review.replies?.map(reply => {
+          const isReplyOwner = user && String(reply.userId) === String(user.id)
+          return (
+            <div key={reply.id} className="discussion-item" style={{ marginLeft: '2rem', marginTop: '1rem' }}>
+              <div className="discussion-header">
+                <div className="user-info">
+                  <div className="user-avatar">
+                    {reply.userName?.charAt(0).toUpperCase() || '👤'}
+                  </div>
+                  <div className="user-details">
+                    <h5>{reply.userName || 'Pengguna'}</h5>
+                    <p>{formatDate(reply.createdAt)}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="discussion-content">
+                <div className="discussion-text">{reply.comment}</div>
+              </div>
+              {isAuthenticated && isReplyOwner && (
+                <div className="discussion-actions">
+                  <button className="action-btn" style={{ color: '#dc2626' }} onClick={() => handleDeleteReaction(reply.id)}>
+                    🗑️ Hapus
+                  </button>
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
     )
   }
@@ -513,7 +479,7 @@ const BookDetail = ({ book }) => {
   const authors = getAuthors()
   const genres = getGenres()
   const reactionStats = getReactionStats()
-  const discussions = getDiscussions()
+  const reviews = getReviews()
   const fileFormat = getFileFormat()
 
   useEffect(() => {
@@ -522,18 +488,18 @@ const BookDetail = ({ book }) => {
 
   useEffect(() => {
     if (isAuthenticated && user && state.reactions.length > 0) {
-      const userMainReaction = state.reactions.find(r =>
-        r.userId === user.id && !r.parentId && !r.comment
-      )
-
       const userRating = state.reactions.find(r =>
-        r.userId === user.id && !r.parentId && !r.comment && r.reactionType === 'RATING'
+        String(r.userId) === String(user.id) && r.reactionType === 'RATING' && !r.parentId
       )
-
-      setState(prev => ({
-        ...prev,
-        userReaction: userMainReaction || null,
-        userRating: userRating || null
+      
+      const userReview = state.reactions.find(r =>
+        String(r.userId) === String(user.id) && r.reactionType === 'COMMENT' && !r.parentId
+      )
+      
+      setState(prev => ({ 
+        ...prev, 
+        userRating: userRating || null,
+        userReview: userReview || null
       }))
     }
   }, [isAuthenticated, user, state.reactions])
@@ -545,17 +511,9 @@ const BookDetail = ({ book }) => {
   const tabs = [
     { id: 'description', label: 'Deskripsi', icon: '📄' },
     { id: 'details', label: 'Detail', icon: 'ℹ️' },
-    { id: 'discussions', label: `Diskusi (${discussions.length})`, icon: '💬' },
+    { id: 'reviews', label: `Review (${reviews.length})`, icon: '💬' },
     { id: 'analytics', label: 'Statistik', icon: '📊' }
   ]
-
-  const reactionEmojis = {
-    LIKE: '👍',
-    LOVE: '❤️',
-    DISLIKE: '👎',
-    ANGRY: '😠',
-    SAD: '😢'
-  }
 
   return (
     <div className="container">
@@ -613,55 +571,57 @@ const BookDetail = ({ book }) => {
                   <>
                     <button
                       className="btn btn-secondary btn-small"
-                      onClick={() => setState(prev => ({
-                        ...prev,
-                        showEmotionModal: true,
-                        newEmotion: { type: state.userReaction?.reactionType || 'LIKE' }
+                      onClick={() => setState(prev => ({ 
+                        ...prev, 
+                        showRatingModal: true,
+                        newRating: { rating: state.userRating?.rating || 5 }
                       }))}
                     >
-                      {state.userReaction ? '✏️ Edit Reaksi' : '😊 Beri Reaksi'}
+                      {state.userRating ? '✏️ Edit Rating' : '⭐ Beri Rating'}
                     </button>
                     <button
                       className="btn btn-secondary btn-small"
-                      onClick={() => setState(prev => ({
-                        ...prev,
-                        showRatingModal: true,
-                        newRating: { rating: state.userRating?.rating || state.userReaction?.rating || 5 }
-                      }))}
+                      onClick={() => {
+                        if (state.userReview) {
+                          handleEditReview(state.userReview)
+                        } else {
+                          setState(prev => ({ ...prev, showReviewModal: true }))
+                        }
+                      }}
                     >
-                      {state.userRating || state.userReaction?.rating ? '✏️ Edit Rating' : '⭐ Beri Rating'}
+                      {state.userReview ? '✏️ Edit Review' : '📝 Tulis Review'}
                     </button>
                   </>
                 )}
               </div>
 
-              {isAuthenticated && (state.userReaction || state.userRating) && (
-                <div style={{
-                  padding: '0.75rem',
+              {isAuthenticated && (state.userRating || state.userReview) && (
+                <div style={{ 
+                  padding: '0.75rem', 
                   background: theme === 'light' ? '#f0fdf4' : '#064e3b',
                   borderRadius: '8px',
                   fontSize: '0.875rem'
                 }}>
-                  <div style={{ fontWeight: '600', marginBottom: '0.5rem' }}>Reaksi Anda:</div>
-                  {state.userReaction && state.userReaction.reactionType !== 'RATING' && (
+                  <div style={{ fontWeight: '600', marginBottom: '0.5rem' }}>Kontribusi Anda:</div>
+                  {state.userRating && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                      <span>{reactionEmojis[state.userReaction.reactionType]} {state.userReaction.reactionType}</span>
-                      <button
-                        className="btn btn-secondary btn-small"
+                      <span>⭐ Rating: {state.userRating.rating}/5</span>
+                      <button 
+                        className="btn btn-secondary btn-small" 
                         style={{ marginLeft: 'auto', padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
-                        onClick={handleDeleteEmotion}
+                        onClick={handleDeleteRating}
                       >
                         ✕
                       </button>
                     </div>
                   )}
-                  {(state.userRating || state.userReaction?.rating) && (
+                  {state.userReview && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <span>⭐ Rating: {state.userRating?.rating || state.userReaction?.rating}/5</span>
-                      <button
-                        className="btn btn-secondary btn-small"
+                      <span>📝 Review: {state.userReview.title || 'Tanpa judul'}</span>
+                      <button 
+                        className="btn btn-secondary btn-small" 
                         style={{ marginLeft: 'auto', padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
-                        onClick={handleDeleteRating}
+                        onClick={() => handleDeleteReaction(state.userReview.id)}
                       >
                         ✕
                       </button>
@@ -679,7 +639,7 @@ const BookDetail = ({ book }) => {
                   { label: 'Dilihat', value: book.viewCount || 0, icon: '👁️' },
                   { label: 'Diunduh', value: book.downloadCount || 0, icon: '📥' },
                   { label: 'Rating', value: reactionStats.averageRating ? `${reactionStats.averageRating.toFixed(1)}/5` : 'Belum ada', icon: '⭐' },
-                  { label: 'Reaksi', value: reactionStats.total, icon: '😊' }
+                  { label: 'Review', value: reactionStats.comments, icon: '💬' }
                 ].map(stat => (
                   <div key={stat.label} className="stat-item" style={{
                     display: 'flex',
@@ -729,7 +689,7 @@ const BookDetail = ({ book }) => {
                 </div>
               )}
 
-              <div className="book-meta">
+<div className="book-meta">
                 <div className="meta-item">
                   <span>🏢</span>
                   <span>{book.publisher}</span>
@@ -769,22 +729,6 @@ const BookDetail = ({ book }) => {
                   ))}
                 </div>
               )}
-
-              <div style={{ marginTop: '1rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                {[
-                  { key: 'likes', value: book.totalLikes, emoji: '👍', label: 'Suka' },
-                  { key: 'loves', value: book.totalLoves, emoji: '❤️', label: 'Cinta' },
-                  { key: 'dislikes', value: book.totalDislikes, emoji: '👎', label: 'Tidak Suka' },
-                  { key: 'angry', value: book.totalAngry, emoji: '😠', label: 'Marah' },
-                  { key: 'sad', value: book.totalSad, emoji: '😢', label: 'Sedih' },
-                  { key: 'comments', value: book.totalComments, emoji: '💬', label: 'Komentar' }
-                ].filter(stat => stat.value > 0).map(stat => (
-                  <div key={stat.key} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                    <span>{stat.emoji}</span>
-                    <span style={{ fontSize: '0.875rem', fontWeight: '600' }}>{stat.value}</span>
-                  </div>
-                ))}
-              </div>
             </div>
 
             <div className="book-tabs">
@@ -917,17 +861,17 @@ const BookDetail = ({ book }) => {
                 </div>
               )}
 
-              {state.activeTab === 'discussions' && (
+              {state.activeTab === 'reviews' && (
                 <div className="tab-content-wrapper">
                   <div className="discussions-section">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                      <h3 className="section-title">Diskusi & Komentar ({discussions.length})</h3>
-                      {isAuthenticated && (
+                      <h3 className="section-title">Review & Diskusi ({reviews.length})</h3>
+                      {isAuthenticated && !state.userReview && (
                         <button
                           className="btn btn-primary btn-small"
-                          onClick={() => setState(prev => ({ ...prev, showCommentModal: true }))}
+                          onClick={() => setState(prev => ({ ...prev, showReviewModal: true }))}
                         >
-                          💬 Tulis Komentar
+                          📝 Tulis Review
                         </button>
                       )}
                     </div>
@@ -935,18 +879,18 @@ const BookDetail = ({ book }) => {
                     {state.loading ? (
                       <div className="text-center" style={{ padding: '3rem', color: '#6b7280' }}>
                         <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>⏳</div>
-                        <p>Memuat diskusi...</p>
+                        <p>Memuat review...</p>
                       </div>
-                    ) : discussions.length === 0 ? (
+                    ) : reviews.length === 0 ? (
                       <div className="text-center" style={{ padding: '3rem', color: '#6b7280' }}>
                         <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>💬</div>
-                        <p>Belum ada diskusi untuk buku ini.</p>
-                        <p>Jadilah yang pertama memberikan komentar!</p>
+                        <p>Belum ada review untuk buku ini.</p>
+                        <p>Jadilah yang pertama memberikan review!</p>
                       </div>
                     ) : (
                       <div className="discussions-list">
-                        {discussions.map(discussion => (
-                          <CommentItem key={discussion.id} comment={discussion} depth={0} />
+                        {reviews.map(review => (
+                          <ReviewItem key={review.id} review={review} />
                         ))}
                       </div>
                     )}
@@ -969,7 +913,7 @@ const BookDetail = ({ book }) => {
                           <span>{formatNumber(book.downloadCount || 0)}</span>
                         </div>
                         <div className="info-item">
-                          <span>💬 Total Komentar:</span>
+                          <span>💬 Total Review:</span>
                           <span>{formatNumber(reactionStats.comments)}</span>
                         </div>
                         <div className="info-item">
@@ -980,20 +924,6 @@ const BookDetail = ({ book }) => {
                           <span>📊 Rata-rata Rating:</span>
                           <span>{reactionStats.averageRating ? `${reactionStats.averageRating.toFixed(1)}/5` : 'Belum ada'}</span>
                         </div>
-                      </div>
-                    </div>
-
-                    <div className="info-card">
-                      <h4>😊 Distribusi Reaksi</h4>
-                      <div className="info-items">
-                        {Object.entries(reactionStats).filter(([key]) =>
-                          ['likes', 'loves', 'dislikes', 'angry', 'sad'].includes(key)
-                        ).map(([key, value]) => (
-                          <div key={key} className="info-item">
-                            <span>{reactionEmojis[key.slice(0, -1).toUpperCase()]} {key.charAt(0).toUpperCase() + key.slice(1)}:</span>
-                            <span>{formatNumber(value)}</span>
-                          </div>
-                        ))}
                       </div>
                     </div>
 
@@ -1025,6 +955,7 @@ const BookDetail = ({ book }) => {
           </div>
         </div>
 
+        {/* Modal Bagikan */}
         {state.showShareModal && (
           <div className="modal-overlay" onClick={() => setState(prev => ({ ...prev, showShareModal: false }))}>
             <div className="modal-content card" onClick={e => e.stopPropagation()}>
@@ -1044,39 +975,12 @@ const BookDetail = ({ book }) => {
           </div>
         )}
 
-        {state.showEmotionModal && (
-          <div className="modal-overlay" onClick={() => setState(prev => ({ ...prev, showEmotionModal: false }))}>
-            <div className="modal-content card" onClick={e => e.stopPropagation()}>
-              <div className="modal-header">
-                <h3>{state.userReaction ? 'Edit Reaksi Emosi' : 'Berikan Reaksi Emosi'}</h3>
-                <button className="btn btn-secondary btn-small" onClick={() => setState(prev => ({ ...prev, showEmotionModal: false }))}>✕</button>
-              </div>
-              <div className="modal-body">
-                <div className="form-group">
-                  <label>Pilih Reaksi Emosi:</label>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem', marginTop: '0.5rem' }}>
-                    {['LIKE', 'LOVE', 'DISLIKE', 'ANGRY', 'SAD'].map(emotion => (
-                      <button key={emotion} className={`btn ${state.newEmotion.type === emotion ? 'btn-primary' : 'btn-secondary'}`}
-                        onClick={() => setState(prev => ({ ...prev, newEmotion: { type: emotion } }))}>
-                        {reactionEmojis[emotion]} {emotion}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="modal-actions">
-                  <button className="btn btn-secondary" onClick={() => setState(prev => ({ ...prev, showEmotionModal: false }))}>Batal</button>
-                  <button className="btn btn-primary" onClick={handleAddEmotion}>{state.userReaction ? 'Update Reaksi' : 'Kirim Reaksi'}</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
+        {/* Modal Rating */}
         {state.showRatingModal && (
           <div className="modal-overlay" onClick={() => setState(prev => ({ ...prev, showRatingModal: false }))}>
             <div className="modal-content card" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
-                <h3>{state.userRating || state.userReaction?.rating ? 'Edit Rating' : 'Berikan Rating'}</h3>
+                <h3>{state.userRating ? 'Edit Rating' : 'Berikan Rating'}</h3>
                 <button className="btn btn-secondary btn-small" onClick={() => setState(prev => ({ ...prev, showRatingModal: false }))}>✕</button>
               </div>
               <div className="modal-body">
@@ -1093,112 +997,85 @@ const BookDetail = ({ book }) => {
                 </div>
                 <div className="modal-actions">
                   <button className="btn btn-secondary" onClick={() => setState(prev => ({ ...prev, showRatingModal: false }))}>Batal</button>
-                  <button className="btn btn-primary" onClick={handleAddRating}>{state.userRating || state.userReaction?.rating ? 'Update Rating' : 'Kirim Rating'}</button>
+                  <button className="btn btn-primary" onClick={handleAddRating}>{state.userRating ? 'Update Rating' : 'Kirim Rating'}</button>
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {state.showCommentModal && (
-          <div className="modal-overlay" onClick={() => setState(prev => ({ ...prev, showCommentModal: false }))}>
+        {/* Modal Review */}
+        {state.showReviewModal && (
+          <div className="modal-overlay" onClick={() => setState(prev => ({ ...prev, showReviewModal: false }))}>
             <div className="modal-content card" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
-                <h3>Tulis Komentar</h3>
-                <button className="btn btn-secondary btn-small" onClick={() => setState(prev => ({ ...prev, showCommentModal: false }))}>✕</button>
+                <h3>Tulis Review</h3>
+                <button className="btn btn-secondary btn-small" onClick={() => setState(prev => ({ ...prev, showReviewModal: false }))}>✕</button>
               </div>
               <div className="modal-body">
                 <div className="form-group">
                   <label>Judul (opsional):</label>
-                  <input type="text" className="form-control" value={state.newComment.title}
-                    onChange={(e) => setState(prev => ({ ...prev, newComment: { ...prev.newComment, title: e.target.value } }))}
-                    placeholder="Berikan judul untuk komentar Anda..." />
+                  <input type="text" className="form-control" value={state.newReview.title}
+                    onChange={(e) => setState(prev => ({ ...prev, newReview: { ...prev.newReview, title: e.target.value } }))}
+                    placeholder="Berikan judul untuk review Anda..." />
                 </div>
                 <div className="form-group">
-                  <label>Komentar: *</label>
-                  <textarea className="form-control textarea-control" value={state.newComment.comment}
-                    onChange={(e) => setState(prev => ({ ...prev, newComment: { ...prev.newComment, comment: e.target.value } }))}
-                    placeholder="Tulis komentar Anda tentang buku ini..." rows="5" />
-                </div>
-                <div className="form-group">
-                  <label>Rating (opsional):</label>
-                  <div className="rating-input" style={{ display: 'flex', gap: '0.5rem', fontSize: '1.5rem', margin: '0.5rem 0' }}>
-                    {[1, 2, 3, 4, 5].map(star => (
-                      <span key={star} className={`star ${state.newComment.rating && star <= state.newComment.rating ? 'active' : ''}`}
-                        onClick={() => setState(prev => ({ ...prev, newComment: { ...prev.newComment, rating: prev.newComment.rating === star ? null : star } }))}
-                        style={{ cursor: 'pointer', opacity: state.newComment.rating && star <= state.newComment.rating ? 1 : 0.3 }}>⭐</span>
-                    ))}
-                    {state.newComment.rating && (
-                      <button className="btn btn-secondary btn-small" style={{ marginLeft: '0.5rem' }}
-                        onClick={() => setState(prev => ({ ...prev, newComment: { ...prev.newComment, rating: null } }))}>✕ Hapus Rating</button>
-                    )}
-                  </div>
-                  {state.newComment.rating && <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>Rating: {state.newComment.rating}/5</p>}
+                  <label>Review: *</label>
+                  <textarea className="form-control textarea-control" value={state.newReview.comment}
+                    onChange={(e) => setState(prev => ({ ...prev, newReview: { ...prev.newReview, comment: e.target.value } }))}
+                    placeholder="Tulis review Anda tentang buku ini..." rows="5" />
                 </div>
                 <div className="modal-actions">
-                  <button className="btn btn-secondary" onClick={() => setState(prev => ({ ...prev, showCommentModal: false, newComment: { comment: '', title: '', rating: null } }))}>Batal</button>
-                  <button className="btn btn-primary" onClick={handleAddComment} disabled={!state.newComment.comment.trim()}>Kirim Komentar</button>
+                  <button className="btn btn-secondary" onClick={() => setState(prev => ({ ...prev, showReviewModal: false, newReview: { comment: '', title: '' } }))}>Batal</button>
+                  <button className="btn btn-primary" onClick={handleAddReview} disabled={!state.newReview.comment.trim()}>Kirim Review</button>
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {state.showEditCommentModal && (
-          <div className="modal-overlay" onClick={() => setState(prev => ({ ...prev, showEditCommentModal: false }))}>
+        {/* Modal Edit Review */}
+        {state.showEditReviewModal && (
+          <div className="modal-overlay" onClick={() => setState(prev => ({ ...prev, showEditReviewModal: false }))}>
             <div className="modal-content card" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
-                <h3>Edit Komentar</h3>
-                <button className="btn btn-secondary btn-small" onClick={() => setState(prev => ({ ...prev, showEditCommentModal: false }))}>✕</button>
+                <h3>Edit Review</h3>
+                <button className="btn btn-secondary btn-small" onClick={() => setState(prev => ({ ...prev, showEditReviewModal: false }))}>✕</button>
               </div>
               <div className="modal-body">
                 <div className="form-group">
                   <label>Judul (opsional):</label>
-                  <input type="text" className="form-control" value={state.editComment.title}
-                    onChange={(e) => setState(prev => ({ ...prev, editComment: { ...prev.editComment, title: e.target.value } }))}
-                    placeholder="Berikan judul untuk komentar Anda..." />
+                  <input type="text" className="form-control" value={state.editReview.title}
+                    onChange={(e) => setState(prev => ({ ...prev, editReview: { ...prev.editReview, title: e.target.value } }))}
+                    placeholder="Berikan judul untuk review Anda..." />
                 </div>
                 <div className="form-group">
-                  <label>Komentar: *</label>
-                  <textarea className="form-control textarea-control" value={state.editComment.comment}
-                    onChange={(e) => setState(prev => ({ ...prev, editComment: { ...prev.editComment, comment: e.target.value } }))}
-                    placeholder="Tulis komentar Anda tentang buku ini..." rows="5" />
-                </div>
-                <div className="form-group">
-                  <label>Rating (opsional):</label>
-                  <div className="rating-input" style={{ display: 'flex', gap: '0.5rem', fontSize: '1.5rem', margin: '0.5rem 0' }}>
-                    {[1, 2, 3, 4, 5].map(star => (
-                      <span key={star} className={`star ${state.editComment.rating && star <= state.editComment.rating ? 'active' : ''}`}
-                        onClick={() => setState(prev => ({ ...prev, editComment: { ...prev.editComment, rating: prev.editComment.rating === star ? null : star } }))}
-                        style={{ cursor: 'pointer', opacity: state.editComment.rating && star <= state.editComment.rating ? 1 : 0.3 }}>⭐</span>
-                    ))}
-                    {state.editComment.rating && (
-                      <button className="btn btn-secondary btn-small" style={{ marginLeft: '0.5rem' }}
-                        onClick={() => setState(prev => ({ ...prev, editComment: { ...prev.editComment, rating: null } }))}>✕ Hapus Rating</button>
-                    )}
-                  </div>
-                  {state.editComment.rating && <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>Rating: {state.editComment.rating}/5</p>}
+                  <label>Review: *</label>
+                  <textarea className="form-control textarea-control" value={state.editReview.comment}
+                    onChange={(e) => setState(prev => ({ ...prev, editReview: { ...prev.editReview, comment: e.target.value } }))}
+                    placeholder="Tulis review Anda tentang buku ini..." rows="5" />
                 </div>
                 <div className="modal-actions">
-                  <button className="btn btn-secondary" onClick={() => setState(prev => ({ ...prev, showEditCommentModal: false, editingComment: null, editComment: { comment: '', title: '', rating: null } }))}>Batal</button>
-                  <button className="btn btn-primary" onClick={handleUpdateComment} disabled={!state.editComment.comment.trim()}>Update Komentar</button>
+                  <button className="btn btn-secondary" onClick={() => setState(prev => ({ ...prev, showEditReviewModal: false, editingReview: null, editReview: { comment: '', title: '' } }))}>Batal</button>
+                  <button className="btn btn-primary" onClick={handleUpdateReview} disabled={!state.editReview.comment.trim()}>Update Review</button>
                 </div>
               </div>
             </div>
           </div>
         )}
 
+        {/* Modal Reply */}
         {state.showReplyModal && (
           <div className="modal-overlay" onClick={() => setState(prev => ({ ...prev, showReplyModal: false }))}>
             <div className="modal-content card" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
-                <h3>Balas Komentar</h3>
+                <h3>Balas Review</h3>
                 <button className="btn btn-secondary btn-small" onClick={() => setState(prev => ({ ...prev, showReplyModal: false }))}>✕</button>
               </div>
               <div className="modal-body">
                 <div style={{ padding: '1rem', background: theme === 'light' ? '#f9fafb' : '#1f2937', borderRadius: '8px', marginBottom: '1rem' }}>
-                  <div style={{ fontWeight: '600', marginBottom: '0.5rem' }}>Membalas komentar dari {state.replyToReaction?.userName}:</div>
-                  <div style={{ color: '#6b7280', fontStyle: 'italic' }}>"{state.replyToReaction?.comment}"</div>
+                  <div style={{ fontWeight: '600', marginBottom: '0.5rem' }}>Membalas review dari {state.replyToReview?.userName}:</div>
+                  <div style={{ color: '#6b7280', fontStyle: 'italic' }}>"{state.replyToReview?.comment}"</div>
                 </div>
                 <div className="form-group">
                   <label>Balasan Anda:</label>
@@ -1207,40 +1084,8 @@ const BookDetail = ({ book }) => {
                     placeholder="Tulis balasan Anda..." rows="4" />
                 </div>
                 <div className="modal-actions">
-                  <button className="btn btn-secondary" onClick={() => setState(prev => ({ ...prev, showReplyModal: false, replyToReaction: null, newReply: { comment: '' } }))}>Batal</button>
+                  <button className="btn btn-secondary" onClick={() => setState(prev => ({ ...prev, showReplyModal: false, replyToReview: null, newReply: { comment: '' } }))}>Batal</button>
                   <button className="btn btn-primary" onClick={handleAddReply} disabled={!state.newReply.comment.trim()}>Kirim Balasan</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {state.showReactToCommentModal && (
-          <div className="modal-overlay" onClick={() => setState(prev => ({ ...prev, showReactToCommentModal: false }))}>
-            <div className="modal-content card" onClick={e => e.stopPropagation()}>
-              <div className="modal-header">
-                <h3>Beri Reaksi pada Komentar</h3>
-                <button className="btn btn-secondary btn-small" onClick={() => setState(prev => ({ ...prev, showReactToCommentModal: false }))}>✕</button>
-              </div>
-              <div className="modal-body">
-                <div style={{ padding: '1rem', background: theme === 'light' ? '#f9fafb' : '#1f2937', borderRadius: '8px', marginBottom: '1rem' }}>
-                  <div style={{ fontWeight: '600', marginBottom: '0.5rem' }}>Memberikan reaksi pada komentar dari {state.reactToComment?.userName}:</div>
-                  <div style={{ color: '#6b7280', fontStyle: 'italic' }}>"{state.reactToComment?.comment?.substring(0, 100)}{state.reactToComment?.comment?.length > 100 ? '...' : ''}"</div>
-                </div>
-                <div className="form-group">
-                  <label>Pilih Reaksi:</label>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem', marginTop: '0.5rem' }}>
-                    {['LIKE', 'LOVE', 'DISLIKE', 'ANGRY', 'SAD'].map(emotion => (
-                      <button key={emotion} className={`btn ${state.newCommentReaction.type === emotion ? 'btn-primary' : 'btn-secondary'}`}
-                        onClick={() => setState(prev => ({ ...prev, newCommentReaction: { type: emotion } }))}>
-                        {reactionEmojis[emotion]} {emotion}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="modal-actions">
-                  <button className="btn btn-secondary" onClick={() => setState(prev => ({ ...prev, showReactToCommentModal: false, reactToComment: null, newCommentReaction: { type: 'LIKE' } }))}>Batal</button>
-                  <button className="btn btn-primary" onClick={handleAddCommentReaction}>Kirim Reaksi</button>
                 </div>
               </div>
             </div>
