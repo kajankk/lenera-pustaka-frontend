@@ -214,7 +214,7 @@ export const bookService = {
     return response.data
   },
 
-  // ============ REACTIONS ENDPOINTS - Requires Auth ============
+  // ============ REACTIONS ENDPOINTS ============
 
   // Get reactions - Public access
   async getReactions(slug, page = 1, limit = 50) {
@@ -224,20 +224,27 @@ export const bookService = {
     return response.data
   },
 
-  // Add reaction - Requires Auth
+  // Add or Update reaction - Requires Auth
+  // This handles ALL reaction types:
+  // 1. Create/Update emotion (LIKE, LOVE, DISLIKE, ANGRY, SAD)
+  // 2. Create/Update rating (RATING)
+  // 3. Create/Update comment (COMMENT)
+  // 4. Create reply to comment (COMMENT with parentId)
+  // 5. Create reaction to comment (emotion with parentId)
   async addReaction(slug, reactionData) {
     const response = await api.post(`/api/books/${slug}/reactions`, {
-      type: reactionData.type,
-      rating: reactionData.rating,
-      comment: reactionData.comment,
-      title: reactionData.title,
-      page: reactionData.page,
-      position: reactionData.position,
-      parentId: reactionData.parentId
+      type: reactionData.type,           // Required: LIKE, LOVE, DISLIKE, ANGRY, SAD, RATING, COMMENT
+      rating: reactionData.rating,       // Optional: for RATING or COMMENT with rating
+      comment: reactionData.comment,     // Optional: for COMMENT type
+      title: reactionData.title,         // Optional: for COMMENT type
+      parentId: reactionData.parentId,   // Optional: for replies/reactions to comments
+      reactionId: reactionData.reactionId // Optional: for updating existing reaction
     })
     return response.data
   },
 
+  // Add reply to a comment - Requires Auth
+  // This is a helper method that calls addReaction with parentId
   async addReply(slug, parentReactionId, replyData) {
     const response = await api.post(`/api/books/${slug}/reactions`, {
       type: 'COMMENT',
@@ -248,9 +255,55 @@ export const bookService = {
   },
 
   // Remove reaction - Requires Auth
+  // This deletes ANY type of reaction (emotion, rating, comment, reply)
   async removeReaction(slug, reactionId) {
     const response = await api.delete(`/api/books/${slug}/reactions/${reactionId}`)
     return response.data
+  },
+
+  // Get reaction statistics - Public access
+  async getReactionStats(slug) {
+    try {
+      const response = await api.get(`/api/books/${slug}/reactions/stats`)
+      return response.data
+    } catch (error) {
+      // If endpoint doesn't exist, calculate from reactions
+      const reactions = await this.getReactions(slug, 1, 1000)
+      if (reactions.result === 'Success' && reactions.data) {
+        const stats = {
+          totalLikes: 0,
+          totalLoves: 0,
+          totalDislikes: 0,
+          totalAngry: 0,
+          totalSad: 0,
+          totalComments: 0,
+          totalRatings: 0,
+          averageRating: 0
+        }
+
+        let ratingSum = 0
+        let ratingCount = 0
+
+        reactions.data.forEach(r => {
+          if (r.reactionType === 'LIKE') stats.totalLikes++
+          if (r.reactionType === 'LOVE') stats.totalLoves++
+          if (r.reactionType === 'DISLIKE') stats.totalDislikes++
+          if (r.reactionType === 'ANGRY') stats.totalAngry++
+          if (r.reactionType === 'SAD') stats.totalSad++
+          if (r.comment) stats.totalComments++
+          if (r.rating) {
+            stats.totalRatings++
+            ratingSum += r.rating
+            ratingCount++
+          }
+        })
+
+        stats.averageRating = ratingCount > 0 ? ratingSum / ratingCount : 0
+
+        return { result: 'Success', data: stats }
+      }
+      throw error
+    }
   },
 
   // ============ UTILITY ENDPOINTS ============

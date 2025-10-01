@@ -1025,477 +1025,222 @@ const BookDetail = ({ book }) => {
           </div>
         </div>
 
-        {/* Share Modal */}
         {state.showShareModal && (
           <div className="modal-overlay" onClick={() => setState(prev => ({ ...prev, showShareModal: false }))}>
             <div className="modal-content card" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
                 <h3>Bagikan Buku</h3>
-                <button
-                  className="btn btn-secondary btn-small"
-                  onClick={() => setState(prev => ({ ...prev, showShareModal: false }))}
-                >
-                  ✕
-                </button>
+                <button className="btn btn-secondary btn-small" onClick={() => setState(prev => ({ ...prev, showShareModal: false }))}>✕</button>
               </div>
               <div className="modal-body">
-                <div style={{ marginBottom: '1rem' }}>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={window.location.href}
-                    readOnly
-                    onClick={(e) => e.target.select()}
-                  />
-                  <button
-                    className="btn btn-primary btn-small w-full"
-                    style={{ marginTop: '0.5rem' }}
-                    onClick={() => {
-                      navigator.clipboard.writeText(window.location.href)
-                      showNotification('Link berhasil disalin!', 'success')
-                      setState(prev => ({ ...prev, showShareModal: false }))
-                    }}
-                  >
-                    📋 Salin Link
-                  </button>
-                </div>
+                <input type="text" className="form-control" value={window.location.href} readOnly onClick={(e) => e.target.select()} />
+                <button className="btn btn-primary btn-small w-full" style={{ marginTop: '0.5rem' }} onClick={() => {
+                  navigator.clipboard.writeText(window.location.href)
+                  showNotification('Link berhasil disalin!', 'success')
+                  setState(prev => ({ ...prev, showShareModal: false }))
+                }}>📋 Salin Link</button>
               </div>
             </div>
           </div>
         )}
 
-        {/* Emotion Modal */}
         {state.showEmotionModal && (
           <div className="modal-overlay" onClick={() => setState(prev => ({ ...prev, showEmotionModal: false }))}>
             <div className="modal-content card" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
                 <h3>{state.userReaction ? 'Edit Reaksi Emosi' : 'Berikan Reaksi Emosi'}</h3>
-                <button
-                  className="btn btn-secondary btn-small"
-                  onClick={() => setState(prev => ({ ...prev, showEmotionModal: false }))}
-                >
-                  ✕
-                </button>
+                <button className="btn btn-secondary btn-small" onClick={() => setState(prev => ({ ...prev, showEmotionModal: false }))}>✕</button>
               </div>
               <div className="modal-body">
                 <div className="form-group">
                   <label>Pilih Reaksi Emosi:</label>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem', marginTop: '0.5rem' }}>
                     {['LIKE', 'LOVE', 'DISLIKE', 'ANGRY', 'SAD'].map(emotion => (
-                      <button
-                        key={emotion}
-                        className={`btn ${state.newEmotion.type === emotion ? 'btn-primary' : 'btn-secondary'}`}
-                        onClick={() => setState(prev => ({
-                          ...prev,
-                          newEmotion: { type: emotion }
-                        }))}
-                      >
+                      <button key={emotion} className={`btn ${state.newEmotion.type === emotion ? 'btn-primary' : 'btn-secondary'}`}
+                        onClick={() => setState(prev => ({ ...prev, newEmotion: { type: emotion } }))}>
                         {reactionEmojis[emotion]} {emotion}
                       </button>
                     ))}
                   </div>
                 </div>
-
                 <div className="modal-actions">
-                  <button
-                    className="btn btn-secondary"
-                    onClick={() => setState(prev => ({ ...prev, showEmotionModal: false }))}
-                  >
-                    Batal
-                  </button>
-                  <button
-                    className="btn btn-primary"
-                    onClick={handleAddEmotion}
-                  >
-                    {state.userReaction ? 'Update Reaksi' : 'Kirim Reaksi'}
-                  </button>
+                  <button className="btn btn-secondary" onClick={() => setState(prev => ({ ...prev, showEmotionModal: false }))}>Batal</button>
+                  <button className="btn btn-primary" onClick={handleAddEmotion}>{state.userReaction ? 'Update Reaksi' : 'Kirim Reaksi'}</button>
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* Rating Modal */}
         {state.showRatingModal && (
           <div className="modal-overlay" onClick={() => setState(prev => ({ ...prev, showRatingModal: false }))}>
             <div className="modal-content card" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
                 <h3>{state.userRating || state.userReaction?.rating ? 'Edit Rating' : 'Berikan Rating'}</h3>
-                <button
-                  className="btn btn-secondary btn-small"
-                  onClick={() => setState(prev => ({ ...prev, showRatingModal: false }))}
-                >
-                  ✕
-                </button>
+                <button className="btn btn-secondary btn-small" onClick={() => setState(prev => ({ ...prev, showRatingModal: false }))}>✕</button>
               </div>
               <div className="modal-body">
                 <div className="form-group">
                   <label>Rating (1-5):</label>
                   <div className="rating-input" style={{ display: 'flex', gap: '0.5rem', fontSize: '2rem', justifyContent: 'center', margin: '1rem 0' }}>
                     {[1, 2, 3, 4, 5].map(star => (
-                      <span
-                        key={star}
-                        className={`star ${star <= state.newRating.rating ? 'active' : ''}`}
-                        onClick={() => setState(prev => ({
-                          ...prev,
-                          newRating: { rating: star }
-                        }))}
-                        style={{ cursor: 'pointer', opacity: star <= state.newRating.rating ? 1 : 0.3 }}
-                      >
-                        ⭐
-                      </span>
+                      <span key={star} className={`star ${star <= state.newRating.rating ? 'active' : ''}`}
+                        onClick={() => setState(prev => ({ ...prev, newRating: { rating: star } }))}
+                        style={{ cursor: 'pointer', opacity: star <= state.newRating.rating ? 1 : 0.3 }}>⭐</span>
                     ))}
                   </div>
                   <p style={{ textAlign: 'center', color: '#6b7280' }}>Rating Anda: {state.newRating.rating}/5</p>
                 </div>
-
                 <div className="modal-actions">
-                  <button
-                    className="btn btn-secondary"
-                    onClick={() => setState(prev => ({ ...prev, showRatingModal: false }))}
-                  >
-                    Batal
-                  </button>
-                  <button
-                    className="btn btn-primary"
-                    onClick={handleAddRating}
-                  >
-                    {state.userRating || state.userReaction?.rating ? 'Update Rating' : 'Kirim Rating'}
-                  </button>
+                  <button className="btn btn-secondary" onClick={() => setState(prev => ({ ...prev, showRatingModal: false }))}>Batal</button>
+                  <button className="btn btn-primary" onClick={handleAddRating}>{state.userRating || state.userReaction?.rating ? 'Update Rating' : 'Kirim Rating'}</button>
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* Comment Modal */}
         {state.showCommentModal && (
           <div className="modal-overlay" onClick={() => setState(prev => ({ ...prev, showCommentModal: false }))}>
             <div className="modal-content card" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
                 <h3>Tulis Komentar</h3>
-                <button
-                  className="btn btn-secondary btn-small"
-                  onClick={() => setState(prev => ({ ...prev, showCommentModal: false }))}
-                >
-                  ✕
-                </button>
+                <button className="btn btn-secondary btn-small" onClick={() => setState(prev => ({ ...prev, showCommentModal: false }))}>✕</button>
               </div>
               <div className="modal-body">
                 <div className="form-group">
                   <label>Judul (opsional):</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={state.newComment.title}
-                    onChange={(e) => setState(prev => ({
-                      ...prev,
-                      newComment: { ...prev.newComment, title: e.target.value }
-                    }))}
-                    placeholder="Berikan judul untuk komentar Anda..."
-                  />
+                  <input type="text" className="form-control" value={state.newComment.title}
+                    onChange={(e) => setState(prev => ({ ...prev, newComment: { ...prev.newComment, title: e.target.value } }))}
+                    placeholder="Berikan judul untuk komentar Anda..." />
                 </div>
-
                 <div className="form-group">
                   <label>Komentar: *</label>
-                  <textarea
-                    className="form-control textarea-control"
-                    value={state.newComment.comment}
-                    onChange={(e) => setState(prev => ({
-                      ...prev,
-                      newComment: { ...prev.newComment, comment: e.target.value }
-                    }))}
-                    placeholder="Tulis komentar Anda tentang buku ini..."
-                    rows="5"
-                  />
+                  <textarea className="form-control textarea-control" value={state.newComment.comment}
+                    onChange={(e) => setState(prev => ({ ...prev, newComment: { ...prev.newComment, comment: e.target.value } }))}
+                    placeholder="Tulis komentar Anda tentang buku ini..." rows="5" />
                 </div>
-
                 <div className="form-group">
                   <label>Rating (opsional):</label>
                   <div className="rating-input" style={{ display: 'flex', gap: '0.5rem', fontSize: '1.5rem', margin: '0.5rem 0' }}>
                     {[1, 2, 3, 4, 5].map(star => (
-                      <span
-                        key={star}
-                        className={`star ${state.newComment.rating && star <= state.newComment.rating ? 'active' : ''}`}
-                        onClick={() => setState(prev => ({
-                          ...prev,
-                          newComment: {
-                            ...prev.newComment,
-                            rating: prev.newComment.rating === star ? null : star
-                          }
-                        }))}
-                        style={{ cursor: 'pointer', opacity: state.newComment.rating && star <= state.newComment.rating ? 1 : 0.3 }}
-                      >
-                        ⭐
-                      </span>
+                      <span key={star} className={`star ${state.newComment.rating && star <= state.newComment.rating ? 'active' : ''}`}
+                        onClick={() => setState(prev => ({ ...prev, newComment: { ...prev.newComment, rating: prev.newComment.rating === star ? null : star } }))}
+                        style={{ cursor: 'pointer', opacity: state.newComment.rating && star <= state.newComment.rating ? 1 : 0.3 }}>⭐</span>
                     ))}
                     {state.newComment.rating && (
-                      <button
-                        className="btn btn-secondary btn-small"
-                        style={{ marginLeft: '0.5rem' }}
-                        onClick={() => setState(prev => ({
-                          ...prev,
-                          newComment: { ...prev.newComment, rating: null }
-                        }))}
-                      >
-                        ✕ Hapus Rating
-                      </button>
+                      <button className="btn btn-secondary btn-small" style={{ marginLeft: '0.5rem' }}
+                        onClick={() => setState(prev => ({ ...prev, newComment: { ...prev.newComment, rating: null } }))}>✕ Hapus Rating</button>
                     )}
                   </div>
-                  {state.newComment.rating && (
-                    <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>Rating: {state.newComment.rating}/5</p>
-                  )}
+                  {state.newComment.rating && <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>Rating: {state.newComment.rating}/5</p>}
                 </div>
-
                 <div className="modal-actions">
-                  <button
-                    className="btn btn-secondary"
-                    onClick={() => setState(prev => ({
-                      ...prev,
-                      showCommentModal: false,
-                      newComment: { comment: '', title: '', rating: null }
-                    }))}
-                  >
-                    Batal
-                  </button>
-                  <button
-                    className="btn btn-primary"
-                    onClick={handleAddComment}
-                    disabled={!state.newComment.comment.trim()}
-                  >
-                    Kirim Komentar
-                  </button>
+                  <button className="btn btn-secondary" onClick={() => setState(prev => ({ ...prev, showCommentModal: false, newComment: { comment: '', title: '', rating: null } }))}>Batal</button>
+                  <button className="btn btn-primary" onClick={handleAddComment} disabled={!state.newComment.comment.trim()}>Kirim Komentar</button>
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* Edit Comment Modal */}
         {state.showEditCommentModal && (
           <div className="modal-overlay" onClick={() => setState(prev => ({ ...prev, showEditCommentModal: false }))}>
             <div className="modal-content card" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
                 <h3>Edit Komentar</h3>
-                <button
-                  className="btn btn-secondary btn-small"
-                  onClick={() => setState(prev => ({ ...prev, showEditCommentModal: false }))}
-                >
-                  ✕
-                </button>
+                <button className="btn btn-secondary btn-small" onClick={() => setState(prev => ({ ...prev, showEditCommentModal: false }))}>✕</button>
               </div>
               <div className="modal-body">
                 <div className="form-group">
                   <label>Judul (opsional):</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={state.editComment.title}
-                    onChange={(e) => setState(prev => ({
-                      ...prev,
-                      editComment: { ...prev.editComment, title: e.target.value }
-                    }))}
-                    placeholder="Berikan judul untuk komentar Anda..."
-                  />
+                  <input type="text" className="form-control" value={state.editComment.title}
+                    onChange={(e) => setState(prev => ({ ...prev, editComment: { ...prev.editComment, title: e.target.value } }))}
+                    placeholder="Berikan judul untuk komentar Anda..." />
                 </div>
-
                 <div className="form-group">
                   <label>Komentar: *</label>
-                  <textarea
-                    className="form-control textarea-control"
-                    value={state.editComment.comment}
-                    onChange={(e) => setState(prev => ({
-                      ...prev,
-                      editComment: { ...prev.editComment, comment: e.target.value }
-                    }))}
-                    placeholder="Tulis komentar Anda tentang buku ini..."
-                    rows="5"
-                  />
+                  <textarea className="form-control textarea-control" value={state.editComment.comment}
+                    onChange={(e) => setState(prev => ({ ...prev, editComment: { ...prev.editComment, comment: e.target.value } }))}
+                    placeholder="Tulis komentar Anda tentang buku ini..." rows="5" />
                 </div>
-
                 <div className="form-group">
                   <label>Rating (opsional):</label>
                   <div className="rating-input" style={{ display: 'flex', gap: '0.5rem', fontSize: '1.5rem', margin: '0.5rem 0' }}>
                     {[1, 2, 3, 4, 5].map(star => (
-                      <span
-                        key={star}
-                        className={`star ${state.editComment.rating && star <= state.editComment.rating ? 'active' : ''}`}
-                        onClick={() => setState(prev => ({
-                          ...prev,
-                          editComment: {
-                            ...prev.editComment,
-                            rating: prev.editComment.rating === star ? null : star
-                          }
-                        }))}
-                        style={{ cursor: 'pointer', opacity: state.editComment.rating && star <= state.editComment.rating ? 1 : 0.3 }}
-                      >
-                        ⭐
-                      </span>
+                      <span key={star} className={`star ${state.editComment.rating && star <= state.editComment.rating ? 'active' : ''}`}
+                        onClick={() => setState(prev => ({ ...prev, editComment: { ...prev.editComment, rating: prev.editComment.rating === star ? null : star } }))}
+                        style={{ cursor: 'pointer', opacity: state.editComment.rating && star <= state.editComment.rating ? 1 : 0.3 }}>⭐</span>
                     ))}
                     {state.editComment.rating && (
-                      <button
-                        className="btn btn-secondary btn-small"
-                        style={{ marginLeft: '0.5rem' }}
-                        onClick={() => setState(prev => ({
-                          ...prev,
-                          editComment: { ...prev.editComment, rating: null }
-                        }))}
-                      >
-                        ✕ Hapus Rating
-                      </button>
+                      <button className="btn btn-secondary btn-small" style={{ marginLeft: '0.5rem' }}
+                        onClick={() => setState(prev => ({ ...prev, editComment: { ...prev.editComment, rating: null } }))}>✕ Hapus Rating</button>
                     )}
                   </div>
-                  {state.editComment.rating && (
-                    <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>Rating: {state.editComment.rating}/5</p>
-                  )}
+                  {state.editComment.rating && <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>Rating: {state.editComment.rating}/5</p>}
                 </div>
-
                 <div className="modal-actions">
-                  <button
-                    className="btn btn-secondary"
-                    onClick={() => setState(prev => ({
-                      ...prev,
-                      showEditCommentModal: false,
-                      editingComment: null,
-                      editComment: { comment: '', title: '', rating: null }
-                    }))}
-                  >
-                    Batal
-                  </button>
-                  <button
-                    className="btn btn-primary"
-                    onClick={handleUpdateComment}
-                    disabled={!state.editComment.comment.trim()}
-                  >
-                    Update Komentar
-                  </button>
+                  <button className="btn btn-secondary" onClick={() => setState(prev => ({ ...prev, showEditCommentModal: false, editingComment: null, editComment: { comment: '', title: '', rating: null } }))}>Batal</button>
+                  <button className="btn btn-primary" onClick={handleUpdateComment} disabled={!state.editComment.comment.trim()}>Update Komentar</button>
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* Reply Modal */}
         {state.showReplyModal && (
           <div className="modal-overlay" onClick={() => setState(prev => ({ ...prev, showReplyModal: false }))}>
             <div className="modal-content card" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
                 <h3>Balas Komentar</h3>
-                <button
-                  className="btn btn-secondary btn-small"
-                  onClick={() => setState(prev => ({ ...prev, showReplyModal: false }))}
-                >
-                  ✕
-                </button>
+                <button className="btn btn-secondary btn-small" onClick={() => setState(prev => ({ ...prev, showReplyModal: false }))}>✕</button>
               </div>
               <div className="modal-body">
                 <div style={{ padding: '1rem', background: theme === 'light' ? '#f9fafb' : '#1f2937', borderRadius: '8px', marginBottom: '1rem' }}>
-                  <div style={{ fontWeight: '600', marginBottom: '0.5rem' }}>
-                    Membalas komentar dari {state.replyToReaction?.userName}:
-                  </div>
-                  <div style={{ color: '#6b7280', fontStyle: 'italic' }}>
-                    "{state.replyToReaction?.comment}"
-                  </div>
+                  <div style={{ fontWeight: '600', marginBottom: '0.5rem' }}>Membalas komentar dari {state.replyToReaction?.userName}:</div>
+                  <div style={{ color: '#6b7280', fontStyle: 'italic' }}>"{state.replyToReaction?.comment}"</div>
                 </div>
-
                 <div className="form-group">
-                  <label>Balasan: *</label>
-                  <textarea
-                    className="form-control textarea-control"
-                    value={state.newReply.comment}
-                    onChange={(e) => setState(prev => ({
-                      ...prev,
-                      newReply: { comment: e.target.value }
-                    }))}
-                    placeholder="Tulis balasan Anda..."
-                    rows="4"
-                  />
+                  <label>Balasan Anda:</label>
+                  <textarea className="form-control textarea-control" value={state.newReply.comment}
+                    onChange={(e) => setState(prev => ({ ...prev, newReply: { ...prev.newReply, comment: e.target.value } }))}
+                    placeholder="Tulis balasan Anda..." rows="4" />
                 </div>
-
                 <div className="modal-actions">
-                  <button
-                    className="btn btn-secondary"
-                    onClick={() => setState(prev => ({
-                      ...prev,
-                      showReplyModal: false,
-                      replyToReaction: null,
-                      newReply: { comment: '' }
-                    }))}
-                  >
-                    Batal
-                  </button>
-                  <button
-                    className="btn btn-primary"
-                    onClick={handleAddReply}
-                    disabled={!state.newReply.comment.trim()}
-                  >
-                    Kirim Balasan
-                  </button>
+                  <button className="btn btn-secondary" onClick={() => setState(prev => ({ ...prev, showReplyModal: false, replyToReaction: null, newReply: { comment: '' } }))}>Batal</button>
+                  <button className="btn btn-primary" onClick={handleAddReply} disabled={!state.newReply.comment.trim()}>Kirim Balasan</button>
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* React to Comment Modal */}
         {state.showReactToCommentModal && (
           <div className="modal-overlay" onClick={() => setState(prev => ({ ...prev, showReactToCommentModal: false }))}>
             <div className="modal-content card" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
                 <h3>Beri Reaksi pada Komentar</h3>
-                <button
-                  className="btn btn-secondary btn-small"
-                  onClick={() => setState(prev => ({ ...prev, showReactToCommentModal: false }))}
-                >
-                  ✕
-                </button>
+                <button className="btn btn-secondary btn-small" onClick={() => setState(prev => ({ ...prev, showReactToCommentModal: false }))}>✕</button>
               </div>
               <div className="modal-body">
                 <div style={{ padding: '1rem', background: theme === 'light' ? '#f9fafb' : '#1f2937', borderRadius: '8px', marginBottom: '1rem' }}>
-                  <div style={{ fontWeight: '600', marginBottom: '0.5rem' }}>
-                    Memberi reaksi pada komentar dari {state.reactToComment?.userName}:
-                  </div>
-                  <div style={{ color: '#6b7280', fontStyle: 'italic' }}>
-                    "{state.reactToComment?.comment}"
-                  </div>
+                  <div style={{ fontWeight: '600', marginBottom: '0.5rem' }}>Memberikan reaksi pada komentar dari {state.reactToComment?.userName}:</div>
+                  <div style={{ color: '#6b7280', fontStyle: 'italic' }}>"{state.reactToComment?.comment?.substring(0, 100)}{state.reactToComment?.comment?.length > 100 ? '...' : ''}"</div>
                 </div>
-
                 <div className="form-group">
                   <label>Pilih Reaksi:</label>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem', marginTop: '0.5rem' }}>
                     {['LIKE', 'LOVE', 'DISLIKE', 'ANGRY', 'SAD'].map(emotion => (
-                      <button
-                        key={emotion}
-                        className={`btn ${state.newCommentReaction.type === emotion ? 'btn-primary' : 'btn-secondary'}`}
-                        onClick={() => setState(prev => ({
-                          ...prev,
-                          newCommentReaction: { type: emotion }
-                        }))}
-                      >
+                      <button key={emotion} className={`btn ${state.newCommentReaction.type === emotion ? 'btn-primary' : 'btn-secondary'}`}
+                        onClick={() => setState(prev => ({ ...prev, newCommentReaction: { type: emotion } }))}>
                         {reactionEmojis[emotion]} {emotion}
                       </button>
                     ))}
                   </div>
                 </div>
-
                 <div className="modal-actions">
-                  <button
-                    className="btn btn-secondary"
-                    onClick={() => setState(prev => ({
-                      ...prev,
-                      showReactToCommentModal: false,
-                      reactToComment: null,
-                      newCommentReaction: { type: 'LIKE' }
-                    }))}
-                  >
-                    Batal
-                  </button>
-                  <button
-                    className="btn btn-primary"
-                    onClick={handleAddCommentReaction}
-                  >
-                    Kirim Reaksi
-                  </button>
+                  <button className="btn btn-secondary" onClick={() => setState(prev => ({ ...prev, showReactToCommentModal: false, reactToComment: null, newCommentReaction: { type: 'LIKE' } }))}>Batal</button>
+                  <button className="btn btn-primary" onClick={handleAddCommentReaction}>Kirim Reaksi</button>
                 </div>
               </div>
             </div>
