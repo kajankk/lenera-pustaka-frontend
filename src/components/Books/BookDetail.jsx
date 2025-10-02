@@ -222,6 +222,18 @@ const BookDetail = ({ book }) => {
     }
   }, [isAuthenticated, book.slug, state.newRating, state.userRating, showNotification, loadReactions])
 
+  const handleDeleteRating = useCallback(async () => {
+    if (!state.userRating) return
+    if (!window.confirm('Hapus rating Anda?')) return
+    try {
+      await bookService.removeReaction(book.slug, state.userRating.id)
+      showNotification('Rating berhasil dihapus!', 'success')
+      await loadReactions()
+    } catch (error) {
+      showNotification(error.message || 'Gagal menghapus rating', 'error')
+    }
+  }, [book.slug, state.userRating, showNotification, loadReactions])
+
   const handleAddReview = useCallback(async () => {
     if (!isAuthenticated) {
       showNotification('Silakan login untuk menulis review', 'warning')
@@ -277,6 +289,17 @@ const BookDetail = ({ book }) => {
     }
   }, [isAuthenticated, book.slug, state.editReview, showNotification, loadReactions])
 
+  const handleDeleteReview = useCallback(async (reviewId) => {
+    if (!window.confirm('Apakah Anda yakin ingin menghapus review ini?')) return
+    try {
+      await bookService.removeReaction(book.slug, reviewId)
+      showNotification('Review berhasil dihapus!', 'success')
+      await loadReactions()
+    } catch (error) {
+      showNotification(error.message || 'Gagal menghapus review', 'error')
+    }
+  }, [book.slug, showNotification, loadReactions])
+
   const handleAddReply = useCallback(async () => {
     if (!isAuthenticated) {
       showNotification('Silakan login untuk membalas review', 'warning')
@@ -305,6 +328,17 @@ const BookDetail = ({ book }) => {
     }
   }, [isAuthenticated, book.slug, state.replyToReview, state.newReply, showNotification, loadReactions])
 
+  const handleDeleteReply = useCallback(async (replyId) => {
+    if (!window.confirm('Hapus balasan ini?')) return
+    try {
+      await bookService.removeReaction(book.slug, replyId)
+      showNotification('Balasan berhasil dihapus!', 'success')
+      await loadReactions()
+    } catch (error) {
+      showNotification(error.message || 'Gagal menghapus balasan', 'error')
+    }
+  }, [book.slug, showNotification, loadReactions])
+
   const handleFeedback = useCallback(async (reviewId, feedbackType) => {
     if (!isAuthenticated) {
       showNotification('Silakan login untuk memberikan feedback', 'warning')
@@ -321,29 +355,6 @@ const BookDetail = ({ book }) => {
       showNotification(error.message || 'Gagal menambahkan feedback', 'error')
     }
   }, [isAuthenticated, book.slug, showNotification, loadReactions])
-
-  const handleDeleteReaction = useCallback(async (reactionId) => {
-    if (!window.confirm('Apakah Anda yakin ingin menghapus ini?')) return
-    try {
-      await bookService.removeReaction(book.slug, reactionId)
-      showNotification('Berhasil dihapus!', 'success')
-      await loadReactions()
-    } catch (error) {
-      showNotification(error.message || 'Gagal menghapus', 'error')
-    }
-  }, [book.slug, showNotification, loadReactions])
-
-  const handleDeleteRating = useCallback(async () => {
-    if (!state.userRating) return
-    if (!window.confirm('Hapus rating Anda?')) return
-    try {
-      await bookService.removeReaction(book.slug, state.userRating.id)
-      showNotification('Rating berhasil dihapus!', 'success')
-      await loadReactions()
-    } catch (error) {
-      showNotification(error.message || 'Gagal menghapus rating', 'error')
-    }
-  }, [book.slug, state.userRating, showNotification, loadReactions])
 
   const handleReplyToReview = useCallback((review) => {
     setState(prev => ({
@@ -410,13 +421,13 @@ const BookDetail = ({ book }) => {
               <button className="action-btn" onClick={() => handleReplyToReview(review)}>
                 💬 Balas
               </button>
-              <button 
+              <button
                 className={`action-btn ${userFeedback?.reactionType === 'HELPFUL' ? 'active' : ''}`}
                 onClick={() => handleFeedback(review.id, 'HELPFUL')}
               >
                 👍 Membantu ({helpfulCount})
               </button>
-              <button 
+              <button
                 className={`action-btn ${userFeedback?.reactionType === 'NOT_HELPFUL' ? 'active' : ''}`}
                 onClick={() => handleFeedback(review.id, 'NOT_HELPFUL')}
               >
@@ -429,7 +440,7 @@ const BookDetail = ({ book }) => {
               <button className="action-btn" onClick={() => handleEditReview(review)}>
                 ✏️ Edit
               </button>
-              <button className="action-btn" style={{ color: '#dc2626' }} onClick={() => handleDeleteReaction(review.id)}>
+              <button className="action-btn" style={{ color: '#dc2626' }} onClick={() => handleDeleteReview(review.id)}>
                 🗑️ Hapus
               </button>
               <div style={{ marginLeft: 'auto', fontSize: '0.875rem', color: '#6b7280' }}>
@@ -464,7 +475,7 @@ const BookDetail = ({ book }) => {
               </div>
               {isAuthenticated && isReplyOwner && (
                 <div className="discussion-actions">
-                  <button className="action-btn" style={{ color: '#dc2626' }} onClick={() => handleDeleteReaction(reply.id)}>
+                  <button className="action-btn" style={{ color: '#dc2626' }} onClick={() => handleDeleteReply(reply.id)}>
                     🗑️ Hapus
                   </button>
                 </div>
@@ -491,13 +502,13 @@ const BookDetail = ({ book }) => {
       const userRating = state.reactions.find(r =>
         String(r.userId) === String(user.id) && r.reactionType === 'RATING' && !r.parentId
       )
-      
+
       const userReview = state.reactions.find(r =>
         String(r.userId) === String(user.id) && r.reactionType === 'COMMENT' && !r.parentId
       )
-      
-      setState(prev => ({ 
-        ...prev, 
+
+      setState(prev => ({
+        ...prev,
         userRating: userRating || null,
         userReview: userReview || null
       }))
@@ -571,8 +582,8 @@ const BookDetail = ({ book }) => {
                   <>
                     <button
                       className="btn btn-secondary btn-small"
-                      onClick={() => setState(prev => ({ 
-                        ...prev, 
+                      onClick={() => setState(prev => ({
+                        ...prev,
                         showRatingModal: true,
                         newRating: { rating: state.userRating?.rating || 5 }
                       }))}
@@ -596,8 +607,8 @@ const BookDetail = ({ book }) => {
               </div>
 
               {isAuthenticated && (state.userRating || state.userReview) && (
-                <div style={{ 
-                  padding: '0.75rem', 
+                <div style={{
+                  padding: '0.75rem',
                   background: theme === 'light' ? '#f0fdf4' : '#064e3b',
                   borderRadius: '8px',
                   fontSize: '0.875rem'
@@ -606,8 +617,8 @@ const BookDetail = ({ book }) => {
                   {state.userRating && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
                       <span>⭐ Rating: {state.userRating.rating}/5</span>
-                      <button 
-                        className="btn btn-secondary btn-small" 
+                      <button
+                        className="btn btn-secondary btn-small"
                         style={{ marginLeft: 'auto', padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
                         onClick={handleDeleteRating}
                       >
@@ -618,10 +629,10 @@ const BookDetail = ({ book }) => {
                   {state.userReview && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       <span>📝 Review: {state.userReview.title || 'Tanpa judul'}</span>
-                      <button 
-                        className="btn btn-secondary btn-small" 
+                      <button
+                        className="btn btn-secondary btn-small"
                         style={{ marginLeft: 'auto', padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
-                        onClick={() => handleDeleteReaction(state.userReview.id)}
+                        onClick={() => handleDeleteReview(state.userReview.id)}
                       >
                         ✕
                       </button>
@@ -689,7 +700,7 @@ const BookDetail = ({ book }) => {
                 </div>
               )}
 
-<div className="book-meta">
+              <div className="book-meta">
                 <div className="meta-item">
                   <span>🏢</span>
                   <span>{book.publisher}</span>
@@ -955,7 +966,6 @@ const BookDetail = ({ book }) => {
           </div>
         </div>
 
-        {/* Modal Bagikan */}
         {state.showShareModal && (
           <div className="modal-overlay" onClick={() => setState(prev => ({ ...prev, showShareModal: false }))}>
             <div className="modal-content card" onClick={e => e.stopPropagation()}>
@@ -975,7 +985,6 @@ const BookDetail = ({ book }) => {
           </div>
         )}
 
-        {/* Modal Rating */}
         {state.showRatingModal && (
           <div className="modal-overlay" onClick={() => setState(prev => ({ ...prev, showRatingModal: false }))}>
             <div className="modal-content card" onClick={e => e.stopPropagation()}>
@@ -1004,7 +1013,6 @@ const BookDetail = ({ book }) => {
           </div>
         )}
 
-        {/* Modal Review */}
         {state.showReviewModal && (
           <div className="modal-overlay" onClick={() => setState(prev => ({ ...prev, showReviewModal: false }))}>
             <div className="modal-content card" onClick={e => e.stopPropagation()}>
@@ -1034,7 +1042,6 @@ const BookDetail = ({ book }) => {
           </div>
         )}
 
-        {/* Modal Edit Review */}
         {state.showEditReviewModal && (
           <div className="modal-overlay" onClick={() => setState(prev => ({ ...prev, showEditReviewModal: false }))}>
             <div className="modal-content card" onClick={e => e.stopPropagation()}>
@@ -1064,7 +1071,6 @@ const BookDetail = ({ book }) => {
           </div>
         )}
 
-        {/* Modal Reply */}
         {state.showReplyModal && (
           <div className="modal-overlay" onClick={() => setState(prev => ({ ...prev, showReplyModal: false }))}>
             <div className="modal-content card" onClick={e => e.stopPropagation()}>
