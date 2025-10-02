@@ -206,7 +206,10 @@ const BookDetail = ({ book }) => {
 
   const handleAddRating = useCallback(async () => {
     if (!isAuthenticated) {
-      showNotification('Silakan login untuk memberikan rating', 'warning')
+      showNotification('Silakan login terlebih dahulu', 'warning')
+      setTimeout(() => {
+        navigate('/login', { state: { from: window.location.pathname } })
+      }, 1500)
       return
     }
     try {
@@ -220,7 +223,7 @@ const BookDetail = ({ book }) => {
     } catch (error) {
       showNotification(error.message || 'Gagal menambahkan rating', 'error')
     }
-  }, [isAuthenticated, book.slug, state.newRating, state.userRating, showNotification, loadReactions])
+  }, [isAuthenticated, navigate, book.slug, state.newRating, state.userRating, showNotification, loadReactions])
 
   const handleDeleteRating = useCallback(async () => {
     if (!state.userRating) return
@@ -236,7 +239,10 @@ const BookDetail = ({ book }) => {
 
   const handleAddReview = useCallback(async () => {
     if (!isAuthenticated) {
-      showNotification('Silakan login untuk menulis review', 'warning')
+      showNotification('Silakan login terlebih dahulu', 'warning')
+      setTimeout(() => {
+        navigate('/login', { state: { from: window.location.pathname } })
+      }, 1500)
       return
     }
     if (!state.newReview.comment.trim()) {
@@ -259,7 +265,7 @@ const BookDetail = ({ book }) => {
     } catch (error) {
       showNotification(error.message || 'Gagal menambahkan review', 'error')
     }
-  }, [isAuthenticated, book.slug, state.newReview, state.userReview, showNotification, loadReactions])
+  }, [isAuthenticated, navigate, book.slug, state.newReview, state.userReview, showNotification, loadReactions])
 
   const handleUpdateReview = useCallback(async () => {
     if (!isAuthenticated) {
@@ -578,32 +584,28 @@ const BookDetail = ({ book }) => {
                 <button className="btn btn-secondary btn-small" onClick={handleShare}>
                   🔗 Bagikan
                 </button>
-                {isAuthenticated && (
-                  <>
-                    <button
-                      className="btn btn-secondary btn-small"
-                      onClick={() => setState(prev => ({
-                        ...prev,
-                        showRatingModal: true,
-                        newRating: { rating: state.userRating?.rating || 5 }
-                      }))}
-                    >
-                      {state.userRating ? '✏️ Edit Rating' : '⭐ Beri Rating'}
-                    </button>
-                    <button
-                      className="btn btn-secondary btn-small"
-                      onClick={() => {
-                        if (state.userReview) {
-                          handleEditReview(state.userReview)
-                        } else {
-                          setState(prev => ({ ...prev, showReviewModal: true }))
-                        }
-                      }}
-                    >
-                      {state.userReview ? '✏️ Edit Review' : '📝 Tulis Review'}
-                    </button>
-                  </>
-                )}
+                <button
+                  className="btn btn-secondary btn-small"
+                  onClick={() => setState(prev => ({
+                    ...prev,
+                    showRatingModal: true,
+                    newRating: { rating: state.userRating?.rating || 5 }
+                  }))}
+                >
+                  {state.userRating ? '✏️ Edit Rating' : '⭐ Beri Rating'}
+                </button>
+                <button
+                  className="btn btn-secondary btn-small"
+                  onClick={() => {
+                    if (state.userReview) {
+                      handleEditReview(state.userReview)
+                    } else {
+                      setState(prev => ({ ...prev, showReviewModal: true }))
+                    }
+                  }}
+                >
+                  {state.userReview ? '✏️ Edit Review' : '📝 Tulis Review'}
+                </button>
               </div>
 
               {isAuthenticated && (state.userRating || state.userReview) && (
@@ -877,7 +879,7 @@ const BookDetail = ({ book }) => {
                   <div className="discussions-section">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                       <h3 className="section-title">Review & Diskusi ({reviews.length})</h3>
-                      {isAuthenticated && !state.userReview && (
+                      {!state.userReview && (
                         <button
                           className="btn btn-primary btn-small"
                           onClick={() => setState(prev => ({ ...prev, showReviewModal: true }))}
