@@ -9,6 +9,9 @@ const BookDetail = ({ book }) => {
   const { theme } = useTheme()
   const { isAuthenticated, user } = useAuth()
 
+    console.log('Full user object:', user)  // <-- tambahkan ini
+    console.log('isAuthenticated:', isAuthenticated)  // <-- dan ini
+
   const [state, setState] = useState({
     isDownloading: false,
     activeTab: 'description',
@@ -21,12 +24,12 @@ const BookDetail = ({ book }) => {
     replyToReview: null,
     userRating: null,
     userReview: null,
-    newRating: { rating: 5 },
+    newRating: 5,
     newReview: { comment: '', title: '' },
     editReview: { comment: '', title: '' },
-    newReply: { comment: '' },
+    newReply: '',
     expandedReplies: new Set(),
-    reactions: [],
+    reviews: [],
     loading: false
   })
 
@@ -111,46 +114,61 @@ const BookDetail = ({ book }) => {
     }
   }, [book])
 
-  const loadReactions = useCallback(async () => {
-    if (!book.slug) return
-    try {
-      setState(prev => ({ ...prev, loading: true }))
-      const response = await bookService.getReactions(book.slug)
-      if (response.result === 'Success' && response.data) {
-        setState(prev => ({
-          ...prev,
-          reactions: response.data,
-          loading: false
-        }))
-      }
-    } catch (error) {
-      console.error('Error loading reactions:', error)
-      setState(prev => ({ ...prev, loading: false }))
-    }
-  }, [book.slug])
+    const loadReviews = useCallback(async () => {
+     if (!book.slug) return
+     try {
+       setState(prev => ({ ...prev, loading: true }))
+       const response = await bookService.getReviews(book.slug, 1, 100)
+       console.log('Reviews response:', response)
 
-  const buildReviewTree = useCallback((reactions) => {
-    if (!reactions || !Array.isArray(reactions)) return []
-    const reviews = reactions.filter(r => r.reactionType === 'COMMENT' && !r.parentId)
+       // API returns { result: "Success", data: [...] }
+       if ((response.result === 'Success' || response.status === 'SUCCESS') && response.data) {
+         setState(prev => ({
+           ...prev,
+           reviews: Array.isArray(response.data) ? response.data : [],
+           loading: false
+         }))
+       } else {
+         setState(prev => ({ ...prev, reviews: [], loading: false }))
+       }
+     } catch (error) {
+       console.error('Error loading reviews:', error)
+       setState(prev => ({ ...prev, reviews: [], loading: false }))
+     }
+    }, [book.slug])
+
+  const buildReviewTree = useCallback((reviews) => {
+    if (!reviews || !Array.isArray(reviews)) return []
+
     const reviewMap = new Map()
     const rootReviews = []
 
+    // First pass: identify root reviews (no parentId)
     reviews.forEach(review => {
-      reviewMap.set(review.id, { ...review, replies: [], feedbacks: [] })
-    })
-
-    reactions.forEach(reaction => {
-      if (reaction.parentId && reviewMap.has(reaction.parentId)) {
-        if (reaction.reactionType === 'COMMENT') {
-          reviewMap.get(reaction.parentId).replies.push(reaction)
-        } else if (reaction.reactionType === 'HELPFUL' || reaction.reactionType === 'NOT_HELPFUL') {
-          reviewMap.get(reaction.parentId).feedbacks.push(reaction)
-        }
-      } else if (!reaction.parentId && reaction.reactionType === 'COMMENT') {
-        rootReviews.push(reviewMap.get(reaction.id))
+      if (!review.parentId && review.reactionType === 'COMMENT') {
+        reviewMap.set(review.id, { ...review, replies: [], feedbacks: [] })
       }
     })
 
+    // Second pass: attach replies and feedbacks
+    reviews.forEach(item => {
+      if (item.parentId && reviewMap.has(item.parentId)) {
+        const parent = reviewMap.get(item.parentId)
+
+        if (item.reactionType === 'COMMENT') {
+          parent.replies.push(item)
+        } else if (item.reactionType === 'HELPFUL' || item.reactionType === 'NOT_HELPFUL') {
+          parent.feedbacks.push(item)
+        }
+      }
+    })
+
+    // Collect root reviews
+    reviewMap.forEach(review => {
+      rootReviews.push(review)
+    })
+
+    // Sort reviews and replies
     rootReviews.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
     rootReviews.forEach(review => {
       review.replies.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
@@ -159,9 +177,9 @@ const BookDetail = ({ book }) => {
     return rootReviews
   }, [])
 
-  const getReviews = useCallback(() => {
-    return buildReviewTree(state.reactions)
-  }, [state.reactions, buildReviewTree])
+  const getReviewsTree = useCallback(() => {
+    return buildReviewTree(state.reviews)
+  }, [state.reviews, buildReviewTree])
 
   const handleStartReading = useCallback(() => {
     const fileFormat = getFileFormat()
@@ -213,29 +231,26 @@ const BookDetail = ({ book }) => {
       return
     }
     try {
-      await bookService.addReaction(book.slug, {
-        type: 'RATING',
-        rating: state.newRating.rating
-      })
-      setState(prev => ({ ...prev, showRatingModal: false, newRating: { rating: 5 } }))
+      const response = await bookService.addOrUpdateRating(book.slug, state.newRating)
+      setState(prev => ({ ...prev, showRatingModal: false, newRating: 5 }))
       showNotification(state.userRating ? 'Rating berhasil diupdate!' : 'Rating berhasil ditambahkan!', 'success')
-      await loadReactions()
+      await loadReviews()
     } catch (error) {
-      showNotification(error.message || 'Gagal menambahkan rating', 'error')
+      showNotification(error.response?.data?.message || error.message || 'Gagal menambahkan rating', 'error')
     }
-  }, [isAuthenticated, navigate, book.slug, state.newRating, state.userRating, showNotification, loadReactions])
+  }, [isAuthenticated, navigate, book.slug, state.newRating, state.userRating, showNotification, loadReviews])
 
   const handleDeleteRating = useCallback(async () => {
     if (!state.userRating) return
     if (!window.confirm('Hapus rating Anda?')) return
     try {
-      await bookService.removeReaction(book.slug, state.userRating.id)
+      await bookService.deleteRating(book.slug)
       showNotification('Rating berhasil dihapus!', 'success')
-      await loadReactions()
+      await loadReviews()
     } catch (error) {
-      showNotification(error.message || 'Gagal menghapus rating', 'error')
+      showNotification(error.response?.data?.message || error.message || 'Gagal menghapus rating', 'error')
     }
-  }, [book.slug, state.userRating, showNotification, loadReactions])
+  }, [book.slug, state.userRating, showNotification, loadReviews])
 
   const handleAddReview = useCallback(async () => {
     if (!isAuthenticated) {
@@ -249,23 +264,26 @@ const BookDetail = ({ book }) => {
       showNotification('Review tidak boleh kosong', 'warning')
       return
     }
+    if (state.newReview.comment.trim().length < 10) {
+      showNotification('Review harus minimal 10 karakter', 'warning')
+      return
+    }
     try {
-      await bookService.addReaction(book.slug, {
-        type: 'COMMENT',
-        comment: state.newReview.comment,
-        title: state.newReview.title || null
+      await bookService.addReview(book.slug, {
+        title: state.newReview.title || null,
+        comment: state.newReview.comment
       })
       setState(prev => ({
         ...prev,
         showReviewModal: false,
         newReview: { comment: '', title: '' }
       }))
-      showNotification(state.userReview ? 'Review berhasil diupdate!' : 'Review berhasil ditambahkan!', 'success')
-      await loadReactions()
+      showNotification('Review berhasil ditambahkan!', 'success')
+      await loadReviews()
     } catch (error) {
-      showNotification(error.message || 'Gagal menambahkan review', 'error')
+      showNotification(error.response?.data?.message || error.message || 'Gagal menambahkan review', 'error')
     }
-  }, [isAuthenticated, navigate, book.slug, state.newReview, state.userReview, showNotification, loadReactions])
+  }, [isAuthenticated, navigate, book.slug, state.newReview, showNotification, loadReviews])
 
   const handleUpdateReview = useCallback(async () => {
     if (!isAuthenticated) {
@@ -276,11 +294,14 @@ const BookDetail = ({ book }) => {
       showNotification('Review tidak boleh kosong', 'warning')
       return
     }
+    if (state.editReview.comment.trim().length < 10) {
+      showNotification('Review harus minimal 10 karakter', 'warning')
+      return
+    }
     try {
-      await bookService.addReaction(book.slug, {
-        type: 'COMMENT',
-        comment: state.editReview.comment,
-        title: state.editReview.title || null
+      await bookService.updateReview(book.slug, {
+        title: state.editReview.title || null,
+        comment: state.editReview.comment
       })
       setState(prev => ({
         ...prev,
@@ -289,61 +310,57 @@ const BookDetail = ({ book }) => {
         editReview: { comment: '', title: '' }
       }))
       showNotification('Review berhasil diupdate!', 'success')
-      await loadReactions()
+      await loadReviews()
     } catch (error) {
-      showNotification(error.message || 'Gagal mengupdate review', 'error')
+      showNotification(error.response?.data?.message || error.message || 'Gagal mengupdate review', 'error')
     }
-  }, [isAuthenticated, book.slug, state.editReview, showNotification, loadReactions])
+  }, [isAuthenticated, book.slug, state.editReview, showNotification, loadReviews])
 
-  const handleDeleteReview = useCallback(async (reviewId) => {
+  const handleDeleteReview = useCallback(async () => {
     if (!window.confirm('Apakah Anda yakin ingin menghapus review ini?')) return
     try {
-      await bookService.removeReaction(book.slug, reviewId)
+      await bookService.deleteReview(book.slug)
       showNotification('Review berhasil dihapus!', 'success')
-      await loadReactions()
+      await loadReviews()
     } catch (error) {
-      showNotification(error.message || 'Gagal menghapus review', 'error')
+      showNotification(error.response?.data?.message || error.message || 'Gagal menghapus review', 'error')
     }
-  }, [book.slug, showNotification, loadReactions])
+  }, [book.slug, showNotification, loadReviews])
 
   const handleAddReply = useCallback(async () => {
     if (!isAuthenticated) {
       showNotification('Silakan login untuk membalas review', 'warning')
       return
     }
-    if (!state.newReply.comment.trim()) {
+    if (!state.newReply.trim()) {
       showNotification('Balasan tidak boleh kosong', 'warning')
       return
     }
     try {
-      await bookService.addReaction(book.slug, {
-        type: 'COMMENT',
-        comment: state.newReply.comment,
-        parentId: state.replyToReview.id
-      })
+      await bookService.addReply(book.slug, state.replyToReview.id, state.newReply)
       setState(prev => ({
         ...prev,
         showReplyModal: false,
         replyToReview: null,
-        newReply: { comment: '' }
+        newReply: ''
       }))
       showNotification('Balasan berhasil ditambahkan!', 'success')
-      await loadReactions()
+      await loadReviews()
     } catch (error) {
-      showNotification(error.message || 'Gagal menambahkan balasan', 'error')
+      showNotification(error.response?.data?.message || error.message || 'Gagal menambahkan balasan', 'error')
     }
-  }, [isAuthenticated, book.slug, state.replyToReview, state.newReply, showNotification, loadReactions])
+  }, [isAuthenticated, book.slug, state.replyToReview, state.newReply, showNotification, loadReviews])
 
   const handleDeleteReply = useCallback(async (replyId) => {
     if (!window.confirm('Hapus balasan ini?')) return
     try {
-      await bookService.removeReaction(book.slug, replyId)
+      await bookService.deleteReply(book.slug, replyId)
       showNotification('Balasan berhasil dihapus!', 'success')
-      await loadReactions()
+      await loadReviews()
     } catch (error) {
-      showNotification(error.message || 'Gagal menghapus balasan', 'error')
+      showNotification(error.response?.data?.message || error.message || 'Gagal menghapus balasan', 'error')
     }
-  }, [book.slug, showNotification, loadReactions])
+  }, [book.slug, showNotification, loadReviews])
 
   const handleFeedback = useCallback(async (reviewId, feedbackType) => {
     if (!isAuthenticated) {
@@ -351,16 +368,13 @@ const BookDetail = ({ book }) => {
       return
     }
     try {
-      await bookService.addReaction(book.slug, {
-        type: feedbackType,
-        parentId: reviewId
-      })
+      await bookService.addOrUpdateFeedback(book.slug, reviewId, feedbackType)
       showNotification('Feedback berhasil ditambahkan!', 'success')
-      await loadReactions()
+      await loadReviews()
     } catch (error) {
-      showNotification(error.message || 'Gagal menambahkan feedback', 'error')
+      showNotification(error.response?.data?.message || error.message || 'Gagal menambahkan feedback', 'error')
     }
-  }, [isAuthenticated, book.slug, showNotification, loadReactions])
+  }, [isAuthenticated, book.slug, showNotification, loadReviews])
 
   const handleReplyToReview = useCallback((review) => {
     setState(prev => ({
@@ -394,18 +408,27 @@ const BookDetail = ({ book }) => {
     })
   }, [])
 
-  const ReviewItem = ({ review }) => {
-    const isOwner = user && String(review.userId) === String(user.id)
-    const helpfulCount = review.feedbacks?.filter(f => f.reactionType === 'HELPFUL').length || 0
-    const notHelpfulCount = review.feedbacks?.filter(f => f.reactionType === 'NOT_HELPFUL').length || 0
-    const userFeedback = user ? review.feedbacks?.find(f => String(f.userId) === String(user.id)) : null
+    const ReviewItem = ({ review }) => {
+      const isOwner = user && review.userName && user.username &&
+        (review.userName.toLowerCase() === user.username.toLowerCase())
+
+      const helpfulCount = review.feedbacks?.filter(f => f.reactionType === 'HELPFUL').length || 0
+      const notHelpfulCount = review.feedbacks?.filter(f => f.reactionType === 'NOT_HELPFUL').length || 0
+      const userFeedback = user ? review.feedbacks?.find(f => f.userName === user.username) : null
+
+      console.log('ReviewItem debug:', {
+        reviewUserName: review.userName,
+        currentUsername: user?.username,
+        isOwner,
+        isAuthenticated
+      })
 
     return (
       <div className="discussion-item">
         <div className="discussion-header">
           <div className="user-info">
             <div className="user-avatar">
-              {review.userName?.charAt(0).toUpperCase() || '👤'}
+              {review.userName?.charAt(0).toUpperCase() || '?'}
             </div>
             <div className="user-details">
               <h5>{review.userName || 'Pengguna'}</h5>
@@ -425,32 +448,32 @@ const BookDetail = ({ book }) => {
           {isAuthenticated && !isOwner && (
             <>
               <button className="action-btn" onClick={() => handleReplyToReview(review)}>
-                💬 Balas
+                Balas
               </button>
               <button
                 className={`action-btn ${userFeedback?.reactionType === 'HELPFUL' ? 'active' : ''}`}
                 onClick={() => handleFeedback(review.id, 'HELPFUL')}
               >
-                👍 Membantu ({helpfulCount})
+                Membantu ({helpfulCount})
               </button>
               <button
                 className={`action-btn ${userFeedback?.reactionType === 'NOT_HELPFUL' ? 'active' : ''}`}
                 onClick={() => handleFeedback(review.id, 'NOT_HELPFUL')}
               >
-                👎 Tidak Membantu ({notHelpfulCount})
+                Tidak Membantu ({notHelpfulCount})
               </button>
             </>
           )}
           {isAuthenticated && isOwner && (
             <>
               <button className="action-btn" onClick={() => handleEditReview(review)}>
-                ✏️ Edit
+                Edit
               </button>
-              <button className="action-btn" style={{ color: '#dc2626' }} onClick={() => handleDeleteReview(review.id)}>
-                🗑️ Hapus
+              <button className="action-btn" style={{ color: '#dc2626' }} onClick={handleDeleteReview}>
+                Hapus
               </button>
               <div style={{ marginLeft: 'auto', fontSize: '0.875rem', color: '#6b7280' }}>
-                👍 {helpfulCount} · 👎 {notHelpfulCount}
+                {helpfulCount} membantu · {notHelpfulCount} tidak membantu
               </div>
             </>
           )}
@@ -461,14 +484,14 @@ const BookDetail = ({ book }) => {
           )}
         </div>
 
-        {state.expandedReplies.has(review.id) && review.replies?.map(reply => {
-          const isReplyOwner = user && String(reply.userId) === String(user.id)
+      {state.expandedReplies.has(review.id) && review.replies?.map(reply => {
+        const isReplyOwner = user && reply.userName === user.username
           return (
             <div key={reply.id} className="discussion-item" style={{ marginLeft: '2rem', marginTop: '1rem' }}>
               <div className="discussion-header">
                 <div className="user-info">
                   <div className="user-avatar">
-                    {reply.userName?.charAt(0).toUpperCase() || '👤'}
+                    {reply.userName?.charAt(0).toUpperCase() || '?'}
                   </div>
                   <div className="user-details">
                     <h5>{reply.userName || 'Pengguna'}</h5>
@@ -482,7 +505,7 @@ const BookDetail = ({ book }) => {
               {isAuthenticated && isReplyOwner && (
                 <div className="discussion-actions">
                   <button className="action-btn" style={{ color: '#dc2626' }} onClick={() => handleDeleteReply(reply.id)}>
-                    🗑️ Hapus
+                    Hapus
                   </button>
                 </div>
               )}
@@ -496,30 +519,31 @@ const BookDetail = ({ book }) => {
   const authors = getAuthors()
   const genres = getGenres()
   const reactionStats = getReactionStats()
-  const reviews = getReviews()
+  const reviewsTree = getReviewsTree()
   const fileFormat = getFileFormat()
 
   useEffect(() => {
-    loadReactions()
-  }, [loadReactions])
+    loadReviews()
+  }, [loadReviews])
 
-  useEffect(() => {
-    if (isAuthenticated && user && state.reactions.length > 0) {
-      const userRating = state.reactions.find(r =>
-        String(r.userId) === String(user.id) && r.reactionType === 'RATING' && !r.parentId
-      )
+    useEffect(() => {
+      if (isAuthenticated && user && state.reviews.length > 0) {
+        const userReview = state.reviews.find(r =>
+          r.userName === user.username && r.reactionType === 'COMMENT' && !r.parentId
+        )
 
-      const userReview = state.reactions.find(r =>
-        String(r.userId) === String(user.id) && r.reactionType === 'COMMENT' && !r.parentId
-      )
+        let userRating = null
+        if (userReview?.rating) {
+          userRating = { rating: userReview.rating, id: userReview.id }
+        }
 
-      setState(prev => ({
-        ...prev,
-        userRating: userRating || null,
-        userReview: userReview || null
-      }))
-    }
-  }, [isAuthenticated, user, state.reactions])
+        setState(prev => ({
+          ...prev,
+          userRating: userRating,
+          userReview: userReview || null
+        }))
+      }
+    }, [isAuthenticated, user, state.reviews])
 
   useEffect(() => {
     document.title = `${book.title} - Lentera Pustaka`
@@ -528,7 +552,7 @@ const BookDetail = ({ book }) => {
   const tabs = [
     { id: 'description', label: 'Deskripsi', icon: '📄' },
     { id: 'details', label: 'Detail', icon: 'ℹ️' },
-    { id: 'reviews', label: `Review (${reviews.length})`, icon: '💬' },
+    { id: 'reviews', label: `Review (${reviewsTree.length})`, icon: '💬' },
     { id: 'analytics', label: 'Statistik', icon: '📊' }
   ]
 
@@ -582,17 +606,17 @@ const BookDetail = ({ book }) => {
               </button>
               <div className="action-row">
                 <button className="btn btn-secondary btn-small" onClick={handleShare}>
-                  🔗 Bagikan
+                  Bagikan
                 </button>
                 <button
                   className="btn btn-secondary btn-small"
                   onClick={() => setState(prev => ({
                     ...prev,
                     showRatingModal: true,
-                    newRating: { rating: state.userRating?.rating || 5 }
+                    newRating: state.userRating?.rating || 5
                   }))}
                 >
-                  {state.userRating ? '✏️ Edit Rating' : '⭐ Beri Rating'}
+                  {state.userRating ? 'Edit Rating' : 'Beri Rating'}
                 </button>
                 <button
                   className="btn btn-secondary btn-small"
@@ -604,44 +628,9 @@ const BookDetail = ({ book }) => {
                     }
                   }}
                 >
-                  {state.userReview ? '✏️ Edit Review' : '📝 Tulis Review'}
+                  {state.userReview ? 'Edit Review' : 'Tulis Review'}
                 </button>
               </div>
-
-              {isAuthenticated && (state.userRating || state.userReview) && (
-                <div style={{
-                  padding: '0.75rem',
-                  background: theme === 'light' ? '#f0fdf4' : '#064e3b',
-                  borderRadius: '8px',
-                  fontSize: '0.875rem'
-                }}>
-                  <div style={{ fontWeight: '600', marginBottom: '0.5rem' }}>Kontribusi Anda:</div>
-                  {state.userRating && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                      <span>⭐ Rating: {state.userRating.rating}/5</span>
-                      <button
-                        className="btn btn-secondary btn-small"
-                        style={{ marginLeft: 'auto', padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
-                        onClick={handleDeleteRating}
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  )}
-                  {state.userReview && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <span>📝 Review: {state.userReview.title || 'Tanpa judul'}</span>
-                      <button
-                        className="btn btn-secondary btn-small"
-                        style={{ marginLeft: 'auto', padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
-                        onClick={() => handleDeleteReview(state.userReview.id)}
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
 
               <div className="book-quick-stats" style={{
                 display: 'grid',
@@ -773,7 +762,7 @@ const BookDetail = ({ book }) => {
 
                   <div className="key-info-grid">
                     <div className="info-card">
-                      <h4>📊 Statistik Buku</h4>
+                      <h4>Statistik Buku</h4>
                       <div className="info-items">
                         <div className="info-item">
                           <span>Total Halaman:</span>
@@ -795,7 +784,7 @@ const BookDetail = ({ book }) => {
                     </div>
 
                     <div className="info-card">
-                      <h4>📁 Informasi File</h4>
+                      <h4>Informasi File</h4>
                       <div className="info-items">
                         <div className="info-item">
                           <span>Format File:</span>
@@ -815,7 +804,7 @@ const BookDetail = ({ book }) => {
                 <div className="tab-content-wrapper">
                   <div className="metadata-grid">
                     <div className="metadata-section">
-                      <h4>👤 Informasi Penulis</h4>
+                      <h4>Informasi Penulis</h4>
                       <div className="metadata-items">
                         {authors?.map(author => (
                           <div key={author.id}>
@@ -829,7 +818,7 @@ const BookDetail = ({ book }) => {
                     </div>
 
                     <div className="metadata-section">
-                      <h4>📚 Detail Publikasi</h4>
+                      <h4>Detail Publikasi</h4>
                       <div className="metadata-items">
                         <div className="metadata-item">
                           <span className="meta-label">Penerbit:</span>
@@ -852,7 +841,7 @@ const BookDetail = ({ book }) => {
 
                     {genres?.length > 0 && (
                       <div className="metadata-section tags-section">
-                        <h4>🏷️ Genre & Tag</h4>
+                        <h4>Genre & Tag</h4>
                         <div className="tags-container">
                           {genres.map(genre => (
                             <span
@@ -878,13 +867,13 @@ const BookDetail = ({ book }) => {
                 <div className="tab-content-wrapper">
                   <div className="discussions-section">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                      <h3 className="section-title">Review & Diskusi ({reviews.length})</h3>
+                      <h3 className="section-title">Review & Diskusi ({reviewsTree.length})</h3>
                       {!state.userReview && (
                         <button
                           className="btn btn-primary btn-small"
                           onClick={() => setState(prev => ({ ...prev, showReviewModal: true }))}
                         >
-                          📝 Tulis Review
+                          Tulis Review
                         </button>
                       )}
                     </div>
@@ -894,7 +883,7 @@ const BookDetail = ({ book }) => {
                         <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>⏳</div>
                         <p>Memuat review...</p>
                       </div>
-                    ) : reviews.length === 0 ? (
+                    ) : reviewsTree.length === 0 ? (
                       <div className="text-center" style={{ padding: '3rem', color: '#6b7280' }}>
                         <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>💬</div>
                         <p>Belum ada review untuk buku ini.</p>
@@ -902,7 +891,7 @@ const BookDetail = ({ book }) => {
                       </div>
                     ) : (
                       <div className="discussions-list">
-                        {reviews.map(review => (
+                        {reviewsTree.map(review => (
                           <ReviewItem key={review.id} review={review} />
                         ))}
                       </div>
@@ -915,48 +904,48 @@ const BookDetail = ({ book }) => {
                 <div className="tab-content-wrapper">
                   <div className="key-info-grid">
                     <div className="info-card">
-                      <h4>📊 Statistik Interaksi</h4>
+                      <h4>Statistik Interaksi</h4>
                       <div className="info-items">
                         <div className="info-item">
-                          <span>👁️ Total Dilihat:</span>
+                          <span>Total Dilihat:</span>
                           <span>{formatNumber(book.viewCount || 0)}</span>
                         </div>
                         <div className="info-item">
-                          <span>📥 Total Unduhan:</span>
+                          <span>Total Unduhan:</span>
                           <span>{formatNumber(book.downloadCount || 0)}</span>
                         </div>
                         <div className="info-item">
-                          <span>💬 Total Review:</span>
+                          <span>Total Review:</span>
                           <span>{formatNumber(reactionStats.comments)}</span>
                         </div>
                         <div className="info-item">
-                          <span>⭐ Total Rating:</span>
+                          <span>Total Rating:</span>
                           <span>{formatNumber(reactionStats.ratings)}</span>
                         </div>
                         <div className="info-item">
-                          <span>📊 Rata-rata Rating:</span>
+                          <span>Rata-rata Rating:</span>
                           <span>{reactionStats.averageRating ? `${reactionStats.averageRating.toFixed(1)}/5` : 'Belum ada'}</span>
                         </div>
                       </div>
                     </div>
 
                     <div className="info-card">
-                      <h4>📈 Informasi Teknis</h4>
+                      <h4>Informasi Teknis</h4>
                       <div className="info-items">
                         <div className="info-item">
-                          <span>🆔 ID Buku:</span>
+                          <span>ID Buku:</span>
                           <span>{book.id}</span>
                         </div>
                         <div className="info-item">
-                          <span>🔗 Slug:</span>
+                          <span>Slug:</span>
                           <span>{book.slug}</span>
                         </div>
                         <div className="info-item">
-                          <span>📁 Format File:</span>
+                          <span>Format File:</span>
                           <span>{fileFormat.toUpperCase()}</span>
                         </div>
                         <div className="info-item">
-                          <span>💾 Ukuran File:</span>
+                          <span>Ukuran File:</span>
                           <span>{formatFileSize(book.fileSize)}</span>
                         </div>
                       </div>
@@ -981,127 +970,158 @@ const BookDetail = ({ book }) => {
                   navigator.clipboard.writeText(window.location.href)
                   showNotification('Link berhasil disalin!', 'success')
                   setState(prev => ({ ...prev, showShareModal: false }))
-                }}>📋 Salin Link</button>
-              </div>
-            </div>
-          </div>
-        )}
+                }}>Salin Link</button>
+                                       </div>
+                                     </div>
+                                   </div>
+                                 )}
 
-        {state.showRatingModal && (
-          <div className="modal-overlay" onClick={() => setState(prev => ({ ...prev, showRatingModal: false }))}>
-            <div className="modal-content card" onClick={e => e.stopPropagation()}>
-              <div className="modal-header">
-                <h3>{state.userRating ? 'Edit Rating' : 'Berikan Rating'}</h3>
-                <button className="btn btn-secondary btn-small" onClick={() => setState(prev => ({ ...prev, showRatingModal: false }))}>✕</button>
-              </div>
-              <div className="modal-body">
-                <div className="form-group">
-                  <label>Rating (1-5):</label>
-                  <div className="rating-input" style={{ display: 'flex', gap: '0.5rem', fontSize: '2rem', justifyContent: 'center', margin: '1rem 0' }}>
-                    {[1, 2, 3, 4, 5].map(star => (
-                      <span key={star} className={`star ${star <= state.newRating.rating ? 'active' : ''}`}
-                        onClick={() => setState(prev => ({ ...prev, newRating: { rating: star } }))}
-                        style={{ cursor: 'pointer', opacity: star <= state.newRating.rating ? 1 : 0.3 }}>⭐</span>
-                    ))}
-                  </div>
-                  <p style={{ textAlign: 'center', color: '#6b7280' }}>Rating Anda: {state.newRating.rating}/5</p>
-                </div>
-                <div className="modal-actions">
-                  <button className="btn btn-secondary" onClick={() => setState(prev => ({ ...prev, showRatingModal: false }))}>Batal</button>
-                  <button className="btn btn-primary" onClick={handleAddRating}>{state.userRating ? 'Update Rating' : 'Kirim Rating'}</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+                                 {state.showRatingModal && (
+                                   <div className="modal-overlay" onClick={() => setState(prev => ({ ...prev, showRatingModal: false }))}>
+                                     <div className="modal-content card" onClick={e => e.stopPropagation()}>
+                                       <div className="modal-header">
+                                         <h3>{state.userRating ? 'Edit Rating' : 'Beri Rating'}</h3>
+                                         <button className="btn btn-secondary btn-small" onClick={() => setState(prev => ({ ...prev, showRatingModal: false }))}>✕</button>
+                                       </div>
+                                       <div className="modal-body">
+                                         <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', fontSize: '2rem', marginBottom: '1rem' }}>
+                                           {[1, 2, 3, 4, 5].map(star => (
+                                             <button
+                                               key={star}
+                                               onClick={() => setState(prev => ({ ...prev, newRating: star }))}
+                                               style={{
+                                                 background: 'none',
+                                                 border: 'none',
+                                                 cursor: 'pointer',
+                                                 fontSize: '2rem',
+                                                 padding: '0.25rem'
+                                               }}
+                                             >
+                                               {star <= state.newRating ? '⭐' : '☆'}
+                                             </button>
+                                           ))}
+                                         </div>
+                                         <div style={{ textAlign: 'center', marginBottom: '1rem', fontSize: '1.125rem', fontWeight: '600' }}>
+                                           {state.newRating}/5
+                                         </div>
+                                         <button className="btn btn-primary w-full" onClick={handleAddRating}>
+                                           {state.userRating ? 'Update Rating' : 'Tambah Rating'}
+                                         </button>
+                                       </div>
+                                     </div>
+                                   </div>
+                                 )}
 
-        {state.showReviewModal && (
-          <div className="modal-overlay" onClick={() => setState(prev => ({ ...prev, showReviewModal: false }))}>
-            <div className="modal-content card" onClick={e => e.stopPropagation()}>
-              <div className="modal-header">
-                <h3>Tulis Review</h3>
-                <button className="btn btn-secondary btn-small" onClick={() => setState(prev => ({ ...prev, showReviewModal: false }))}>✕</button>
-              </div>
-              <div className="modal-body">
-                <div className="form-group">
-                  <label>Judul (opsional):</label>
-                  <input type="text" className="form-control" value={state.newReview.title}
-                    onChange={(e) => setState(prev => ({ ...prev, newReview: { ...prev.newReview, title: e.target.value } }))}
-                    placeholder="Berikan judul untuk review Anda..." />
-                </div>
-                <div className="form-group">
-                  <label>Review: *</label>
-                  <textarea className="form-control textarea-control" value={state.newReview.comment}
-                    onChange={(e) => setState(prev => ({ ...prev, newReview: { ...prev.newReview, comment: e.target.value } }))}
-                    placeholder="Tulis review Anda tentang buku ini..." rows="5" />
-                </div>
-                <div className="modal-actions">
-                  <button className="btn btn-secondary" onClick={() => setState(prev => ({ ...prev, showReviewModal: false, newReview: { comment: '', title: '' } }))}>Batal</button>
-                  <button className="btn btn-primary" onClick={handleAddReview} disabled={!state.newReview.comment.trim()}>Kirim Review</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+                                 {state.showReviewModal && (
+                                   <div className="modal-overlay" onClick={() => setState(prev => ({ ...prev, showReviewModal: false }))}>
+                                     <div className="modal-content card" onClick={e => e.stopPropagation()}>
+                                       <div className="modal-header">
+                                         <h3>Tulis Review</h3>
+                                         <button className="btn btn-secondary btn-small" onClick={() => setState(prev => ({ ...prev, showReviewModal: false }))}>✕</button>
+                                       </div>
+                                       <div className="modal-body">
+                                         <input
+                                           type="text"
+                                           className="form-control"
+                                           placeholder="Judul review (opsional)"
+                                           value={state.newReview.title}
+                                           onChange={(e) => setState(prev => ({
+                                             ...prev,
+                                             newReview: { ...prev.newReview, title: e.target.value }
+                                           }))}
+                                           style={{ marginBottom: '0.75rem' }}
+                                         />
+                                         <textarea
+                                           className="form-control"
+                                           placeholder="Tulis review Anda... (minimal 10 karakter)"
+                                           value={state.newReview.comment}
+                                           onChange={(e) => setState(prev => ({
+                                             ...prev,
+                                             newReview: { ...prev.newReview, comment: e.target.value }
+                                           }))}
+                                           rows={5}
+                                           style={{ marginBottom: '0.75rem' }}
+                                         />
+                                         <button className="btn btn-primary w-full" onClick={handleAddReview}>
+                                           Kirim Review
+                                         </button>
+                                       </div>
+                                     </div>
+                                   </div>
+                                 )}
 
-        {state.showEditReviewModal && (
-          <div className="modal-overlay" onClick={() => setState(prev => ({ ...prev, showEditReviewModal: false }))}>
-            <div className="modal-content card" onClick={e => e.stopPropagation()}>
-              <div className="modal-header">
-                <h3>Edit Review</h3>
-                <button className="btn btn-secondary btn-small" onClick={() => setState(prev => ({ ...prev, showEditReviewModal: false }))}>✕</button>
-              </div>
-              <div className="modal-body">
-                <div className="form-group">
-                  <label>Judul (opsional):</label>
-                  <input type="text" className="form-control" value={state.editReview.title}
-                    onChange={(e) => setState(prev => ({ ...prev, editReview: { ...prev.editReview, title: e.target.value } }))}
-                    placeholder="Berikan judul untuk review Anda..." />
-                </div>
-                <div className="form-group">
-                  <label>Review: *</label>
-                  <textarea className="form-control textarea-control" value={state.editReview.comment}
-                    onChange={(e) => setState(prev => ({ ...prev, editReview: { ...prev.editReview, comment: e.target.value } }))}
-                    placeholder="Tulis review Anda tentang buku ini..." rows="5" />
-                </div>
-                <div className="modal-actions">
-                  <button className="btn btn-secondary" onClick={() => setState(prev => ({ ...prev, showEditReviewModal: false, editingReview: null, editReview: { comment: '', title: '' } }))}>Batal</button>
-                  <button className="btn btn-primary" onClick={handleUpdateReview} disabled={!state.editReview.comment.trim()}>Update Review</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+                                 {state.showEditReviewModal && (
+                                   <div className="modal-overlay" onClick={() => setState(prev => ({ ...prev, showEditReviewModal: false }))}>
+                                     <div className="modal-content card" onClick={e => e.stopPropagation()}>
+                                       <div className="modal-header">
+                                         <h3>Edit Review</h3>
+                                         <button className="btn btn-secondary btn-small" onClick={() => setState(prev => ({ ...prev, showEditReviewModal: false }))}>✕</button>
+                                       </div>
+                                       <div className="modal-body">
+                                         <input
+                                           type="text"
+                                           className="form-control"
+                                           placeholder="Judul review (opsional)"
+                                           value={state.editReview.title}
+                                           onChange={(e) => setState(prev => ({
+                                             ...prev,
+                                             editReview: { ...prev.editReview, title: e.target.value }
+                                           }))}
+                                           style={{ marginBottom: '0.75rem' }}
+                                         />
+                                         <textarea
+                                           className="form-control"
+                                           placeholder="Tulis review Anda... (minimal 10 karakter)"
+                                           value={state.editReview.comment}
+                                           onChange={(e) => setState(prev => ({
+                                             ...prev,
+                                             editReview: { ...prev.editReview, comment: e.target.value }
+                                           }))}
+                                           rows={5}
+                                           style={{ marginBottom: '0.75rem' }}
+                                         />
+                                         <button className="btn btn-primary w-full" onClick={handleUpdateReview}>
+                                           Update Review
+                                         </button>
+                                       </div>
+                                     </div>
+                                   </div>
+                                 )}
 
-        {state.showReplyModal && (
-          <div className="modal-overlay" onClick={() => setState(prev => ({ ...prev, showReplyModal: false }))}>
-            <div className="modal-content card" onClick={e => e.stopPropagation()}>
-              <div className="modal-header">
-                <h3>Balas Review</h3>
-                <button className="btn btn-secondary btn-small" onClick={() => setState(prev => ({ ...prev, showReplyModal: false }))}>✕</button>
-              </div>
-              <div className="modal-body">
-                <div style={{ padding: '1rem', background: theme === 'light' ? '#f9fafb' : '#1f2937', borderRadius: '8px', marginBottom: '1rem' }}>
-                  <div style={{ fontWeight: '600', marginBottom: '0.5rem' }}>Membalas review dari {state.replyToReview?.userName}:</div>
-                  <div style={{ color: '#6b7280', fontStyle: 'italic' }}>"{state.replyToReview?.comment}"</div>
-                </div>
-                <div className="form-group">
-                  <label>Balasan Anda:</label>
-                  <textarea className="form-control textarea-control" value={state.newReply.comment}
-                    onChange={(e) => setState(prev => ({ ...prev, newReply: { ...prev.newReply, comment: e.target.value } }))}
-                    placeholder="Tulis balasan Anda..." rows="4" />
-                </div>
-                <div className="modal-actions">
-                  <button className="btn btn-secondary" onClick={() => setState(prev => ({ ...prev, showReplyModal: false, replyToReview: null, newReply: { comment: '' } }))}>Batal</button>
-                  <button className="btn btn-primary" onClick={handleAddReply} disabled={!state.newReply.comment.trim()}>Kirim Balasan</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
+                                 {state.showReplyModal && (
+                                   <div className="modal-overlay" onClick={() => setState(prev => ({ ...prev, showReplyModal: false }))}>
+                                     <div className="modal-content card" onClick={e => e.stopPropagation()}>
+                                       <div className="modal-header">
+                                         <h3>Balas Review</h3>
+                                         <button className="btn btn-secondary btn-small" onClick={() => setState(prev => ({ ...prev, showReplyModal: false }))}>✕</button>
+                                       </div>
+                                       <div className="modal-body">
+                                         <div style={{ marginBottom: '1rem', padding: '0.75rem', backgroundColor: theme === 'light' ? '#f9fafb' : '#1f2937', borderRadius: '8px' }}>
+                                           <div style={{ fontWeight: '600', marginBottom: '0.25rem' }}>
+                                             {state.replyToReview?.userName}
+                                           </div>
+                                           <div style={{ fontSize: '0.875rem', color: theme === 'light' ? '#6b7280' : '#9ca3af' }}>
+                                             {state.replyToReview?.comment}
+                                           </div>
+                                         </div>
+                                         <textarea
+                                           className="form-control"
+                                           placeholder="Tulis balasan Anda..."
+                                           value={state.newReply}
+                                           onChange={(e) => setState(prev => ({ ...prev, newReply: e.target.value }))}
+                                           rows={4}
+                                           style={{ marginBottom: '0.75rem' }}
+                                         />
+                                         <button className="btn btn-primary w-full" onClick={handleAddReply}>
+                                           Kirim Balasan
+                                         </button>
+                                       </div>
+                                     </div>
+                                   </div>
+                                 )}
+                               </div>
+                             </div>
+                           )
+                         }
 
-export default BookDetail
+                         export default BookDetail
