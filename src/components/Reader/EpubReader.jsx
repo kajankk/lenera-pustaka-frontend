@@ -19,6 +19,7 @@ const EpubReader = ({ bookData }) => {
   const dropdownRef = useRef(null)
   const dropdownButtonRef = useRef(null)
   const selectionCheckInterval = useRef(null)
+  const bookmarkHighlightsRef = useRef(new Map())
   const [isMobile, setIsMobile] = useState(false)
 
   const [state, setState] = useState({
@@ -37,14 +38,13 @@ const EpubReader = ({ bookData }) => {
     showFloatingToolbar: false,
     toolbarPosition: { top: 0, left: 0 },
     activePanel: null,
-    currentCfi: null
+    currentCfi: null,
+    userClosedToolbar: false
   })
 
   // Detect mobile device
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth <= 768)
-    }
+    const checkMobile = () => setIsMobile(window.innerWidth <= 768)
     checkMobile()
     window.addEventListener('resize', checkMobile)
     return () => window.removeEventListener('resize', checkMobile)
@@ -64,44 +64,70 @@ const EpubReader = ({ bookData }) => {
     return result
   }
 
-  // Enhanced text selection handler that works on both mobile and desktop
-  const checkTextSelection = useCallback(() => {
+  const clearSelection = () => {
     try {
-      // Get selection from iframe content
       const iframe = bookRef.current?.querySelector('iframe')
-      if (!iframe || !iframe.contentWindow) return
+      if (iframe?.contentWindow) {
+        const selection = iframe.contentWindow.document.getSelection()
+        selection?.removeAllRanges()
+      }
+    } catch (error) {
+      console.warn('Error clearing selection:', error)
+    }
+  }
+
+  // Get bookmark styles based on theme
+  const getBookmarkStyles = useCallback(() => {
+    if (theme === 'dark') {
+      return {
+        color: '#ff69b4',  // Hot pink untuk dark mode
+        opacity: '0.8',
+        blendMode: 'screen'  // Screen mode untuk dark backgrounds
+      }
+    }
+    return {
+      color: '#de96be',  // Pink normal untuk light mode
+      opacity: '0.6',
+      blendMode: 'multiply'  // Multiply mode untuk light backgrounds
+    }
+  }, [theme])
+
+  const checkTextSelection = useCallback(() => {
+    if (state.userClosedToolbar) return
+
+    try {
+      const iframe = bookRef.current?.querySelector('iframe')
+      if (!iframe?.contentWindow) return
 
       const iframeDoc = iframe.contentWindow.document
       const selection = iframeDoc.getSelection()
 
       if (!selection || selection.rangeCount === 0) {
-        setState(prev => ({
-          ...prev,
-          selectedText: '',
-          selectedRange: null,
-          showFloatingToolbar: false
-        }))
+        setState(prev => ({ ...prev, selectedText: '', selectedRange: null, showFloatingToolbar: false }))
         return
       }
 
       const selectedText = selection.toString().trim()
 
       if (selectedText && selectedText.length > 0) {
-        // Get position for toolbar
         const range = selection.getRangeAt(0)
         const rect = range.getBoundingClientRect()
         const iframeRect = iframe.getBoundingClientRect()
-
-        // Calculate position relative to viewport
         const top = iframeRect.top + rect.top - 60
         const left = iframeRect.left + rect.left + (rect.width / 2)
 
-        // Try to get CFI range if available
         let cfiRange = null
-        if (state.rendition && state.rendition.getRange) {
+        if (state.rendition) {
           try {
-            const cfi = state.rendition.getRange(range)
-            cfiRange = cfi
+            const contents = state.rendition.getContents()
+            if (contents?.[0]) {
+              const content = contents[0]
+              const doc = content.window?.document
+              const sel = doc?.getSelection()
+              if (sel?.rangeCount > 0) {
+                cfiRange = content.cfiFromRange(sel.getRangeAt(0))
+              }
+            }
           } catch (e) {
             console.warn('Could not get CFI range:', e)
           }
@@ -112,61 +138,147 @@ const EpubReader = ({ bookData }) => {
           selectedText,
           selectedRange: cfiRange,
           showFloatingToolbar: true,
-          toolbarPosition: { top, left }
+          toolbarPosition: { top, left },
+          userClosedToolbar: false
         }))
       } else {
-        setState(prev => ({
-          ...prev,
-          selectedText: '',
-          selectedRange: null,
-          showFloatingToolbar: false
-        }))
+        setState(prev => ({ ...prev, selectedText: '', selectedRange: null, showFloatingToolbar: false }))
       }
     } catch (error) {
       console.warn('Error checking text selection:', error)
     }
-  }, [state.rendition])
+  }, [state.rendition, state.userClosedToolbar])
 
-  // Monitor text selection continuously
   useEffect(() => {
     if (!state.rendition) return
 
-    // Check selection every 300ms
-    selectionCheckInterval.current = setInterval(() => {
-      checkTextSelection()
-    }, 300)
+    selectionCheckInterval.current = setInterval(checkTextSelection, 300)
 
-    // Also check on mouseup/touchend events
     const iframe = bookRef.current?.querySelector('iframe')
-    if (iframe && iframe.contentWindow) {
+    if (iframe?.contentWindow) {
       const iframeDoc = iframe.contentWindow.document
-
-      const handleSelectionChange = () => {
-        setTimeout(checkTextSelection, 100)
-      }
+      const handleSelectionChange = () => setTimeout(checkTextSelection, 100)
 
       iframeDoc.addEventListener('mouseup', handleSelectionChange)
       iframeDoc.addEventListener('touchend', handleSelectionChange)
       iframeDoc.addEventListener('selectionchange', handleSelectionChange)
 
       return () => {
-        if (selectionCheckInterval.current) {
-          clearInterval(selectionCheckInterval.current)
-        }
+        clearInterval(selectionCheckInterval.current)
         iframeDoc.removeEventListener('mouseup', handleSelectionChange)
         iframeDoc.removeEventListener('touchend', handleSelectionChange)
         iframeDoc.removeEventListener('selectionchange', handleSelectionChange)
       }
     }
 
-    return () => {
-      if (selectionCheckInterval.current) {
-        clearInterval(selectionCheckInterval.current)
-      }
-    }
+    return () => clearInterval(selectionCheckInterval.current)
   }, [state.rendition, checkTextSelection])
 
-  // Initialize EPUB
+  const addBookmarkHighlight = useCallback((cfi) => {
+    if (!state.rendition || !cfi) return
+
+    try {
+      const iframe = bookRef.current?.querySelector('iframe')
+      if (!iframe?.contentWindow) return
+
+      const iframeDoc = iframe.contentWindow.document
+      const range = state.rendition.getRange(cfi)
+      if (!range || !range.toString().trim()) return
+
+      const highlightId = 'bookmark-hl-' + cfi.replace(/[^a-zA-Z0-9]/g, '')
+      const existingHighlight = iframeDoc.getElementById(highlightId)
+      if (existingHighlight) existingHighlight.remove()
+
+      const styles = getBookmarkStyles()
+      const mark = iframeDoc.createElement('mark')
+      mark.id = highlightId
+      mark.className = 'bookmark-highlight'
+      mark.style.cssText = `
+        background-color: ${styles.color} !important;
+        opacity: ${styles.opacity} !important;
+        mix-blend-mode: ${styles.blendMode} !important;
+        padding: 2px 0 !important;
+        color: inherit !important;
+      `
+      mark.setAttribute('data-bookmark-cfi', cfi)
+
+      try {
+        range.surroundContents(mark)
+      } catch (e) {
+        const contents = range.extractContents()
+        mark.appendChild(contents)
+        range.insertNode(mark)
+      }
+
+      bookmarkHighlightsRef.current.set(cfi, styles.color)
+
+      // Update or create global styles
+      let styleEl = iframeDoc.getElementById('bookmark-highlight-styles')
+      if (!styleEl) {
+        styleEl = iframeDoc.createElement('style')
+        styleEl.id = 'bookmark-highlight-styles'
+        iframeDoc.head.appendChild(styleEl)
+      }
+      styleEl.textContent = `
+        mark.bookmark-highlight {
+          background-color: ${styles.color} !important;
+          opacity: ${styles.opacity} !important;
+          mix-blend-mode: ${styles.blendMode} !important;
+        }
+      `
+    } catch (error) {
+      console.error('Error adding bookmark highlight:', error)
+    }
+  }, [state.rendition, getBookmarkStyles])
+
+  const removeBookmarkHighlight = useCallback((cfi) => {
+    if (!state.rendition || !cfi) return
+
+    try {
+      const iframe = bookRef.current?.querySelector('iframe')
+      if (iframe?.contentWindow) {
+        const iframeDoc = iframe.contentWindow.document
+        const highlightId = 'bookmark-hl-' + cfi.replace(/[^a-zA-Z0-9]/g, '')
+        const mark = iframeDoc.getElementById(highlightId)
+
+        if (mark) {
+          const parent = mark.parentNode
+          while (mark.firstChild) parent.insertBefore(mark.firstChild, mark)
+          parent.removeChild(mark)
+          parent.normalize()
+        }
+      }
+      bookmarkHighlightsRef.current.delete(cfi)
+    } catch (error) {
+      console.warn('Error removing bookmark highlight:', error)
+    }
+  }, [state.rendition])
+
+  useEffect(() => {
+    if (!state.rendition || !bookmarks) return
+
+    const applyHighlights = setTimeout(() => {
+      bookmarkHighlightsRef.current.forEach((color, cfi) => {
+        try {
+          if (state.rendition.annotations?.remove) {
+            state.rendition.annotations.remove(cfi, 'highlight')
+          }
+        } catch (e) {}
+      })
+      bookmarkHighlightsRef.current.clear()
+
+      if (bookmarks.length > 0) {
+        bookmarks.forEach(bookmark => {
+          if (bookmark.position) {
+            addBookmarkHighlight(bookmark.position)
+          }
+        })
+      }
+    }, 500)
+
+    return () => clearTimeout(applyHighlights)
+  }, [bookmarks, state.rendition, state.currentPage, theme, addBookmarkHighlight])
+
   useEffect(() => {
     if (!bookData?.fileUrl) return
 
@@ -181,54 +293,34 @@ const EpubReader = ({ bookData }) => {
       snap: true
     })
 
-    // Base styles with mobile optimization
     rend.themes.default({
       body: {
         'font-family': 'inherit !important',
         'line-height': '1.6 !important',
         'padding': isMobile ? '0.75rem !important' : '1rem !important',
-        'margin': '0 !important',
-        'box-sizing': 'border-box !important',
-        'overflow': 'hidden !important',
-        'max-width': '100% !important',
-        'user-select': 'text !important',
-        '-webkit-user-select': 'text !important',
-        '-moz-user-select': 'text !important',
-        '-ms-user-select': 'text !important'
-      },
-      p: {
-        'margin': '0 !important',
-        'text-align': 'justify !important',
         'user-select': 'text !important'
       },
-      a: { 'text-decoration': 'underline !important', 'color': 'inherit !important' },
-      '*': {
-        'box-sizing': 'border-box !important',
-        'user-select': 'text !important'
-      }
+      p: { 'text-align': 'justify !important' },
+      a: { 'text-decoration': 'underline !important', 'color': 'inherit !important' }
     })
 
     rend.themes.fontSize(`${state.fontSize}px`)
 
-    // Display book
     epubBook.ready.then(() => rend.display(bookData.currentPosition || 0))
       .catch(() => setState(prev => ({ ...prev, isLoading: false })))
 
-    // Load TOC
     epubBook.loaded.navigation.then(nav => {
       if (nav.toc && Array.isArray(nav.toc)) {
         setState(prev => ({ ...prev, toc: flattenToc(nav.toc) }))
       }
     }).catch(() => setState(prev => ({ ...prev, toc: [] })))
 
-    // Handle events
     rend.on('relocated', (location) => {
       const spineItem = epubBook.spine.get(location.start.cfi)
       if (spineItem) {
-        const newProgress = Math.round((spineItem.index / Math.max(1, epubBook.spine.length - 1)) * 100)
         setState(prev => ({
           ...prev,
-          progress: newProgress,
+          progress: Math.round((spineItem.index / Math.max(1, epubBook.spine.length - 1)) * 100),
           currentPage: spineItem.index + 1,
           totalPages: epubBook.spine.length,
           currentCfi: location.start.cfi
@@ -238,27 +330,60 @@ const EpubReader = ({ bookData }) => {
 
     rend.on('rendered', () => {
       setState(prev => ({ ...prev, isLoading: false }))
+
+      setTimeout(() => {
+        const iframe = bookRef.current?.querySelector('iframe')
+        if (!iframe?.contentWindow || !bookmarks?.length) return
+
+        const styles = getBookmarkStyles()
+        bookmarks.forEach(bookmark => {
+          if (bookmark.position) {
+            try {
+              const range = rend.getRange(bookmark.position)
+              if (range && range.toString().trim()) {
+                const iframeDoc = iframe.contentWindow.document
+                const highlightId = 'bookmark-hl-' + bookmark.position.replace(/[^a-zA-Z0-9]/g, '')
+                const existing = iframeDoc.getElementById(highlightId)
+                if (existing) existing.remove()
+
+                const mark = iframeDoc.createElement('mark')
+                mark.id = highlightId
+                mark.className = 'bookmark-highlight'
+                mark.style.cssText = `
+                  background-color: ${styles.color} !important;
+                  opacity: ${styles.opacity} !important;
+                  mix-blend-mode: ${styles.blendMode} !important;
+                  padding: 2px 0 !important;
+                `
+
+                try {
+                  range.surroundContents(mark)
+                } catch (e) {
+                  const contents = range.extractContents()
+                  mark.appendChild(contents)
+                  range.insertNode(mark)
+                }
+              }
+            } catch (e) {}
+          }
+        })
+      }, 200)
     })
 
     setState(prev => ({ ...prev, book: epubBook, rendition: rend }))
 
     return () => {
-      if (selectionCheckInterval.current) {
-        clearInterval(selectionCheckInterval.current)
-      }
+      clearInterval(selectionCheckInterval.current)
+      bookmarkHighlightsRef.current.clear()
       rend.destroy()
       epubBook.destroy()
     }
-  }, [bookData?.fileUrl, isMobile])
+  }, [bookData?.fileUrl, isMobile, getBookmarkStyles])
 
-  // Update font size
   useEffect(() => {
-    if (state.rendition) {
-      state.rendition.themes.fontSize(`${state.fontSize}px`)
-    }
+    if (state.rendition) state.rendition.themes.fontSize(`${state.fontSize}px`)
   }, [state.fontSize, state.rendition])
 
-  // Apply themes
   useEffect(() => {
     if (!state.rendition) return
 
@@ -270,10 +395,9 @@ const EpubReader = ({ bookData }) => {
 
     state.rendition.themes.override('color', colors.color)
     state.rendition.themes.override('background', colors.bg)
-    state.rendition.themes.override('a', `color: ${colors.link} !important; text-decoration: underline !important;`)
+    state.rendition.themes.override('a', `color: ${colors.link} !important;`)
   }, [theme, state.rendition, state.readingMode])
 
-  // Close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target) &&
@@ -283,15 +407,10 @@ const EpubReader = ({ bookData }) => {
     }
     if (state.tocOpen) {
       document.addEventListener('mousedown', handleClickOutside)
-      document.addEventListener('touchstart', handleClickOutside)
-      return () => {
-        document.removeEventListener('mousedown', handleClickOutside)
-        document.removeEventListener('touchstart', handleClickOutside)
-      }
+      return () => document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [state.tocOpen])
 
-  // Close panels when clicking outside on mobile
   useEffect(() => {
     if (!isMobile || !state.activePanel) return
 
@@ -299,24 +418,16 @@ const EpubReader = ({ bookData }) => {
       const panel = document.querySelector('.panel')
       if (panel && !panel.contains(event.target)) {
         const clickedControl = event.target.closest('.feature-controls')
-        if (!clickedControl) {
-          setState(prev => ({ ...prev, activePanel: null }))
-        }
+        if (!clickedControl) setState(prev => ({ ...prev, activePanel: null }))
       }
     }
 
     document.addEventListener('mousedown', handleClickOutside)
-    document.addEventListener('touchstart', handleClickOutside)
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-      document.removeEventListener('touchstart', handleClickOutside)
-    }
+    return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [isMobile, state.activePanel])
 
   const handleNavigation = (direction) => {
-    if (state.rendition) {
-      state.rendition[direction]()
-    }
+    if (state.rendition) state.rendition[direction]()
   }
 
   const goToChapter = async (href, item) => {
@@ -332,11 +443,7 @@ const EpubReader = ({ bookData }) => {
           )
           return spineItem ? state.rendition.display(spineItem.href) : Promise.reject()
         },
-        () => item?.originalItem?.cfi ? state.rendition.display(item.originalItem.cfi) : Promise.reject(),
-        () => {
-          const index = state.book.spine.spineItems.findIndex(s => s.href.includes(href.split('#')[0]))
-          return index >= 0 ? state.rendition.display(index) : Promise.reject()
-        }
+        () => item?.originalItem?.cfi ? state.rendition.display(item.originalItem.cfi) : Promise.reject()
       ]
 
       for (const method of methods) {
@@ -348,9 +455,7 @@ const EpubReader = ({ bookData }) => {
           continue
         }
       }
-      throw new Error('All navigation methods failed')
     } catch (error) {
-      console.warn('Navigation failed for:', href, error.message)
       setState(prev => ({ ...prev, tocOpen: false }))
     }
   }
@@ -370,43 +475,52 @@ const EpubReader = ({ bookData }) => {
     }
 
     if (!state.rendition || !state.currentCfi) {
-      alert('Gagal mendapatkan posisi saat ini. Silakan coba lagi.')
+      alert('Gagal mendapatkan posisi saat ini.')
       return
     }
 
     try {
-      const title = prompt('Judul bookmark (opsional):') || `Bookmark - Halaman ${state.currentPage}`
+      const title = prompt('Judul bookmark:') || `Halaman ${state.currentPage}`
       if (title === null) return
 
-      const description = prompt('Deskripsi (opsional):') || ''
+      const description = prompt('Deskripsi:') || ''
+      const bookmarkPosition = state.selectedRange || state.currentCfi
 
-      const bookmarkData = {
+      const result = await addBookmark({
         page: state.currentPage,
-        position: state.currentCfi,
+        position: bookmarkPosition,
         title: title.trim() || `Halaman ${state.currentPage}`,
-        description: description.trim(),
-        color: '#de96be'
-      }
+        description: description.trim()
+      })
 
-      const result = await addBookmark(bookmarkData)
       if (result) {
+        addBookmarkHighlight(bookmarkPosition)
         alert('✓ Bookmark berhasil ditambahkan!')
-        setState(prev => ({ ...prev, showFloatingToolbar: false }))
+        clearSelection()
+        setState(prev => ({
+          ...prev,
+          showFloatingToolbar: false,
+          selectedText: '',
+          selectedRange: null,
+          userClosedToolbar: false
+        }))
       }
     } catch (error) {
-      console.error('Error adding bookmark:', error)
-      alert('Gagal menambahkan bookmark. Silakan coba lagi.')
+      alert('Gagal menambahkan bookmark.')
     }
   }
 
   const handleDeleteBookmark = async (bookmarkId) => {
     if (!confirm('Hapus bookmark ini?')) return
 
+    const bookmark = bookmarks.find(b => b.id === bookmarkId)
     const success = await deleteBookmark(bookmarkId)
+
     if (success) {
+      if (bookmark?.position) removeBookmarkHighlight(bookmark.position)
       alert('✓ Bookmark berhasil dihapus!')
     } else {
-      alert('Gagal menghapus bookmark. Silakan coba lagi.')
+      alert('Gagal menghapus bookmark.')
     }
   }
 
@@ -416,48 +530,21 @@ const EpubReader = ({ bookData }) => {
         state.rendition.display(bookmark.position)
         setState(prev => ({ ...prev, activePanel: null }))
       } catch (error) {
-        console.error('Error navigating to bookmark:', error)
-        alert('Gagal membuka bookmark. Posisi mungkin tidak valid.')
+        alert('Gagal membuka bookmark.')
       }
     }
   }
 
-  const handleHighlight = async (color = '#ffff00') => {
-    alert('Fitur highlight akan segera tersedia!')
-  }
-
-  const handleAddNote = async () => {
-    if (!isAuthenticated) {
-      alert('Anda harus login untuk menambahkan catatan!')
-      return
-    }
-
-    const content = prompt('Masukkan catatan:')
-    if (content && content.trim()) {
-      alert('Fitur catatan akan segera tersedia!')
-      setState(prev => ({ ...prev, showFloatingToolbar: false, activePanel: null }))
-    }
-  }
-
-  const handleTranslate = () => {
-    if (!state.selectedText) {
-      alert('Pilih teks terlebih dahulu untuk menerjemahkan!')
-      return
-    }
-    alert('Fitur terjemahan akan segera tersedia!')
-    setState(prev => ({ ...prev, activePanel: 'translation' }))
-  }
-
-  const handleAction = (action, data) => {
-    const actions = {
-      bookmark: handleAddBookmark,
-      note: handleAddNote,
-      translate: handleTranslate,
-      panel: (panel) => {
-        setState(prev => ({ ...prev, activePanel: prev.activePanel === panel ? null : panel }))
-      }
-    }
-    actions[action]?.(data)
+  const handleCloseToolbar = () => {
+    clearSelection()
+    setState(prev => ({
+      ...prev,
+      showFloatingToolbar: false,
+      selectedText: '',
+      selectedRange: null,
+      userClosedToolbar: true
+    }))
+    setTimeout(() => setState(prev => ({ ...prev, userClosedToolbar: false })), 500)
   }
 
   const controls = [
@@ -467,23 +554,16 @@ const EpubReader = ({ bookData }) => {
     { id: 'search', icon: '🔍', title: 'Pencarian' }
   ]
 
-  const highlightColors = [
-    { color: '#225330', icon: '🟢', title: 'Highlight Hijau' }
-  ]
-
   return (
     <div className="epub-reader" ref={readerContainerRef}>
-      {/* Error Message */}
       {featuresError && (
-        <div className="card error-message" style={{ margin: '1rem', padding: '1rem', backgroundColor: '#fee', border: '1px solid #fcc' }}>
+        <div className="card error-message">
           <strong>Error:</strong> {featuresError}
         </div>
       )}
 
-      {/* Controls - Single Card Container */}
       <div className="card reader-controls">
         <div className="reader-control-group">
-          {/* TOC Dropdown */}
           <div className="toc-dropdown">
             <button
               ref={dropdownButtonRef}
@@ -512,7 +592,6 @@ const EpubReader = ({ bookData }) => {
             )}
           </div>
 
-          {/* Font Controls */}
           <div className="font-controls">
             <button className="btn btn-secondary btn-small" onClick={() => handleFontSizeChange(-2)}>A-</button>
             <span className="font-size-display">{state.fontSize}px</span>
@@ -522,11 +601,11 @@ const EpubReader = ({ bookData }) => {
             </button>
           </div>
 
-          {/* Feature Controls */}
           <div className="feature-controls">
             {controls.map(control => (
               <button key={control.id} className={`btn btn-secondary btn-small ${state.activePanel === control.id ? 'active' : ''}`}
-                onClick={() => handleAction('panel', control.id)} title={control.title}>
+                onClick={() => setState(prev => ({ ...prev, activePanel: prev.activePanel === control.id ? null : control.id }))}
+                title={control.title}>
                 {control.icon}
               </button>
             ))}
@@ -534,40 +613,27 @@ const EpubReader = ({ bookData }) => {
         </div>
       </div>
 
-      {/* Floating Toolbar */}
       {state.showFloatingToolbar && state.selectedText && (
-        <div
-          className="floating-toolbar card"
-          style={{
-            position: 'fixed',
-            top: `${state.toolbarPosition.top}px`,
-            left: `${state.toolbarPosition.left}px`,
-            transform: 'translateX(-50%)',
-            zIndex: 1000
-          }}
-        >
+        <div className="floating-toolbar card" style={{
+          position: 'fixed',
+          top: `${state.toolbarPosition.top}px`,
+          left: `${state.toolbarPosition.left}px`,
+          transform: 'translateX(-50%)',
+          zIndex: 1000
+        }}>
           <div className="toolbar-content">
             <div className="toolbar-text" title={state.selectedText}>
-              {state.selectedText.length > 30
-                ? state.selectedText.substring(0, 30) + '...'
-                : state.selectedText}
+              {state.selectedText.length > 30 ? state.selectedText.substring(0, 30) + '...' : state.selectedText}
             </div>
             <div className="toolbar-actions">
-              {highlightColors.map(({ color, icon, title }) => (
-                <button key={color} className="btn btn-secondary btn-small" onClick={() => handleHighlight(color)} title={title}>
-                  {icon}
-                </button>
-              ))}
-              <button className="btn btn-secondary btn-small" onClick={() => handleAction('bookmark')} title="Bookmark">🔖</button>
-              <button className="btn btn-secondary btn-small" onClick={handleAddNote} title="Tambah Catatan">📝</button>
-              <button className="btn btn-secondary btn-small" onClick={() => handleAction('translate')} title="Terjemahan">🌐</button>
-              <button className="btn btn-secondary btn-small" onClick={() => setState(prev => ({ ...prev, showFloatingToolbar: false }))} title="Tutup">✖️</button>
+              <button className="btn btn-secondary btn-small" onClick={handleAddBookmark} title="Bookmark">🔖</button>
+              <button className="btn btn-secondary btn-small" onClick={() => alert('Fitur segera tersedia!')} title="Catatan">📝</button>
+              <button className="btn btn-secondary btn-small" onClick={handleCloseToolbar} title="Tutup">✖️</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Panels */}
       <div className="reader-panels">
         {state.activePanel && (
           <div className="panel card">
@@ -581,7 +647,7 @@ const EpubReader = ({ bookData }) => {
                   {!isAuthenticated ? (
                     <p className="info-message">Silakan login untuk menggunakan fitur bookmark.</p>
                   ) : bookmarks.length === 0 ? (
-                    <p className="info-message">Belum ada bookmark. Klik tombol 🔖 di panel atas atau pilih teks lalu klik 🔖 untuk menambahkan bookmark.</p>
+                    <p className="info-message">Belum ada bookmark.</p>
                   ) : (
                     <div className="bookmark-items">
                       {bookmarks.map((bookmark) => (
@@ -590,31 +656,14 @@ const EpubReader = ({ bookData }) => {
                             <h4>{bookmark.title}</h4>
                             <span className="bookmark-page">Hal. {bookmark.page}</span>
                           </div>
-                          {bookmark.description && (
-                            <p className="bookmark-description">{bookmark.description}</p>
-                          )}
+                          {bookmark.description && <p className="bookmark-description">{bookmark.description}</p>}
                           <div className="bookmark-actions">
-                            <button
-                              className="btn btn-secondary btn-small"
-                              onClick={() => handleGoToBookmark(bookmark)}
-                            >
-                              Buka
-                            </button>
-                            <button
-                              className="btn btn-secondary btn-small"
-                              onClick={() => handleDeleteBookmark(bookmark.id)}
-                              disabled={featuresLoading}
-                            >
-                              Hapus
-                            </button>
+                            <button className="btn btn-secondary btn-small" onClick={() => handleGoToBookmark(bookmark)}>Buka</button>
+                            <button className="btn btn-secondary btn-small" onClick={() => handleDeleteBookmark(bookmark.id)} disabled={featuresLoading}>Hapus</button>
                           </div>
                           <small className="bookmark-date">
                             {new Date(bookmark.createdAt).toLocaleDateString('id-ID', {
-                              day: 'numeric',
-                              month: 'short',
-                              year: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
+                              day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
                             })}
                           </small>
                         </div>
@@ -622,14 +671,6 @@ const EpubReader = ({ bookData }) => {
                     </div>
                   )}
                 </div>
-              ) : state.activePanel === 'search' ? (
-                <input type="text" placeholder="Cari dalam buku..." className="search-input"
-                  onChange={(e) => e.target.value && alert('Fitur akan segera tersedia!')} />
-              ) : state.activePanel === 'translation' ? (
-                <>
-                  <p><strong>Teks:</strong> {state.selectedText}</p>
-                  <p><strong>Terjemahan:</strong> [Akan segera tersedia]</p>
-                </>
               ) : (
                 <p>Fitur akan segera tersedia!</p>
               )}
@@ -638,155 +679,21 @@ const EpubReader = ({ bookData }) => {
         )}
       </div>
 
-      {/* Main Reading Container */}
       <div className="card epub-reader-content">
         <div className="reader-wrapper">
-          {/* Reader Viewport */}
-          <div
-            ref={bookRef}
-            className="epub-reader-viewport"
-            tabIndex={0}
-          >
+          <div ref={bookRef} className="epub-reader-viewport" tabIndex={0}>
             {state.isLoading && <div className="loading">Memuat konten ebook...</div>}
           </div>
 
-          {/* Navigation Bar with Buttons and Page Info */}
           <div className="reader-navigation-bar">
-            <button
-              className="nav-corner-button"
-              onClick={() => handleNavigation('prev')}
-              title="Halaman Sebelumnya"
-            >
-              ‹
-            </button>
-
+            <button className="nav-corner-button" onClick={() => handleNavigation('prev')} title="Halaman Sebelumnya">‹</button>
             <div className="page-info-center">
               {isMobile ? `${state.currentPage}/${state.totalPages}` : `Halaman ${state.currentPage} dari ${state.totalPages}`}
             </div>
-
-            <button
-              className="nav-corner-button"
-              onClick={() => handleNavigation('next')}
-              title="Halaman Selanjutnya"
-            >
-              ›
-            </button>
+            <button className="nav-corner-button" onClick={() => handleNavigation('next')} title="Halaman Selanjutnya">›</button>
           </div>
         </div>
       </div>
-
-      <style jsx>{`
-        .info-message {
-          text-align: center;
-          padding: 2rem 1rem;
-          color: #666;
-          line-height: 1.6;
-        }
-
-        .bookmarks-list {
-          max-height: 500px;
-          overflow-y: auto;
-        }
-
-        .bookmark-items {
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-        }
-
-        .bookmark-item {
-          padding: 1rem;
-          background: rgba(222, 150, 190, 0.1);
-          border-left: 3px solid #de96be;
-        }
-
-        .bookmark-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 0.5rem;
-        }
-
-        .bookmark-header h4 {
-          margin: 0;
-          font-size: 1rem;
-          font-weight: 600;
-        }
-
-        .bookmark-page {
-          font-size: 0.875rem;
-          color: #666;
-          background: rgba(222, 150, 190, 0.2);
-          padding: 0.25rem 0.5rem;
-          border-radius: 4px;
-        }
-
-        .bookmark-description {
-          margin: 0.5rem 0;
-          font-size: 0.875rem;
-          color: #555;
-        }
-
-        .bookmark-actions {
-          display: flex;
-          gap: 0.5rem;
-          margin: 0.75rem 0;
-        }
-
-        .bookmark-date {
-          display: block;
-          font-size: 0.75rem;
-          color: #999;
-          margin-top: 0.5rem;
-        }
-
-        .error-message {
-          color: #d32f2f;
-        }
-
-        .floating-toolbar {
-          padding: 0.75rem;
-          background: white;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-          border-radius: 8px;
-          max-width: 90vw;
-        }
-
-        .toolbar-content {
-          display: flex;
-          flex-direction: column;
-          gap: 0.5rem;
-        }
-
-        .toolbar-text {
-          font-size: 0.875rem;
-          color: #666;
-          padding: 0.5rem;
-          background: #f5f5f5;
-          border-radius: 4px;
-          max-width: 300px;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-
-        .toolbar-actions {
-          display: flex;
-          gap: 0.5rem;
-          flex-wrap: wrap;
-          justify-content: center;
-        }
-
-        @media (max-width: 768px) {
-          .floating-toolbar {
-            max-width: 95vw;
-          }
-
-          .toolbar-text {
-            max-width: 250px;
-          }
-        }
-      `}</style>
     </div>
   )
 }
