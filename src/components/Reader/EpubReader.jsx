@@ -101,7 +101,7 @@ const EpubReader = ({ bookData }) => {
         'overflow': 'hidden !important',
         'max-width': '100% !important'
       },
-      p: { 'margin': '0 0 0.5em 0 !important', 'text-align': 'justify !important' },
+      p: { 'margin': '0 !important', 'text-align': 'justify !important' },
       a: { 'text-decoration': 'underline !important', 'color': 'inherit !important' },
       '*': { 'box-sizing': 'border-box !important' }
     })
