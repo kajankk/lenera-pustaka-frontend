@@ -113,8 +113,33 @@ const EpubReader = ({ bookData }) => {
         const range = selection.getRangeAt(0)
         const rect = range.getBoundingClientRect()
         const iframeRect = iframe.getBoundingClientRect()
-        const top = iframeRect.top + rect.top - 60
-        const left = iframeRect.left + rect.left + (rect.width / 2)
+
+        // Calculate toolbar position - always show above selection
+        const toolbarHeight = 100 // estimated toolbar height
+        const viewportWidth = window.innerWidth
+        const viewportHeight = window.innerHeight
+
+        // Position above selection with margin
+        let top = iframeRect.top + rect.top - toolbarHeight - 10
+        let left = iframeRect.left + rect.left + (rect.width / 2)
+
+        // If not enough space above, show below
+        if (top < 10) {
+          top = iframeRect.top + rect.bottom + 10
+        }
+
+        // Keep toolbar within horizontal bounds
+        const toolbarWidth = isMobile ? 280 : 320
+        if (left - toolbarWidth / 2 < 10) {
+          left = toolbarWidth / 2 + 10
+        } else if (left + toolbarWidth / 2 > viewportWidth - 10) {
+          left = viewportWidth - toolbarWidth / 2 - 10
+        }
+
+        // Keep toolbar within vertical bounds
+        if (top + toolbarHeight > viewportHeight - 10) {
+          top = viewportHeight - toolbarHeight - 10
+        }
 
         let cfiRange = null
         if (state.rendition) {
@@ -619,7 +644,9 @@ const EpubReader = ({ bookData }) => {
           top: `${state.toolbarPosition.top}px`,
           left: `${state.toolbarPosition.left}px`,
           transform: 'translateX(-50%)',
-          zIndex: 1000
+          zIndex: 1000,
+          maxWidth: isMobile ? '280px' : '320px',
+          width: 'max-content'
         }}>
           <div className="toolbar-content">
             <div className="toolbar-text" title={state.selectedText}>
