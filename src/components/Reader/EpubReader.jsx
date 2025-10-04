@@ -385,7 +385,7 @@ const EpubReader = ({ bookData }) => {
         position: state.currentCfi,
         title: title.trim() || `Halaman ${state.currentPage}`,
         description: description.trim(),
-        color: '#FFD700'
+        color: '#de96be'
       }
 
       const result = await addBookmark(bookmarkData)
@@ -468,8 +468,7 @@ const EpubReader = ({ bookData }) => {
   ]
 
   const highlightColors = [
-    { color: '#ffff00', icon: '🟡', title: 'Highlight Kuning' },
-    { color: '#90EE90', icon: '🟢', title: 'Highlight Hijau' }
+    { color: '#225330', icon: '🟢', title: 'Highlight Hijau' }
   ]
 
   return (
@@ -697,8 +696,8 @@ const EpubReader = ({ bookData }) => {
 
         .bookmark-item {
           padding: 1rem;
-          background: rgba(255, 215, 0, 0.1);
-          border-left: 3px solid #FFD700;
+          background: rgba(222, 150, 190, 0.1);
+          border-left: 3px solid #de96be;
         }
 
         .bookmark-header {
@@ -717,7 +716,7 @@ const EpubReader = ({ bookData }) => {
         .bookmark-page {
           font-size: 0.875rem;
           color: #666;
-          background: rgba(255, 215, 0, 0.2);
+          background: rgba(222, 150, 190, 0.2);
           padding: 0.25rem 0.5rem;
           border-radius: 4px;
         }
