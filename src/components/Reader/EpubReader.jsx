@@ -732,9 +732,9 @@ const EpubReader = ({ bookData }) => {
             {state.isLoading && <div className="loading">Memuat konten ebook...</div>}
           </div>
 
-          <div className="reader-navigation-bar">
+            <div className="reader-navigation-bar">
             <button className="nav-corner-button" onClick={() => handleNavigation('prev')} title="Halaman Sebelumnya">‹</button>
-            <div className="page-info-center">
+            <div className="page-info-center" title={state.currentChapterTitle || `Halaman ${state.currentPage} dari ${state.totalPages}`}>
               {state.currentChapterTitle || (isMobile ? `${state.currentPage}/${state.totalPages}` : `Halaman ${state.currentPage} dari ${state.totalPages}`)}
             </div>
             <button className="nav-corner-button" onClick={() => handleNavigation('next')} title="Halaman Selanjutnya">›</button>
