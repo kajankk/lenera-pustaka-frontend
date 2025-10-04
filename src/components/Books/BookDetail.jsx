@@ -338,7 +338,7 @@ const BookDetail = ({ book, onBookUpdate }) => {
   ]
 
   return (
-    <div className="container">
+    <>
       {notification && (
         <div className={`notification notification-${notification.type}`}>
           <span>{notification.type === 'success' ? '✅' : notification.type === 'error' ? '❌' : notification.type === 'warning' ? '⚠️' : 'ℹ️'}</span>
@@ -622,7 +622,7 @@ const BookDetail = ({ book, onBookUpdate }) => {
         <ReplyModal show={state.modals.reply} onClose={() => setModal('reply', false)} data={state.newReply} replyTo={state.replyToReview} onChange={(value) => setState(prev => ({ ...prev, newReply: value }))} onSubmit={handleAddReply} isEdit={false} theme={theme} />
         <ReplyModal show={state.modals.editReply} onClose={() => setModal('editReply', false)} data={state.editReply} onChange={(value) => setState(prev => ({ ...prev, editReply: value }))} onSubmit={handleUpdateReply} isEdit={true} theme={theme} />
       </div>
-    </div>
+    </>
   )
 }
 
