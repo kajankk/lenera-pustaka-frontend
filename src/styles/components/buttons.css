@@ -115,49 +115,49 @@
 }
 
 .light .btn-action.btn-primary {
-  background: linear-gradient(135deg, var(--primary-green) 0%, #16a34a 100%);
+  background: var(--primary-green);
   color: white;
   box-shadow: 0 4px 15px rgba(34, 83, 48, 0.3);
 }
 
 .light .btn-action.btn-primary:hover {
-  background: linear-gradient(135deg, #1a4728 0%, #15803d 100%);
+  background: #1a4728;
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(34, 83, 48, 0.4);
 }
 
 .light .btn-action.btn-secondary {
-  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+  background: #6b7280;
   color: white;
   box-shadow: 0 4px 15px rgba(107, 114, 128, 0.3);
 }
 
 .light .btn-action.btn-secondary:hover {
-  background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
+  background: #4b5563;
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(107, 114, 128, 0.4);
 }
 
 .dark .btn-action.btn-primary {
-  background: linear-gradient(135deg, var(--primary-pink) 0%, #f472b6 100%);
+  background: var(--primary-pink);
   color: #1a202c;
   box-shadow: 0 4px 15px rgba(222, 150, 190, 0.3);
 }
 
 .dark .btn-action.btn-primary:hover {
-  background: linear-gradient(135deg, #c7779a 0%, #ec4899 100%);
+  background: #c7779a;
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(222, 150, 190, 0.4);
 }
 
 .dark .btn-action.btn-secondary {
-  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+  background: #6b7280;
   color: white;
   box-shadow: 0 4px 15px rgba(107, 114, 128, 0.3);
 }
 
 .dark .btn-action.btn-secondary:hover {
-  background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
+  background: #4b5563;
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(107, 114, 128, 0.4);
 }
@@ -246,7 +246,7 @@
 }
 
 .light .tab-button.active {
-  background: linear-gradient(135deg, var(--primary-green) 0%, #16a34a 100%);
+  background: var(--primary-green);
   color: white;
   border-color: var(--primary-green);
   transform: translateY(-3px);
@@ -265,7 +265,7 @@
 }
 
 .dark .tab-button.active {
-  background: linear-gradient(135deg, var(--primary-pink) 0%, #f472b6 100%);
+  background: var(--primary-pink);
   color: #1a202c;
   border-color: var(--primary-pink);
   transform: translateY(-3px);

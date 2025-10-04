@@ -1,8 +1,8 @@
 /* DARK THEME STYLES */
 
 .dark {
-  background: #0f172a;
-  color: #f1f5f9;
+  background: #1a202c;
+  color: #f7fafc;
 }
 
 /* Text Colors */
@@ -18,12 +18,25 @@
 
 /* Section Title After Element */
 .dark .section-title::after {
-  background: linear-gradient(90deg, var(--primary-pink), #f472b6);
+  background: var(--primary-pink);
 }
 
 /* Loading Spinner */
 .dark .loading-spinner {
   border-top-color: var(--primary-pink);
+}
+
+/* Error & Success States */
+.dark .error {
+  background: rgba(222, 150, 190, 0.2);
+  color: var(--primary-pink);
+  border-color: var(--primary-pink);
+}
+
+.dark .success {
+  background: rgba(222, 150, 190, 0.2);
+  color: var(--primary-pink);
+  border-color: var(--primary-pink);
 }
 
 /* Meta Items */
@@ -33,7 +46,7 @@
 }
 
 .dark .meta-item:hover {
-  background: rgba(222, 150, 190, 0.12);
+  background: rgba(222, 150, 190, 0.15);
 }
 
 .dark .meta-value { color: var(--primary-pink); }
@@ -64,38 +77,38 @@
 /* Font Controls */
 .dark .font-controls {
   background: rgba(222, 150, 190, 0.08);
-  border-color: rgba(222, 150, 190, 0.3);
+  border-color: rgba(222, 150, 190, 0.25);
 }
 
 /* Progress Section */
 .dark .progress-section {
   background: rgba(222, 150, 190, 0.08);
-  border-color: rgba(222, 150, 190, 0.25);
+  border-color: rgba(222, 150, 190, 0.2);
 }
 
 /* Stat Items */
 .dark .stat-item {
-  background: rgba(30, 41, 59, 0.6);
+  background: rgba(30, 41, 59, 0.8);
   border-color: rgba(222, 150, 190, 0.2);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .dark .stat-item::before {
-  background: linear-gradient(90deg, var(--primary-pink), #f472b6);
+  background: var(--primary-pink);
 }
 
 .dark .stat-item:hover {
-  background: rgba(30, 41, 59, 0.8);
-  border-color: rgba(222, 150, 190, 0.3);
+  background: rgba(30, 41, 59, 0.95);
+  border-color: rgba(222, 150, 190, 0.35);
   transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
 }
 
 .dark .stat-value { color: var(--primary-pink); }
 
 /* Genre Tags */
 .dark .genre-tag, .dark .tag-item {
-  background: rgba(222, 150, 190, 0.1);
+  background: rgba(222, 150, 190, 0.12);
   border-color: var(--primary-pink);
   color: var(--primary-pink);
 }
@@ -107,20 +120,20 @@
 .dark .genre-tag:hover, .dark .tag-item:hover {
   color: #1a202c;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(222, 150, 190, 0.3);
+  box-shadow: 0 4px 12px rgba(222, 150, 190, 0.4);
 }
 
 /* Book Cover Placeholder */
 .dark .book-cover-placeholder {
-  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  background: rgba(222, 150, 190, 0.08);
   color: var(--primary-pink);
-  border: 2px dashed rgba(222, 150, 190, 0.3);
+  border: 2px dashed var(--primary-pink);
 }
 
 /* Breadcrumb */
 .dark .breadcrumb {
   background: rgba(222, 150, 190, 0.08);
-  border-color: rgba(222, 150, 190, 0.25);
+  border-color: rgba(222, 150, 190, 0.2);
 }
 
 .dark .breadcrumb-separator {
@@ -129,40 +142,40 @@
 
 /* Feature Card */
 .dark .feature-card {
-  background: rgba(30, 41, 59, 0.6);
+  background: rgba(30, 41, 59, 0.8);
   border-color: rgba(222, 150, 190, 0.2);
 }
 
 .dark .feature-card::before {
-  background: linear-gradient(90deg, var(--primary-pink), #f472b6);
+  background: var(--primary-pink);
 }
 
 .dark .feature-card:hover {
-  background: rgba(30, 41, 59, 0.8);
-  border-color: rgba(222, 150, 190, 0.3);
+  background: rgba(30, 41, 59, 0.95);
+  border-color: rgba(222, 150, 190, 0.35);
 }
 
 /* Pagination */
 .dark .pagination {
   background: rgba(222, 150, 190, 0.08);
-  border-color: rgba(222, 150, 190, 0.25);
+  border-color: rgba(222, 150, 190, 0.2);
 }
 
 /* Reaction Badge Colors */
 .dark .reaction-badge.positive {
-  background: rgba(34, 197, 94, 0.2);
-  color: #86efac;
-  border: 1px solid #16a34a;
+  background: rgba(222, 150, 190, 0.1);
+  color: var(--primary-pink);
+  border: 1px solid var(--primary-pink);
 }
 
 .dark .reaction-badge.negative {
-  background: rgba(239, 68, 68, 0.2);
-  color: #fca5a5;
-  border: 1px solid #f87171;
+  background: rgba(222, 150, 190, 0.15);
+  color: var(--primary-pink);
+  border: 1px solid var(--primary-pink);
 }
 
 .dark .reaction-badge.neutral {
-  background: rgba(107, 114, 128, 0.2);
-  color: #d1d5db;
-  border: 1px solid #9ca3af;
+  background: rgba(222, 150, 190, 0.08);
+  color: var(--primary-pink);
+  border: 1px solid var(--primary-pink);
 }

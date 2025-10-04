@@ -18,7 +18,7 @@
 
 /* Section Title After Element */
 .light .section-title::after {
-  background: linear-gradient(90deg, var(--primary-green), #16a34a);
+  background: var(--primary-green);
 }
 
 /* Loading Spinner */
@@ -26,21 +26,18 @@
   border-top-color: var(--primary-green);
 }
 
-/* Error & Success States - Dark Theme */
-.dark .error {
-  background: rgba(239, 68, 68, 0.2);
-  color: #fca5a5;
-  border-color: #f87171;
+/* Error & Success States */
+.light .error {
+  background: rgba(34, 83, 48, 0.2);
+  color: var(--primary-green);
+  border-color: var(--primary-green);
 }
 
-.dark .success {
-  background: rgba(34, 197, 94, 0.2);
-  color: #86efac;
-  border-color: #16a34a;
+.light .success {
+  background: rgba(34, 83, 48, 0.2);
+  color: var(--primary-green);
+  border-color: var(--primary-green);
 }
-
-.dark .loading { color: var(--primary-pink); }
-.dark .loading-spinner { border-top-color: var(--primary-pink); }
 
 /* Meta Items */
 .light .meta-item {
@@ -97,7 +94,7 @@
 }
 
 .light .stat-item::before {
-  background: linear-gradient(90deg, var(--primary-green), #16a34a);
+  background: var(--primary-green);
 }
 
 .light .stat-item:hover {
@@ -128,9 +125,9 @@
 
 /* Book Cover Placeholder */
 .light .book-cover-placeholder {
-  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  background: rgba(34, 83, 48, 0.05);
   color: var(--primary-green);
-  border: 2px dashed rgba(34, 83, 48, 0.2);
+  border: 2px dashed var(--primary-green);
 }
 
 /* Breadcrumb */
@@ -150,7 +147,7 @@
 }
 
 .light .feature-card::before {
-  background: linear-gradient(90deg, var(--primary-green), #16a34a);
+  background: var(--primary-green);
 }
 
 .light .feature-card:hover {
@@ -166,19 +163,19 @@
 
 /* Reaction Badge Colors */
 .light .reaction-badge.positive {
-  background: rgba(34, 197, 94, 0.1);
-  color: #166534;
-  border: 1px solid #22c55e;
+  background: rgba(34, 83, 48, 0.1);
+  color: var(--primary-green);
+  border: 1px solid var(--primary-green);
 }
 
 .light .reaction-badge.negative {
-  background: rgba(239, 68, 68, 0.1);
-  color: #991b1b;
-  border: 1px solid #ef4444;
+  background: rgba(34, 83, 48, 0.15);
+  color: var(--primary-green);
+  border: 1px solid var(--primary-green);
 }
 
 .light .reaction-badge.neutral {
-  background: rgba(107, 114, 128, 0.1);
-  color: #374151;
-  border: 1px solid #6b7280;
+  background: rgba(34, 83, 48, 0.08);
+  color: var(--primary-green);
+  border: 1px solid var(--primary-green);
 }

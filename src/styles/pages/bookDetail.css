@@ -347,13 +347,14 @@
   border: 3px solid;
 }
 
+/* User Avatar - tanpa gradient */
 .light .user-avatar {
-  background: linear-gradient(135deg, var(--primary-green), #16a34a);
+  background: var(--primary-green);
   border-color: rgba(255, 255, 255, 0.3);
 }
 
 .dark .user-avatar {
-  background: linear-gradient(135deg, var(--primary-pink), #f472b6);
+  background: var(--primary-pink);
   color: #1a202c;
   border-color: rgba(30, 41, 59, 0.3);
 }
