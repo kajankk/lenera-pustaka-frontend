@@ -4,6 +4,39 @@ import { bookService } from '../../services/bookService'
 import { useTheme } from '../../hooks/useTheme'
 import { useAuth } from '../../context/AuthContext'
 
+const Modal = ({ show, title, onClose, children }) => show ? (
+  <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-content card" onClick={e => e.stopPropagation()}>
+      <div className="modal-header">
+        <h3>{title}</h3>
+        <button className="btn btn-secondary btn-small" onClick={onClose}>✕</button>
+      </div>
+      <div className="modal-body">{children}</div>
+    </div>
+  </div>
+) : null
+
+const ReviewModal = ({ show, onClose, data, onChange, onSubmit, isEdit }) => (
+  <Modal show={show} title={isEdit ? 'Edit Review' : 'Tulis Review'} onClose={onClose}>
+    <input type="text" className="form-control" placeholder="Judul review (opsional)" value={data.title} onChange={(e) => onChange('title', e.target.value)} style={{ marginBottom: '0.75rem' }} />
+    <textarea className="form-control" placeholder="Tulis review Anda... (minimal 10 karakter)" value={data.comment} onChange={(e) => onChange('comment', e.target.value)} rows={5} style={{ marginBottom: '0.75rem' }} />
+    <button className="btn btn-primary w-full" onClick={onSubmit}>{isEdit ? 'Update Review' : 'Kirim Review'}</button>
+  </Modal>
+)
+
+const ReplyModal = ({ show, onClose, data, replyTo, onChange, onSubmit, isEdit, theme }) => (
+  <Modal show={show} title={isEdit ? 'Edit Balasan' : 'Balas Review'} onClose={onClose}>
+    {!isEdit && replyTo && (
+      <div style={{ marginBottom: '1rem', padding: '0.75rem', backgroundColor: theme === 'light' ? '#f9fafb' : '#1f2937', borderRadius: '8px' }}>
+        <div style={{ fontWeight: '600', marginBottom: '0.25rem' }}>{replyTo.userName}</div>
+        <div style={{ fontSize: '0.875rem', color: theme === 'light' ? '#6b7280' : '#9ca3af' }}>{replyTo.comment}</div>
+      </div>
+    )}
+    <textarea className="form-control" placeholder={isEdit ? "Edit balasan Anda..." : "Tulis balasan Anda..."} value={data} onChange={(e) => onChange(e.target.value)} rows={4} style={{ marginBottom: '0.75rem' }} />
+    <button className="btn btn-primary w-full" onClick={onSubmit}>{isEdit ? 'Update Balasan' : 'Kirim Balasan'}</button>
+  </Modal>
+)
+
 const BookDetail = ({ book, onBookUpdate }) => {
   const navigate = useNavigate()
   const { theme } = useTheme()
@@ -30,106 +63,39 @@ const BookDetail = ({ book, onBookUpdate }) => {
 
   const [notification, setNotification] = useState(null)
 
-  // Utility functions
-  const formatFileSize = (bytes) => {
-    if (!bytes) return 'N/A'
-    const i = Math.floor(Math.log(bytes) / Math.log(1024))
-    return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${['B', 'KB', 'MB', 'GB'][i]}`
-  }
-
-  const formatReadingTime = (minutes) => {
-    if (!minutes) return 'N/A'
-    const hours = Math.floor(minutes / 60)
-    const mins = minutes % 60
-    return hours > 0 ? `${hours} jam ${mins > 0 ? `${mins} menit` : ''}` : `${minutes} menit`
-  }
-
-  const getDifficultyLabel = (level) => {
-    if (!level) return 'N/A'
-    const labels = ['Mudah', 'Sedang', 'Sulit', 'Sangat Sulit']
-    const index = level <= 3 ? 0 : level <= 6 ? 1 : level <= 8 ? 2 : 3
-    return `${labels[index]} (${level}/10)`
-  }
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('id-ID', {
-      year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
-    })
-  }
-
-  const showNotification = (message, type = 'info') => {
-    setNotification({ message, type, id: Date.now() })
-    setTimeout(() => setNotification(null), 4000)
-  }
-
-  const getFileFormat = () => {
-    if (book.fileFormat) return book.fileFormat.toLowerCase()
-    if (book.fileUrl) {
-      const url = book.fileUrl.toLowerCase()
-      if (url.includes('.pdf')) return 'pdf'
-      if (url.includes('.epub')) return 'epub'
-    }
-    return 'epub'
-  }
-
-  const getAuthors = () => {
-    if (book.authorNames && book.authorSlugs) {
-      const names = book.authorNames.split(', ')
-      const slugs = book.authorSlugs.split(', ')
-      return names.map((name, i) => ({ id: i + 1, name: name.trim(), slug: slugs[i]?.trim() || name.toLowerCase().replace(/\s+/g, '-') }))
-    }
-    return []
-  }
-
+  const formatFileSize = (bytes) => bytes ? `${(bytes / Math.pow(1024, Math.floor(Math.log(bytes) / Math.log(1024)))).toFixed(1)} ${['B', 'KB', 'MB', 'GB'][Math.floor(Math.log(bytes) / Math.log(1024))]}` : 'N/A'
+  const formatReadingTime = (minutes) => minutes ? (Math.floor(minutes / 60) > 0 ? `${Math.floor(minutes / 60)} jam ${minutes % 60 > 0 ? `${minutes % 60} menit` : ''}` : `${minutes} menit`) : 'N/A'
+  const getDifficultyLabel = (level) => level ? `${['Mudah', 'Sedang', 'Sulit', 'Sangat Sulit'][level <= 3 ? 0 : level <= 6 ? 1 : level <= 8 ? 2 : 3]} (${level}/10)` : 'N/A'
+  const formatDate = (dateString) => new Date(dateString).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+  const showNotification = (message, type = 'info') => { setNotification({ message, type, id: Date.now() }); setTimeout(() => setNotification(null), 4000) }
+  const getFileFormat = () => book.fileFormat?.toLowerCase() || (book.fileUrl?.toLowerCase().includes('.pdf') ? 'pdf' : 'epub')
+  const getAuthors = () => book.authorNames && book.authorSlugs ? book.authorNames.split(', ').map((name, i) => ({ id: i + 1, name: name.trim(), slug: book.authorSlugs.split(', ')[i]?.trim() })) : []
   const getGenres = () => book.genres ? book.genres.split(', ').map((g, i) => ({ id: i + 1, name: g.trim() })) : []
+  const setModal = (modal, value) => setState(prev => ({ ...prev, modals: { ...prev.modals, [modal]: value } }))
 
   const loadReviews = useCallback(async () => {
     if (!book.slug) return
     try {
       setState(prev => ({ ...prev, loading: true }))
       const response = await bookService.getReviews(book.slug, 1, 100)
-      if ((response.result === 'Success' || response.status === 'SUCCESS') && response.data) {
-        setState(prev => ({ ...prev, reviews: Array.isArray(response.data) ? response.data : [], loading: false }))
-      } else {
-        setState(prev => ({ ...prev, reviews: [], loading: false }))
-      }
+      setState(prev => ({ ...prev, reviews: Array.isArray(response.data) ? response.data : [], loading: false }))
     } catch (error) {
-      console.error('Error loading reviews:', error)
       setState(prev => ({ ...prev, reviews: [], loading: false }))
     }
   }, [book.slug])
 
   const buildReviewTree = (reviews) => {
-    if (!reviews || !Array.isArray(reviews)) return []
     const reviewMap = new Map()
     const rootReviews = []
-
-    reviews.forEach(review => {
-      if (!review.parentId && review.reactionType === 'COMMENT') {
-        reviewMap.set(review.id, { ...review, replies: [], feedbacks: [] })
-      }
-    })
-
-    reviews.forEach(item => {
-      if (item.parentId && reviewMap.has(item.parentId)) {
-        const parent = reviewMap.get(item.parentId)
-        if (item.reactionType === 'COMMENT') parent.replies.push(item)
-        else if (item.reactionType === 'HELPFUL' || item.reactionType === 'NOT_HELPFUL') parent.feedbacks.push(item)
-      }
-    })
-
-    reviewMap.forEach(review => rootReviews.push(review))
+    reviews?.forEach(r => { if (!r.parentId && r.reactionType === 'COMMENT') reviewMap.set(r.id, { ...r, replies: [], feedbacks: [] }) })
+    reviews?.forEach(item => { if (item.parentId && reviewMap.has(item.parentId)) { const parent = reviewMap.get(item.parentId); item.reactionType === 'COMMENT' ? parent.replies.push(item) : parent.feedbacks.push(item) } })
+    reviewMap.forEach(r => rootReviews.push(r))
     rootReviews.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-    rootReviews.forEach(review => review.replies.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)))
+    rootReviews.forEach(r => r.replies.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)))
     return rootReviews
   }
 
-  const setModal = (modal, value) => setState(prev => ({ ...prev, modals: { ...prev.modals, [modal]: value } }))
-
-  const handleStartReading = () => {
-    const format = getFileFormat()
-    navigate(`/${book.slug}/${format === 'pdf' ? 'read-pdf' : 'read'}`)
-  }
+  const handleStartReading = () => navigate(`/${book.slug}/${getFileFormat() === 'pdf' ? 'read-pdf' : 'read'}`)
 
   const handleDownload = async () => {
     if (state.isDownloading) return
@@ -137,8 +103,7 @@ const BookDetail = ({ book, onBookUpdate }) => {
     try {
       const format = getFileFormat()
       const ext = format === 'pdf' ? 'pdf' : 'epub'
-      const filename = `${book.title.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_')}.${ext}`
-      await bookService.downloadBook(book.slug, filename)
+      await bookService.downloadBook(book.slug, `${book.title.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_')}.${ext}`)
       showNotification(`Buku berhasil diunduh dalam format ${ext.toUpperCase()}!`, 'success')
     } catch (error) {
       showNotification(error.message || 'Gagal mengunduh ebook. Silakan coba lagi.', 'error')
@@ -149,26 +114,13 @@ const BookDetail = ({ book, onBookUpdate }) => {
 
   const handleShare = () => {
     const url = window.location.href
-    const title = `${book.title} - Lentera Pustaka`
-    const text = book.description ? `${book.description.substring(0, 100)}...` : `Baca "${book.title}" di Lentera Pustaka`
-
-    if (navigator.share) {
-      navigator.share({ title, text, url }).catch(console.error)
-    } else if (navigator.clipboard) {
-      navigator.clipboard.writeText(url)
-        .then(() => showNotification('Link berhasil disalin ke clipboard!', 'success'))
-        .catch(() => setModal('share', true))
-    } else {
-      setModal('share', true)
-    }
+    if (navigator.share) navigator.share({ title: `${book.title} - Lentera Pustaka`, text: book.description?.substring(0, 100) || `Baca "${book.title}" di Lentera Pustaka`, url }).catch(console.error)
+    else if (navigator.clipboard) navigator.clipboard.writeText(url).then(() => showNotification('Link berhasil disalin ke clipboard!', 'success')).catch(() => setModal('share', true))
+    else setModal('share', true)
   }
 
   const handleAddRating = async () => {
-    if (!isAuthenticated) {
-      showNotification('Silakan login terlebih dahulu', 'warning')
-      setTimeout(() => navigate('/login', { state: { from: window.location.pathname } }), 1500)
-      return
-    }
+    if (!isAuthenticated) { showNotification('Silakan login terlebih dahulu', 'warning'); setTimeout(() => navigate('/login', { state: { from: window.location.pathname } }), 1500); return }
     try {
       await bookService.addOrUpdateRating(book.slug, state.newRating)
       setModal('rating', false)
@@ -189,20 +141,13 @@ const BookDetail = ({ book, onBookUpdate }) => {
       await loadReviews()
       if (onBookUpdate) await onBookUpdate()
     } catch (error) {
-      showNotification(error.response?.data?.message || error.message || 'Gagal menghapus rating', 'error')
+      showNotification(error.response?.data?.message || 'Gagal menghapus rating', 'error')
     }
   }
 
   const handleAddReview = async () => {
-    if (!isAuthenticated) {
-      showNotification('Silakan login terlebih dahulu', 'warning')
-      setTimeout(() => navigate('/login', { state: { from: window.location.pathname } }), 1500)
-      return
-    }
-    if (!state.newReview.comment.trim() || state.newReview.comment.trim().length < 10) {
-      showNotification('Review harus minimal 10 karakter', 'warning')
-      return
-    }
+    if (!isAuthenticated) { showNotification('Silakan login terlebih dahulu', 'warning'); setTimeout(() => navigate('/login', { state: { from: window.location.pathname } }), 1500); return }
+    if (!state.newReview.comment.trim() || state.newReview.comment.trim().length < 10) { showNotification('Review harus minimal 10 karakter', 'warning'); return }
     try {
       await bookService.addReview(book.slug, { title: state.newReview.title || null, comment: state.newReview.comment })
       setModal('review', false)
@@ -211,15 +156,12 @@ const BookDetail = ({ book, onBookUpdate }) => {
       await loadReviews()
       if (onBookUpdate) await onBookUpdate()
     } catch (error) {
-      showNotification(error.response?.data?.message || error.message || 'Gagal menambahkan review', 'error')
+      showNotification(error.response?.data?.message || 'Gagal menambahkan review', 'error')
     }
   }
 
   const handleUpdateReview = async () => {
-    if (!isAuthenticated || !state.editReview.comment.trim() || state.editReview.comment.trim().length < 10) {
-      showNotification('Review harus minimal 10 karakter', 'warning')
-      return
-    }
+    if (!isAuthenticated || !state.editReview.comment.trim() || state.editReview.comment.trim().length < 10) { showNotification('Review harus minimal 10 karakter', 'warning'); return }
     try {
       await bookService.updateReview(book.slug, { title: state.editReview.title || null, comment: state.editReview.comment })
       setModal('editReview', false)
@@ -228,7 +170,7 @@ const BookDetail = ({ book, onBookUpdate }) => {
       await loadReviews()
       if (onBookUpdate) await onBookUpdate()
     } catch (error) {
-      showNotification(error.response?.data?.message || error.message || 'Gagal mengupdate review', 'error')
+      showNotification(error.response?.data?.message || 'Gagal mengupdate review', 'error')
     }
   }
 
@@ -240,15 +182,12 @@ const BookDetail = ({ book, onBookUpdate }) => {
       await loadReviews()
       if (onBookUpdate) await onBookUpdate()
     } catch (error) {
-      showNotification(error.response?.data?.message || error.message || 'Gagal menghapus review', 'error')
+      showNotification(error.response?.data?.message || 'Gagal menghapus review', 'error')
     }
   }
 
   const handleAddReply = async () => {
-    if (!isAuthenticated || !state.newReply.trim()) {
-      showNotification('Balasan tidak boleh kosong', 'warning')
-      return
-    }
+    if (!isAuthenticated || !state.newReply.trim()) { showNotification('Balasan tidak boleh kosong', 'warning'); return }
     try {
       await bookService.addReply(book.slug, state.replyToReview.id, state.newReply)
       setModal('reply', false)
@@ -256,15 +195,12 @@ const BookDetail = ({ book, onBookUpdate }) => {
       showNotification('Balasan berhasil ditambahkan!', 'success')
       await loadReviews()
     } catch (error) {
-      showNotification(error.response?.data?.message || error.message || 'Gagal menambahkan balasan', 'error')
+      showNotification(error.response?.data?.message || 'Gagal menambahkan balasan', 'error')
     }
   }
 
   const handleUpdateReply = async () => {
-    if (!isAuthenticated || !state.editReply.trim()) {
-      showNotification('Balasan tidak boleh kosong', 'warning')
-      return
-    }
+    if (!isAuthenticated || !state.editReply.trim()) { showNotification('Balasan tidak boleh kosong', 'warning'); return }
     try {
       await bookService.updateReply(book.slug, state.editingReply.id, state.editReply)
       setModal('editReply', false)
@@ -272,7 +208,7 @@ const BookDetail = ({ book, onBookUpdate }) => {
       showNotification('Balasan berhasil diupdate!', 'success')
       await loadReviews()
     } catch (error) {
-      showNotification(error.response?.data?.message || error.message || 'Gagal mengupdate balasan', 'error')
+      showNotification(error.response?.data?.message || 'Gagal mengupdate balasan', 'error')
     }
   }
 
@@ -283,21 +219,18 @@ const BookDetail = ({ book, onBookUpdate }) => {
       showNotification('Balasan berhasil dihapus!', 'success')
       await loadReviews()
     } catch (error) {
-      showNotification(error.response?.data?.message || error.message || 'Gagal menghapus balasan', 'error')
+      showNotification(error.response?.data?.message || 'Gagal menghapus balasan', 'error')
     }
   }
 
   const handleFeedback = async (reviewId, feedbackType) => {
-    if (!isAuthenticated) {
-      showNotification('Silakan login untuk memberikan feedback', 'warning')
-      return
-    }
+    if (!isAuthenticated) { showNotification('Silakan login untuk memberikan feedback', 'warning'); return }
     try {
       await bookService.addOrUpdateFeedback(book.slug, reviewId, feedbackType)
       showNotification('Feedback berhasil ditambahkan!', 'success')
       await loadReviews()
     } catch (error) {
-      showNotification(error.response?.data?.message || error.message || 'Gagal menambahkan feedback', 'error')
+      showNotification(error.response?.data?.message || 'Gagal menambahkan feedback', 'error')
     }
   }
 
@@ -308,17 +241,11 @@ const BookDetail = ({ book, onBookUpdate }) => {
       showNotification('Feedback berhasil dihapus!', 'success')
       await loadReviews()
     } catch (error) {
-      showNotification(error.response?.data?.message || error.message || 'Gagal menghapus feedback', 'error')
+      showNotification(error.response?.data?.message || 'Gagal menghapus feedback', 'error')
     }
   }
 
-  const toggleReplies = (reviewId) => {
-    setState(prev => {
-      const newExpanded = new Set(prev.expandedReplies)
-      newExpanded.has(reviewId) ? newExpanded.delete(reviewId) : newExpanded.add(reviewId)
-      return { ...prev, expandedReplies: newExpanded }
-    })
-  }
+  const toggleReplies = (reviewId) => setState(prev => { const newExpanded = new Set(prev.expandedReplies); newExpanded.has(reviewId) ? newExpanded.delete(reviewId) : newExpanded.add(reviewId); return { ...prev, expandedReplies: newExpanded } })
 
   const ReviewItem = ({ review }) => {
     const isOwner = user && review.userName && user.username && review.userName.toLowerCase() === user.username.toLowerCase()
@@ -337,33 +264,27 @@ const BookDetail = ({ book, onBookUpdate }) => {
             </div>
           </div>
         </div>
-
         <div className="discussion-content">
           {review.title && <div className="discussion-title">{review.title}</div>}
-          <div className="discussion-text" style={{ whiteSpace: 'pre-line', wordBreak: 'break-word' }}>
-            {review.comment}
-          </div>
+          <div className="discussion-text" style={{ whiteSpace: 'pre-line', wordBreak: 'break-word' }}>{review.comment}</div>
         </div>
-
         <div className="discussion-actions">
-          {isAuthenticated && !isOwner && (
+          {!isOwner ? (
             <>
-              <button className="action-btn" onClick={() => { setModal('reply', true); setState(prev => ({ ...prev, replyToReview: review })) }}>Balas</button>
-              <button className={`action-btn ${userFeedback?.reactionType === 'HELPFUL' ? 'active' : ''}`} onClick={() => handleFeedback(review.id, 'HELPFUL')}>Membantu ({helpfulCount})</button>
-              <button className={`action-btn ${userFeedback?.reactionType === 'NOT_HELPFUL' ? 'active' : ''}`} onClick={() => handleFeedback(review.id, 'NOT_HELPFUL')}>Tidak Membantu ({notHelpfulCount})</button>
-              {userFeedback && <button className="action-btn" style={{ color: '#dc2626', marginLeft: 'auto' }} onClick={() => handleDeleteFeedback(review.id)} title="Hapus feedback saya">Hapus Feedback</button>}
+              <button className="action-btn" onClick={() => { if (!isAuthenticated) { showNotification('Silakan login untuk membalas review', 'warning'); return }; setModal('reply', true); setState(prev => ({ ...prev, replyToReview: review })) }}>Balas</button>
+              <button className={`action-btn ${userFeedback?.reactionType === 'HELPFUL' ? 'active' : ''}`} onClick={() => handleFeedback(review.id, 'HELPFUL')}>👍 {helpfulCount}</button>
+              <button className={`action-btn ${userFeedback?.reactionType === 'NOT_HELPFUL' ? 'active' : ''}`} onClick={() => handleFeedback(review.id, 'NOT_HELPFUL')}>👎 {notHelpfulCount}</button>
+              {userFeedback && isAuthenticated && <button className="action-btn" style={{ color: '#dc2626', marginLeft: 'auto' }} onClick={() => handleDeleteFeedback(review.id)} title="Hapus feedback saya">Hapus Feedback</button>}
             </>
-          )}
-          {isAuthenticated && isOwner && (
+          ) : (
             <>
               <button className="action-btn" onClick={() => { setModal('editReview', true); setState(prev => ({ ...prev, editingReview: review, editReview: { comment: review.comment || '', title: review.title || '' } })) }}>Edit</button>
               <button className="action-btn" style={{ color: '#dc2626' }} onClick={handleDeleteReview}>Hapus</button>
-              <div style={{ marginLeft: 'auto', fontSize: '0.875rem', color: '#6b7280' }}>{helpfulCount} membantu · {notHelpfulCount} tidak membantu</div>
+              <div style={{ marginLeft: 'auto', fontSize: '0.875rem', color: '#6b7280' }}>👍 {helpfulCount} · 👎 {notHelpfulCount}</div>
             </>
           )}
           {review.replies?.length > 0 && <button className="action-btn" onClick={() => toggleReplies(review.id)}>{state.expandedReplies.has(review.id) ? '▼' : '▶'} {review.replies.length} balasan</button>}
         </div>
-
         {state.expandedReplies.has(review.id) && review.replies?.map(reply => {
           const isReplyOwner = user && reply.userName === user.username
           return (
@@ -397,11 +318,7 @@ const BookDetail = ({ book, onBookUpdate }) => {
   const genres = getGenres()
   const reviewsTree = buildReviewTree(state.reviews)
   const fileFormat = getFileFormat()
-  const reactionStats = {
-    comments: book.totalComments || 0,
-    ratings: book.totalRatings || 0,
-    averageRating: book.averageRating || 0
-  }
+  const reactionStats = { comments: book.totalComments || 0, ratings: book.totalRatings || 0, averageRating: book.averageRating || 0 }
 
   useEffect(() => { loadReviews() }, [loadReviews])
   useEffect(() => {
@@ -419,18 +336,6 @@ const BookDetail = ({ book, onBookUpdate }) => {
     { id: 'reviews', label: `Review (${reviewsTree.length})`, icon: '💬' },
     { id: 'analytics', label: 'Statistik', icon: '📊' }
   ]
-
-  const Modal = ({ show, title, onClose, children }) => show ? (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content card" onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3>{title}</h3>
-          <button className="btn btn-secondary btn-small" onClick={onClose}>✕</button>
-        </div>
-        <div className="modal-body">{children}</div>
-      </div>
-    </div>
-  ) : null
 
   return (
     <div className="container">
@@ -466,19 +371,8 @@ const BookDetail = ({ book, onBookUpdate }) => {
               </div>
 
               {isAuthenticated && (state.userRating || state.userReview) && (
-                <div style={{
-                  padding: '0.75rem',
-                  background: theme === 'light' ? 'rgba(34, 83, 48, 0.08)' : 'rgba(222, 150, 190, 0.12)',
-                  border: `1px solid ${theme === 'light' ? 'rgba(34, 83, 48, 0.2)' : 'rgba(222, 150, 190, 0.3)'}`,
-                  borderRadius: '8px',
-                  fontSize: '0.875rem',
-                  marginBottom: '0.75rem'
-                }}>
-                  <div style={{
-                    fontWeight: '600',
-                    marginBottom: '0.5rem',
-                    color: theme === 'light' ? '#225330' : '#de96be'
-                  }}>Kontribusi Anda:</div>
+                <div style={{ padding: '0.75rem', background: theme === 'light' ? 'rgba(34, 83, 48, 0.08)' : 'rgba(222, 150, 190, 0.12)', border: `1px solid ${theme === 'light' ? 'rgba(34, 83, 48, 0.2)' : 'rgba(222, 150, 190, 0.3)'}`, borderRadius: '8px', fontSize: '0.875rem', marginBottom: '0.75rem' }}>
+                  <div style={{ fontWeight: '600', marginBottom: '0.5rem', color: theme === 'light' ? '#225330' : '#de96be' }}>Kontribusi Anda:</div>
                   {state.userRating && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
                       <span>Rating: {state.userRating.rating}/5 ⭐</span>
@@ -569,7 +463,6 @@ const BookDetail = ({ book, onBookUpdate }) => {
                       </div>
                     </div>
                   )}
-
                   <div className="key-info-grid">
                     {[
                       { title: 'Statistik Buku', items: [
@@ -610,7 +503,6 @@ const BookDetail = ({ book, onBookUpdate }) => {
                         ))}
                       </div>
                     </div>
-
                     <div className="metadata-section">
                       <h4>Detail Publikasi</h4>
                       <div className="metadata-items">
@@ -627,7 +519,6 @@ const BookDetail = ({ book, onBookUpdate }) => {
                         ))}
                       </div>
                     </div>
-
                     {genres?.length > 0 && (
                       <div className="metadata-section tags-section">
                         <h4>Genre & Tag</h4>
@@ -651,7 +542,6 @@ const BookDetail = ({ book, onBookUpdate }) => {
                       <h3 className="section-title">Review({reviewsTree.length})</h3>
                       {!state.userReview && <button className="btn btn-primary btn-small" onClick={() => setModal('review', true)}>Tulis Review</button>}
                     </div>
-
                     {state.loading ? (
                       <div className="text-center" style={{ padding: '3rem', color: '#6b7280' }}>
                         <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>⏳</div>
@@ -727,31 +617,10 @@ const BookDetail = ({ book, onBookUpdate }) => {
           <button className="btn btn-primary w-full" onClick={handleAddRating}>{state.userRating ? 'Update Rating' : 'Tambah Rating'}</button>
         </Modal>
 
-        <Modal show={state.modals.review} title="Tulis Review" onClose={() => setModal('review', false)}>
-          <input type="text" className="form-control" placeholder="Judul review (opsional)" value={state.newReview.title} onChange={(e) => setState(prev => ({ ...prev, newReview: { ...prev.newReview, title: e.target.value } }))} style={{ marginBottom: '0.75rem' }} />
-          <textarea className="form-control" placeholder="Tulis review Anda... (minimal 10 karakter)" value={state.newReview.comment} onChange={(e) => setState(prev => ({ ...prev, newReview: { ...prev.newReview, comment: e.target.value } }))} rows={5} style={{ marginBottom: '0.75rem' }} />
-          <button className="btn btn-primary w-full" onClick={handleAddReview}>Kirim Review</button>
-        </Modal>
-
-        <Modal show={state.modals.editReview} title="Edit Review" onClose={() => setModal('editReview', false)}>
-          <input type="text" className="form-control" placeholder="Judul review (opsional)" value={state.editReview.title} onChange={(e) => setState(prev => ({ ...prev, editReview: { ...prev.editReview, title: e.target.value } }))} style={{ marginBottom: '0.75rem' }} />
-          <textarea className="form-control" placeholder="Tulis review Anda... (minimal 10 karakter)" value={state.editReview.comment} onChange={(e) => setState(prev => ({ ...prev, editReview: { ...prev.editReview, comment: e.target.value } }))} rows={5} style={{ marginBottom: '0.75rem' }} />
-          <button className="btn btn-primary w-full" onClick={handleUpdateReview}>Update Review</button>
-        </Modal>
-
-        <Modal show={state.modals.reply} title="Balas Review" onClose={() => setModal('reply', false)}>
-          <div style={{ marginBottom: '1rem', padding: '0.75rem', backgroundColor: theme === 'light' ? '#f9fafb' : '#1f2937', borderRadius: '8px' }}>
-            <div style={{ fontWeight: '600', marginBottom: '0.25rem' }}>{state.replyToReview?.userName}</div>
-            <div style={{ fontSize: '0.875rem', color: theme === 'light' ? '#6b7280' : '#9ca3af' }}>{state.replyToReview?.comment}</div>
-          </div>
-          <textarea className="form-control" placeholder="Tulis balasan Anda..." value={state.newReply} onChange={(e) => setState(prev => ({ ...prev, newReply: e.target.value }))} rows={4} style={{ marginBottom: '0.75rem' }} />
-          <button className="btn btn-primary w-full" onClick={handleAddReply}>Kirim Balasan</button>
-        </Modal>
-
-        <Modal show={state.modals.editReply} title="Edit Balasan" onClose={() => setModal('editReply', false)}>
-          <textarea className="form-control" placeholder="Edit balasan Anda..." value={state.editReply} onChange={(e) => setState(prev => ({ ...prev, editReply: e.target.value }))} rows={4} style={{ marginBottom: '0.75rem' }} />
-          <button className="btn btn-primary w-full" onClick={handleUpdateReply}>Update Balasan</button>
-        </Modal>
+        <ReviewModal show={state.modals.review} onClose={() => setModal('review', false)} data={state.newReview} onChange={(field, value) => setState(prev => ({ ...prev, newReview: { ...prev.newReview, [field]: value } }))} onSubmit={handleAddReview} isEdit={false} />
+        <ReviewModal show={state.modals.editReview} onClose={() => setModal('editReview', false)} data={state.editReview} onChange={(field, value) => setState(prev => ({ ...prev, editReview: { ...prev.editReview, [field]: value } }))} onSubmit={handleUpdateReview} isEdit={true} />
+        <ReplyModal show={state.modals.reply} onClose={() => setModal('reply', false)} data={state.newReply} replyTo={state.replyToReview} onChange={(value) => setState(prev => ({ ...prev, newReply: value }))} onSubmit={handleAddReply} isEdit={false} theme={theme} />
+        <ReplyModal show={state.modals.editReply} onClose={() => setModal('editReply', false)} data={state.editReply} onChange={(value) => setState(prev => ({ ...prev, editReply: value }))} onSubmit={handleUpdateReply} isEdit={true} theme={theme} />
       </div>
     </div>
   )
