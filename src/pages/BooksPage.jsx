@@ -22,13 +22,12 @@ const BooksPage = () => {
       const response = await bookService.getBooks({ page, limit: ITEMS_PER_PAGE, ...search })
       const booksData = Array.isArray(response.data?.list) ? response.data.list : []
 
-      // Hitung total pages berdasarkan data yang ada
       if (booksData.length < ITEMS_PER_PAGE && page === 1) {
-        setTotalPages(1) // Jika data kurang dari limit di halaman 1
+        setTotalPages(1)
       } else if (booksData.length < ITEMS_PER_PAGE) {
-        setTotalPages(page) // Halaman terakhir
+        setTotalPages(page)
       } else {
-        setTotalPages(page + 1) // Masih ada halaman selanjutnya
+        setTotalPages(page + 1)
       }
 
       setBooks(booksData)
@@ -102,6 +101,14 @@ const BooksPage = () => {
   return (
     <div className="container">
       <Breadcrumb />
+
+      <button
+        className="btn btn-secondary"
+        onClick={() => navigate('/')}
+        style={{ marginBottom: '1rem' }}
+      >
+        ← Kembali ke Beranda
+      </button>
 
       <SearchForm onSearch={handleSearch} />
 

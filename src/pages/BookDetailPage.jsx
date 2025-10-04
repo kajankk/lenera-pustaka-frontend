@@ -52,7 +52,6 @@ const BookDetailPage = () => {
     }
   }, [slug])
 
-  // Fungsi untuk update book tanpa loading indicator
   const handleBookUpdate = useCallback(async () => {
     try {
       const response = await bookService.getBookDetail(slug)
@@ -72,7 +71,6 @@ const BookDetailPage = () => {
       }
     } catch (err) {
       console.error('Error updating book:', err)
-      // Silent fail - tidak perlu show error saat background update
     }
   }, [slug])
 
@@ -106,9 +104,20 @@ const BookDetailPage = () => {
     </nav>
   )
 
+  const BackButton = () => (
+    <button
+      className="btn btn-secondary"
+      onClick={() => navigate('/books')}
+      style={{ marginBottom: '1rem' }}
+    >
+      ← Kembali ke Perpustakaan
+    </button>
+  )
+
   const ErrorPage = () => (
     <div className="container">
       <Breadcrumb />
+      <BackButton />
       <div className="error-page">
         <div className="error-icon">{error ? '❌' : '📖'}</div>
         <h3>{error ? 'Terjadi Kesalahan' : 'Ebook Tidak Ditemukan'}</h3>
@@ -161,6 +170,7 @@ const BookDetailPage = () => {
   return (
     <div className="container">
       <Breadcrumb />
+      <BackButton />
       <BookDetail book={book} onBookUpdate={handleBookUpdate} />
     </div>
   )
