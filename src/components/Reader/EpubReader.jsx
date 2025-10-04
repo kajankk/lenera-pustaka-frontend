@@ -145,14 +145,20 @@ const EpubReader = ({ bookData }) => {
         ? { color: '#ffffff', bg: '#1a1a1a', link: '#FFD700' }
         : { color: 'inherit', bg: 'inherit', link: '#225330' }
 
+      // Responsive padding based on screen size
+      const isMobile = window.innerWidth <= 768
+      const padding = isMobile ? '1rem' : '2rem'
+
       // Reset theme first to prevent style accumulation
       state.rendition.themes.default({
         body: {
           'font-family': 'inherit !important',
           'line-height': '1.6 !important',
-          'padding': '2rem !important',
+          'padding': `${padding} !important`,
           'color': colors.color,
-          'background': colors.bg
+          'background': colors.bg,
+          'box-sizing': 'border-box !important',
+          'overflow-x': 'hidden !important'
         },
         p: { 'margin': '0 !important', 'text-align': 'justify !important' },
         a: {
