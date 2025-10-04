@@ -74,14 +74,25 @@ const EpubReader = ({ bookData }) => {
     const rend = epubBook.renderTo(bookRef.current, {
       width: '100%',
       height: '100%',
-      allowScriptedContent: true
+      allowScriptedContent: true,
+      flow: 'paginated',
+      snap: true
     })
 
     // Base styles
     rend.themes.default({
-      body: { 'font-family': 'inherit !important', 'line-height': '1.6 !important', 'padding': '2rem !important' },
+      body: {
+        'font-family': 'inherit !important',
+        'line-height': '1.6 !important',
+        'padding': '1rem !important',
+        'margin': '0 !important',
+        'box-sizing': 'border-box !important',
+        'overflow': 'hidden !important',
+        'max-width': '100% !important'
+      },
       p: { 'margin': '0 !important', 'text-align': 'justify !important' },
-      a: { 'text-decoration': 'underline !important', 'color': 'inherit !important' }
+      a: { 'text-decoration': 'underline !important', 'color': 'inherit !important' },
+      '*': { 'box-sizing': 'border-box !important' }
     })
 
     rend.themes.fontSize(`${state.fontSize}px`)
@@ -136,37 +147,20 @@ const EpubReader = ({ bookData }) => {
   }, [state.fontSize, state.rendition])
 
   // Apply themes
-    useEffect(() => {
-      if (!state.rendition) return
+  useEffect(() => {
+    if (!state.rendition) return
 
-      const colors = state.readingMode === 'cream'
-        ? { color: '#704214', bg: '#f4ecd8', link: '#8B4513' }
-        : theme === 'dark'
-        ? { color: '#ffffff', bg: '#1a1a1a', link: '#FFD700' }
-        : { color: 'inherit', bg: 'inherit', link: '#225330' }
+    const colors = state.readingMode === 'cream'
+      ? { color: '#704214', bg: '#f4ecd8', link: '#8B4513' }
+      : theme === 'dark'
+      ? { color: '#ffffff', bg: '#1a1a1a', link: '#FFD700' }
+      : { color: 'inherit', bg: 'inherit', link: '#225330' }
 
-      // Responsive padding based on screen size
-      const isMobile = window.innerWidth <= 768
-      const padding = isMobile ? '1rem' : '2rem'
-
-      // Reset theme first to prevent style accumulation
-      state.rendition.themes.default({
-        body: {
-          'font-family': 'inherit !important',
-          'line-height': '1.6 !important',
-          'padding': `${padding} !important`,
-          'color': colors.color,
-          'background': colors.bg,
-          'box-sizing': 'border-box !important',
-          'overflow-x': 'hidden !important'
-        },
-        p: { 'margin': '0 !important', 'text-align': 'justify !important' },
-        a: {
-          'text-decoration': 'underline !important',
-          'color': `${colors.link} !important`
-        }
-      })
-    }, [theme, state.rendition, state.readingMode])
+    // Apply color themes without changing layout
+    state.rendition.themes.override('color', colors.color)
+    state.rendition.themes.override('background', colors.bg)
+    state.rendition.themes.override('a', `color: ${colors.link} !important; text-decoration: underline !important;`)
+  }, [theme, state.rendition, state.readingMode])
 
   // Close dropdown on outside click
   useEffect(() => {
