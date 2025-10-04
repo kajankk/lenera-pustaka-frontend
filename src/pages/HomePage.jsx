@@ -4,10 +4,10 @@ import { ROUTES } from '../utils/constants'
 
 const HomePage = () => {
   const features = [
-//     { icon: '📚', title: 'Koleksi Lengkap', subtitle: 'Ebook Domain Publik' },
-//     { icon: '👥', title: 'Komunitas Aktif', subtitle: 'Pembaca dari Seluruh Nusantara' },
-//     { icon: '🏷️', title: 'Genre Beragam', subtitle: 'Sastra Klasik hingga Modern' },
-//     { icon: '🔓', title: 'Akses Gratis', subtitle: 'Tanpa Biaya Berlangganan' }
+    { icon: '📚', title: 'Koleksi Lengkap', subtitle: 'Ebook Domain Publik' },
+    { icon: '👥', title: 'Komunitas Aktif', subtitle: 'Pembaca dari Seluruh Nusantara' },
+    { icon: '🏷️', title: 'Genre Beragam', subtitle: 'Sastra Klasik hingga Modern' },
+    { icon: '🔓', title: 'Akses Gratis', subtitle: 'Tanpa Biaya Berlangganan' }
   ]
 
   return (
@@ -31,13 +31,14 @@ const HomePage = () => {
         ))}
       </div>
 
-      <div className="about-text" id="about">
+      <div className="about-section" id="about">
         <h2 className="hero-title">Tentang Kami</h2>
-        <p className="about-text">Bukan Kuil Budaya, lantaran memang tak sebanding dengan perpustakaan Alexandria yang kesohor itu. Tapi di sini, siapa pun juga dapat menemukan buku-buku keren—gratis!</p>
-        <p>Dorongan kekecewaan yang amat sangat di kalangan mahasiswa yang bangkrut, para pelajar melarat, dan orang-orang kalah—akibatnya—<em>Lentera Pustaka</em> didirikan sebagai tempat umum dengan semen selundupan.
-        Kami berbagi file, mengedarkan pamflet-pamflet buatan sendiri yang kami kumpulkan dari berbagai sumber yang tersebar di <em>segara</em> internet. Kami menyuntingnya, sambil menyanyikan lagu-lagu rohani dan himne <em>Indonesia Raya</em>.</p>
-        <p>Pelaku vandalisme yang menggorok leher sendiri—meneror dengan hukuman yang patut dicontoh.</p>
-        <p>Selamat menikmati!</p>
+        <div className="description-text" style={{ textAlign: 'justify' }}>
+          <p style={{ marginBottom: 0 }}>Bukan Kuil Budaya, lantaran memang tak sebanding dengan perpustakaan Alexandria yang kesohor itu. Tapi di sini, siapa pun juga dapat menemukan buku-buku keren—gratis!</p>
+          <p style={{ marginBottom: 0 }}>Dorongan kekecewaan yang amat sangat di kalangan mahasiswa yang bangkrut, para pelajar melarat, dan orang-orang kalah—akibatnya—<em>Lentera Pustaka</em> didirikan sebagai tempat umum dengan semen selundupan. Kami berbagi file, mengedarkan pamflet-pamflet buatan sendiri yang kami kumpulkan dari berbagai sumber yang tersebar di <em>segara</em> internet. Kami menyuntingnya, sambil menyanyikan lagu-lagu rohani dan himne <em>Indonesia Raya</em>.</p>
+          <p style={{ marginBottom: 0 }}>Pelaku vandalisme yang menggorok leher sendiri—meneror dengan hukuman yang patut dicontoh.</p>
+          <p style={{ marginBottom: 0 }}>Selamat menikmati!</p>
+        </div>
       </div>
     </div>
   )

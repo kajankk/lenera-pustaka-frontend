@@ -254,6 +254,14 @@ export const bookService = {
     return response.data
   },
 
+  // Update reply
+  async updateReply(slug, replyId, comment) {
+    const response = await api.put(`/api/books/${slug}/replies/${replyId}`, {
+      comment: comment
+    })
+    return response.data
+  },
+
   // Delete reply
   async deleteReply(slug, replyId) {
     const response = await api.delete(`/api/books/${slug}/replies/${replyId}`)
