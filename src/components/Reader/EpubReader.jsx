@@ -8,6 +8,7 @@ const EpubReader = ({ bookData }) => {
   const readerContainerRef = useRef(null)
   const dropdownRef = useRef(null)
   const dropdownButtonRef = useRef(null)
+  const [isMobile, setIsMobile] = useState(false)
 
   const [state, setState] = useState({
     book: null,
@@ -25,6 +26,16 @@ const EpubReader = ({ bookData }) => {
     showFloatingToolbar: false,
     activePanel: null
   })
+
+  // Detect mobile device
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768)
+    }
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   const flattenToc = (toc) => {
     const result = []
@@ -79,18 +90,18 @@ const EpubReader = ({ bookData }) => {
       snap: true
     })
 
-    // Base styles
+    // Base styles with mobile optimization
     rend.themes.default({
       body: {
         'font-family': 'inherit !important',
         'line-height': '1.6 !important',
-        'padding': '1rem !important',
+        'padding': isMobile ? '0.75rem !important' : '1rem !important',
         'margin': '0 !important',
         'box-sizing': 'border-box !important',
         'overflow': 'hidden !important',
         'max-width': '100% !important'
       },
-      p: { 'margin': '0 !important', 'text-align': 'justify !important' },
+      p: { 'margin': '0 0 0.5em 0 !important', 'text-align': 'justify !important' },
       a: { 'text-decoration': 'underline !important', 'color': 'inherit !important' },
       '*': { 'box-sizing': 'border-box !important' }
     })
@@ -137,7 +148,7 @@ const EpubReader = ({ bookData }) => {
       rend.destroy()
       epubBook.destroy()
     }
-  }, [bookData?.fileUrl])
+  }, [bookData?.fileUrl, isMobile])
 
   // Update font size
   useEffect(() => {
@@ -156,7 +167,6 @@ const EpubReader = ({ bookData }) => {
       ? { color: '#ffffff', bg: '#1a1a1a', link: '#FFD700' }
       : { color: 'inherit', bg: 'inherit', link: '#225330' }
 
-    // Apply color themes without changing layout
     state.rendition.themes.override('color', colors.color)
     state.rendition.themes.override('background', colors.bg)
     state.rendition.themes.override('a', `color: ${colors.link} !important; text-decoration: underline !important;`)
@@ -172,9 +182,35 @@ const EpubReader = ({ bookData }) => {
     }
     if (state.tocOpen) {
       document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
+      document.addEventListener('touchstart', handleClickOutside)
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside)
+        document.removeEventListener('touchstart', handleClickOutside)
+      }
     }
   }, [state.tocOpen])
+
+  // Close panels when clicking outside on mobile
+  useEffect(() => {
+    if (!isMobile || !state.activePanel) return
+
+    const handleClickOutside = (event) => {
+      const panel = document.querySelector('.panel')
+      if (panel && !panel.contains(event.target)) {
+        const clickedControl = event.target.closest('.feature-controls')
+        if (!clickedControl) {
+          setState(prev => ({ ...prev, activePanel: null }))
+        }
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('touchstart', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('touchstart', handleClickOutside)
+    }
+  }, [isMobile, state.activePanel])
 
   const handleNavigation = (direction) => {
     if (state.rendition) {
@@ -186,7 +222,6 @@ const EpubReader = ({ bookData }) => {
     if (!href || href === '#' || !state.rendition || !state.book) return
 
     try {
-      // Try multiple navigation methods
       const methods = [
         () => state.rendition.display(href),
         () => {
@@ -215,7 +250,6 @@ const EpubReader = ({ bookData }) => {
       throw new Error('All navigation methods failed')
     } catch (error) {
       console.warn('Navigation failed for:', href, error.message)
-      // Don't show alert for failed navigation, just close TOC
       setState(prev => ({ ...prev, tocOpen: false }))
     }
   }
@@ -277,7 +311,8 @@ const EpubReader = ({ bookData }) => {
               className="btn btn-secondary"
               onClick={() => setState(prev => ({ ...prev, tocOpen: !prev.tocOpen }))}
             >
-              Daftar Isi <span className={`dropdown-arrow ${state.tocOpen ? 'open' : ''}`}>▼</span>
+              <span>Daftar Isi</span>
+              <span className={`dropdown-arrow ${state.tocOpen ? 'open' : ''}`}>▼</span>
             </button>
             {state.tocOpen && (
               <div className="dropdown-menu" ref={dropdownRef}>
@@ -304,7 +339,7 @@ const EpubReader = ({ bookData }) => {
             <span className="font-size-display">{state.fontSize}px</span>
             <button className="btn btn-secondary btn-small" onClick={() => handleFontSizeChange(2)}>A+</button>
             <button className={`btn btn-secondary ${state.readingMode === 'cream' ? 'active' : ''}`} onClick={toggleReadingMode}>
-              Mode
+              {isMobile ? '📖' : 'Mode'}
             </button>
           </div>
 
@@ -384,7 +419,7 @@ const EpubReader = ({ bookData }) => {
             </button>
 
             <div className="page-info-center">
-              Halaman {state.currentPage} dari {state.totalPages}
+              {isMobile ? `${state.currentPage}/${state.totalPages}` : `Halaman ${state.currentPage} dari ${state.totalPages}`}
             </div>
 
             <button
