@@ -256,7 +256,7 @@ const EpubReader = ({ bookData }) => {
 
   return (
     <div className="epub-reader" ref={readerContainerRef}>
-      {/* Controls */}
+      {/* Controls - Single Card Container */}
       <div className="card reader-controls">
         <div className="reader-control-group">
           {/* TOC Dropdown */}
@@ -350,109 +350,41 @@ const EpubReader = ({ bookData }) => {
         )}
       </div>
 
-      {/* Main Reading Container with Side Navigation */}
-      <div className="card epub-reader-content" style={{ position: 'relative' }}>
-        {/* Previous Button - Left Side */}
-        <button
-          className="nav-side-button nav-prev"
-          onClick={() => handleNavigation('prev')}
-          style={{
-            position: 'absolute',
-            left: '8px',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            zIndex: 10,
-            width: '40px',
-            height: '40px',
-            borderRadius: '50%',
-            border: '2px solid',
-            background: 'rgba(255, 255, 255, 0.9)',
-            color: 'var(--primary-green)',
-            borderColor: 'var(--primary-green)',
-            fontSize: '18px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-            fontWeight: 'bold'
-          }}
-          onMouseEnter={(e) => {
-            e.target.style.background = 'var(--primary-green)'
-            e.target.style.color = 'white'
-            e.target.style.transform = 'translateY(-50%) scale(1.05)'
-          }}
-          onMouseLeave={(e) => {
-            e.target.style.background = 'rgba(255, 255, 255, 0.9)'
-            e.target.style.color = 'var(--primary-green)'
-            e.target.style.transform = 'translateY(-50%) scale(1)'
-          }}
-        >
-          ‹
-        </button>
-
-        {/* Reader Viewport */}
-        <div className="reader-viewport-container" style={{
-          margin: '0 50px'
-        }}>
+      {/* Main Reading Container */}
+      <div className="card epub-reader-content">
+        <div className="reader-wrapper">
+          {/* Reader Viewport */}
           <div
             ref={bookRef}
             className="epub-reader-viewport"
             tabIndex={0}
-            style={{
-              width: '100%',
-              height: 'calc(100vh - 300px)',
-              maxHeight: '600px',
-              minHeight: '400px',
-              border: '2px solid',
-              borderRadius: 'var(--border-radius-lg)',
-              boxShadow: 'var(--shadow-medium)'
-            }}
           >
             {state.isLoading && <div className="loading">Memuat konten ebook...</div>}
           </div>
-        </div>
 
-        {/* Next Button - Right Side */}
-        <button
-          className="nav-side-button nav-next"
-          onClick={() => handleNavigation('next')}
-          style={{
-            position: 'absolute',
-            right: '8px',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            zIndex: 10,
-            width: '40px',
-            height: '40px',
-            borderRadius: '50%',
-            border: '2px solid',
-            background: 'rgba(255, 255, 255, 0.9)',
-            color: 'var(--primary-green)',
-            borderColor: 'var(--primary-green)',
-            fontSize: '18px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-            fontWeight: 'bold'
-          }}
-          onMouseEnter={(e) => {
-            e.target.style.background = 'var(--primary-green)'
-            e.target.style.color = 'white'
-            e.target.style.transform = 'translateY(-50%) scale(1.05)'
-          }}
-          onMouseLeave={(e) => {
-            e.target.style.background = 'rgba(255, 255, 255, 0.9)'
-            e.target.style.color = 'var(--primary-green)'
-            e.target.style.transform = 'translateY(-50%) scale(1)'
-          }}
-        >
-          ›
-        </button>
+          {/* Navigation Bar with Buttons and Page Info */}
+          <div className="reader-navigation-bar">
+            <button
+              className="nav-corner-button"
+              onClick={() => handleNavigation('prev')}
+              title="Halaman Sebelumnya"
+            >
+              ‹
+            </button>
+
+            <div className="page-info-center">
+              Halaman {state.currentPage} dari {state.totalPages}
+            </div>
+
+            <button
+              className="nav-corner-button"
+              onClick={() => handleNavigation('next')}
+              title="Halaman Selanjutnya"
+            >
+              ›
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )

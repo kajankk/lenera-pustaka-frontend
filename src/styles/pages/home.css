@@ -122,6 +122,33 @@
   letter-spacing: 0.05em;
 }
 
+/* About Section */
+.about-section {
+  margin: 4rem 0;
+  text-align: left;
+}
+
+.about-section .hero-title {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.about-section .description-text {
+  text-align: justify;
+  max-width: 900px;
+  margin: 0 auto;
+  line-height: 1.8;
+}
+
+.about-section .description-text p {
+  text-align: justify;
+  margin-bottom: 1.5rem;
+}
+
+.about-section .description-text p:last-child {
+  margin-bottom: 0;
+}
+
 /* Recent Activity Section */
 .recent-activity {
   margin: 4rem 0;
@@ -292,6 +319,15 @@
     font-size: 0.9rem;
   }
 
+  .about-section {
+    margin: 3rem 0;
+  }
+
+  .about-section .description-text {
+    max-width: 100%;
+    padding: 0 1rem;
+  }
+
   .activity-grid {
     grid-template-columns: 1fr;
     gap: 1.5rem;
@@ -332,6 +368,14 @@
   .featured-books-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 1rem;
+  }
+
+  .about-section {
+    margin: 2rem 0;
+  }
+
+  .about-section .description-text {
+    padding: 0 0.5rem;
   }
 
   .activity-card {
