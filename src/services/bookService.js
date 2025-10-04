@@ -89,13 +89,30 @@ export const bookService = {
   // ============ BOOKMARKS ENDPOINTS ============
 
   async addBookmark(slug, bookmarkData) {
-    const response = await api.post(`/api/books/${slug}/bookmarks`, {
+    const payload = {
       title: bookmarkData.title,
       page: bookmarkData.page,
-      position: bookmarkData.position,
-      notes: bookmarkData.notes,
-      chapterTitle: bookmarkData.chapterTitle
-    })
+      position: bookmarkData.position
+    }
+
+    // Backend expects 'description' field
+    if (bookmarkData.description && bookmarkData.description.trim()) {
+      payload.description = bookmarkData.description.trim()
+    }
+
+    // Include chapterTitle if provided
+    if (bookmarkData.chapterTitle) {
+      payload.chapterTitle = bookmarkData.chapterTitle
+    }
+
+    // Include color if provided
+    if (bookmarkData.color) {
+      payload.color = bookmarkData.color
+    }
+
+    console.log('bookService sending payload:', payload)
+
+    const response = await api.post(`/api/books/${slug}/bookmarks`, payload)
     return response.data
   },
 
@@ -105,13 +122,28 @@ export const bookService = {
   },
 
   async updateBookmark(slug, bookmarkId, bookmarkData) {
-    const response = await api.put(`/api/books/${slug}/bookmarks/${bookmarkId}`, {
+    const payload = {
       title: bookmarkData.title,
       page: bookmarkData.page,
-      position: bookmarkData.position,
-      notes: bookmarkData.notes,
-      chapterTitle: bookmarkData.chapterTitle
-    })
+      position: bookmarkData.position
+    }
+
+    // Backend expects 'description' field
+    if (bookmarkData.description && bookmarkData.description.trim()) {
+      payload.description = bookmarkData.description.trim()
+    }
+
+    // Include chapterTitle if provided
+    if (bookmarkData.chapterTitle) {
+      payload.chapterTitle = bookmarkData.chapterTitle
+    }
+
+    // Include color if provided
+    if (bookmarkData.color) {
+      payload.color = bookmarkData.color
+    }
+
+    const response = await api.put(`/api/books/${slug}/bookmarks/${bookmarkId}`, payload)
     return response.data
   },
 
@@ -196,7 +228,6 @@ export const bookService = {
 
   // ============ RATING ENDPOINTS ============
 
-  // Add or update rating
   async addOrUpdateRating(slug, rating) {
     const response = await api.post(`/api/books/${slug}/rating`, {
       rating: rating
@@ -204,7 +235,6 @@ export const bookService = {
     return response.data
   },
 
-  // Delete rating
   async deleteRating(slug) {
     const response = await api.delete(`/api/books/${slug}/rating`)
     return response.data
@@ -212,7 +242,6 @@ export const bookService = {
 
   // ============ REVIEW ENDPOINTS ============
 
-  // Get reviews with pagination
   async getReviews(slug, page = 1, limit = 10) {
     const response = await api.get(`/api/books/${slug}/reviews`, {
       params: { page, limit }
@@ -220,7 +249,6 @@ export const bookService = {
     return response.data
   },
 
-  // Add review
   async addReview(slug, reviewData) {
     const response = await api.post(`/api/books/${slug}/reviews`, {
       title: reviewData.title || null,
@@ -229,7 +257,6 @@ export const bookService = {
     return response.data
   },
 
-  // Update review
   async updateReview(slug, reviewData) {
     const response = await api.put(`/api/books/${slug}/reviews`, {
       title: reviewData.title || null,
@@ -238,7 +265,6 @@ export const bookService = {
     return response.data
   },
 
-  // Delete review
   async deleteReview(slug) {
     const response = await api.delete(`/api/books/${slug}/reviews`)
     return response.data
@@ -246,7 +272,6 @@ export const bookService = {
 
   // ============ REPLY ENDPOINTS ============
 
-  // Add reply to a review
   async addReply(slug, parentId, comment) {
     const response = await api.post(`/api/books/${slug}/reviews/${parentId}/replies`, {
       comment: comment
@@ -254,7 +279,6 @@ export const bookService = {
     return response.data
   },
 
-  // Update reply
   async updateReply(slug, replyId, comment) {
     const response = await api.put(`/api/books/${slug}/replies/${replyId}`, {
       comment: comment
@@ -262,7 +286,6 @@ export const bookService = {
     return response.data
   },
 
-  // Delete reply
   async deleteReply(slug, replyId) {
     const response = await api.delete(`/api/books/${slug}/replies/${replyId}`)
     return response.data
@@ -270,15 +293,13 @@ export const bookService = {
 
   // ============ FEEDBACK ENDPOINTS ============
 
-  // Add or update feedback (HELPFUL/NOT_HELPFUL)
   async addOrUpdateFeedback(slug, reviewId, type) {
     const response = await api.post(`/api/books/${slug}/reviews/${reviewId}/feedback`, {
-      type: type // "HELPFUL" or "NOT_HELPFUL"
+      type: type
     })
     return response.data
   },
 
-  // Delete feedback
   async deleteFeedback(slug, reviewId) {
     const response = await api.delete(`/api/books/${slug}/reviews/${reviewId}/feedback`)
     return response.data
@@ -392,7 +413,6 @@ export const bookService = {
     }
   },
 
-  // Get user's rating and review for a book
   async getUserRatingAndReview(slug) {
     try {
       const [reviews] = await Promise.all([
@@ -406,7 +426,6 @@ export const bookService = {
         String(r.userId) === String(currentUser.id) && r.reactionType === 'COMMENT' && !r.parentId
       )
 
-      // Rating akan ada di response lain, kita return dari review jika ada
       return {
         rating: userReview?.rating || null,
         review: userReview || null
@@ -417,7 +436,6 @@ export const bookService = {
     }
   },
 
-  // Enhanced batch operations for better performance
   async getBookData(slug) {
     try {
       const isAuth = this.isAuthenticated()
@@ -448,7 +466,6 @@ export const bookService = {
 
       const allReviews = reviews.status === 'fulfilled' ? reviews.value.data || [] : []
 
-      // Find user's rating and review
       const currentUser = this.getCurrentUser()
       let userRating = null
       let userReview = null
@@ -460,7 +477,6 @@ export const bookService = {
           !r.parentId
         )
 
-        // Rating might be embedded in review or separate
         if (userReview?.rating) {
           userRating = { rating: userReview.rating, id: userReview.id }
         }
@@ -533,7 +549,7 @@ export const bookService = {
 
   validateBookFile(file) {
     const allowedTypes = ['.epub', '.pdf', '.mobi', '.azw', '.azw3']
-    const maxSize = 50 * 1024 * 1024 // 50MB
+    const maxSize = 50 * 1024 * 1024
 
     if (!file) {
       throw new Error('File is required')

@@ -39,10 +39,10 @@ const EpubReader = ({ bookData }) => {
     toolbarPosition: { top: 0, left: 0 },
     activePanel: null,
     currentCfi: null,
+    currentChapterTitle: '',
     userClosedToolbar: false
   })
 
-  // Detect mobile device
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth <= 768)
     checkMobile()
@@ -64,6 +64,36 @@ const EpubReader = ({ bookData }) => {
     return result
   }
 
+  const getCurrentChapterTitle = (cfi, book, toc) => {
+    if (!toc || toc.length === 0 || !cfi || !book) return ''
+
+    try {
+      const spineItem = book.spine.get(cfi)
+      if (!spineItem) return ''
+
+      const spineHref = spineItem.href.split('#')[0]
+
+      for (let i = toc.length - 1; i >= 0; i--) {
+        const tocItem = toc[i]
+        if (tocItem.href) {
+          const tocHref = tocItem.href.split('#')[0]
+          const tocPath = tocHref.split('/').pop()
+          const spinePath = spineHref.split('/').pop()
+
+          if (tocPath === spinePath ||
+              spineHref.endsWith(tocHref) ||
+              tocHref.endsWith(spineHref) ||
+              spineHref.includes(tocPath)) {
+            return tocItem.label
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Error getting chapter title:', error)
+    }
+    return ''
+  }
+
   const clearSelection = () => {
     try {
       const iframe = bookRef.current?.querySelector('iframe')
@@ -76,19 +106,18 @@ const EpubReader = ({ bookData }) => {
     }
   }
 
-  // Get bookmark styles based on theme
   const getBookmarkStyles = useCallback(() => {
     if (theme === 'dark') {
       return {
-        color: '#ff69b4',  // Hot pink untuk dark mode
+        color: '#ff69b4',
         opacity: '0.8',
-        blendMode: 'screen'  // Screen mode untuk dark backgrounds
+        blendMode: 'screen'
       }
     }
     return {
-      color: '#de96be',  // Pink normal untuk light mode
+      color: '#de96be',
       opacity: '0.6',
-      blendMode: 'multiply'  // Multiply mode untuk light backgrounds
+      blendMode: 'multiply'
     }
   }, [theme])
 
@@ -114,21 +143,17 @@ const EpubReader = ({ bookData }) => {
         const rect = range.getBoundingClientRect()
         const iframeRect = iframe.getBoundingClientRect()
 
-        // Calculate toolbar position - always show above selection
-        const toolbarHeight = 100 // estimated toolbar height
+        const toolbarHeight = 100
         const viewportWidth = window.innerWidth
         const viewportHeight = window.innerHeight
 
-        // Position above selection with margin
         let top = iframeRect.top + rect.top - toolbarHeight - 10
         let left = iframeRect.left + rect.left + (rect.width / 2)
 
-        // If not enough space above, show below
         if (top < 10) {
           top = iframeRect.top + rect.bottom + 10
         }
 
-        // Keep toolbar within horizontal bounds
         const toolbarWidth = isMobile ? 280 : 320
         if (left - toolbarWidth / 2 < 10) {
           left = toolbarWidth / 2 + 10
@@ -136,7 +161,6 @@ const EpubReader = ({ bookData }) => {
           left = viewportWidth - toolbarWidth / 2 - 10
         }
 
-        // Keep toolbar within vertical bounds
         if (top + toolbarHeight > viewportHeight - 10) {
           top = viewportHeight - toolbarHeight - 10
         }
@@ -172,7 +196,7 @@ const EpubReader = ({ bookData }) => {
     } catch (error) {
       console.warn('Error checking text selection:', error)
     }
-  }, [state.rendition, state.userClosedToolbar])
+  }, [state.rendition, state.userClosedToolbar, isMobile])
 
   useEffect(() => {
     if (!state.rendition) return
@@ -207,7 +231,15 @@ const EpubReader = ({ bookData }) => {
       if (!iframe?.contentWindow) return
 
       const iframeDoc = iframe.contentWindow.document
-      const range = state.rendition.getRange(cfi)
+
+      let range
+      try {
+        range = state.rendition.getRange(cfi)
+      } catch (e) {
+        console.warn('Could not get range for CFI:', cfi, e)
+        return
+      }
+
       if (!range || !range.toString().trim()) return
 
       const highlightId = 'bookmark-hl-' + cfi.replace(/[^a-zA-Z0-9]/g, '')
@@ -228,16 +260,21 @@ const EpubReader = ({ bookData }) => {
       mark.setAttribute('data-bookmark-cfi', cfi)
 
       try {
-        range.surroundContents(mark)
+        const clonedRange = range.cloneRange()
+        clonedRange.surroundContents(mark)
       } catch (e) {
-        const contents = range.extractContents()
-        mark.appendChild(contents)
-        range.insertNode(mark)
+        try {
+          const contents = range.extractContents()
+          mark.appendChild(contents)
+          range.insertNode(mark)
+        } catch (err) {
+          console.warn('Could not add highlight for bookmark:', err)
+          return
+        }
       }
 
       bookmarkHighlightsRef.current.set(cfi, styles.color)
 
-      // Update or create global styles
       let styleEl = iframeDoc.getElementById('bookmark-highlight-styles')
       if (!styleEl) {
         styleEl = iframeDoc.createElement('style')
@@ -279,6 +316,7 @@ const EpubReader = ({ bookData }) => {
     }
   }, [state.rendition])
 
+  // Effect for applying bookmark highlights (SEPARATED from ebook init)
   useEffect(() => {
     if (!state.rendition || !bookmarks) return
 
@@ -304,6 +342,7 @@ const EpubReader = ({ bookData }) => {
     return () => clearTimeout(applyHighlights)
   }, [bookmarks, state.rendition, state.currentPage, theme, addBookmarkHighlight])
 
+  // Initialize ebook (WITHOUT bookmarks dependency to prevent reload)
   useEffect(() => {
     if (!bookData?.fileUrl) return
 
@@ -336,63 +375,30 @@ const EpubReader = ({ bookData }) => {
 
     epubBook.loaded.navigation.then(nav => {
       if (nav.toc && Array.isArray(nav.toc)) {
-        setState(prev => ({ ...prev, toc: flattenToc(nav.toc) }))
+        const flatToc = flattenToc(nav.toc)
+        setState(prev => ({ ...prev, toc: flatToc }))
       }
     }).catch(() => setState(prev => ({ ...prev, toc: [] })))
 
     rend.on('relocated', (location) => {
       const spineItem = epubBook.spine.get(location.start.cfi)
       if (spineItem) {
-        setState(prev => ({
-          ...prev,
-          progress: Math.round((spineItem.index / Math.max(1, epubBook.spine.length - 1)) * 100),
-          currentPage: spineItem.index + 1,
-          totalPages: epubBook.spine.length,
-          currentCfi: location.start.cfi
-        }))
+        setState(prev => {
+          const chapterTitle = getCurrentChapterTitle(location.start.cfi, epubBook, prev.toc)
+          return {
+            ...prev,
+            progress: Math.round((spineItem.index / Math.max(1, epubBook.spine.length - 1)) * 100),
+            currentPage: spineItem.index + 1,
+            totalPages: epubBook.spine.length,
+            currentCfi: location.start.cfi,
+            currentChapterTitle: chapterTitle
+          }
+        })
       }
     })
 
     rend.on('rendered', () => {
       setState(prev => ({ ...prev, isLoading: false }))
-
-      setTimeout(() => {
-        const iframe = bookRef.current?.querySelector('iframe')
-        if (!iframe?.contentWindow || !bookmarks?.length) return
-
-        const styles = getBookmarkStyles()
-        bookmarks.forEach(bookmark => {
-          if (bookmark.position) {
-            try {
-              const range = rend.getRange(bookmark.position)
-              if (range && range.toString().trim()) {
-                const iframeDoc = iframe.contentWindow.document
-                const highlightId = 'bookmark-hl-' + bookmark.position.replace(/[^a-zA-Z0-9]/g, '')
-                const existing = iframeDoc.getElementById(highlightId)
-                if (existing) existing.remove()
-
-                const mark = iframeDoc.createElement('mark')
-                mark.id = highlightId
-                mark.className = 'bookmark-highlight'
-                mark.style.cssText = `
-                  background-color: ${styles.color} !important;
-                  opacity: ${styles.opacity} !important;
-                  mix-blend-mode: ${styles.blendMode} !important;
-                  padding: 2px 0 !important;
-                `
-
-                try {
-                  range.surroundContents(mark)
-                } catch (e) {
-                  const contents = range.extractContents()
-                  mark.appendChild(contents)
-                  range.insertNode(mark)
-                }
-              }
-            } catch (e) {}
-          }
-        })
-      }, 200)
     })
 
     setState(prev => ({ ...prev, book: epubBook, rendition: rend }))
@@ -403,7 +409,7 @@ const EpubReader = ({ bookData }) => {
       rend.destroy()
       epubBook.destroy()
     }
-  }, [bookData?.fileUrl, isMobile, getBookmarkStyles])
+  }, [bookData?.fileUrl, isMobile])
 
   useEffect(() => {
     if (state.rendition) state.rendition.themes.fontSize(`${state.fontSize}px`)
@@ -505,22 +511,36 @@ const EpubReader = ({ bookData }) => {
     }
 
     try {
-      const title = prompt('Judul bookmark:') || `Halaman ${state.currentPage}`
-      if (title === null) return
-
-      const description = prompt('Deskripsi:') || ''
       const bookmarkPosition = state.selectedRange || state.currentCfi
 
-      const result = await addBookmark({
+      let chapterTitle = state.currentChapterTitle
+      if (!chapterTitle && state.book && state.toc.length > 0) {
+        chapterTitle = getCurrentChapterTitle(state.currentCfi, state.book, state.toc)
+      }
+
+      const defaultTitle = chapterTitle || `Halaman ${state.currentPage}`
+      const styles = getBookmarkStyles()
+
+      const bookmarkData = {
         page: state.currentPage,
         position: bookmarkPosition,
-        title: title.trim() || `Halaman ${state.currentPage}`,
-        description: description.trim()
-      })
+        title: defaultTitle,
+        color: styles.color
+      }
+
+      // Add description only if text is selected
+      if (state.selectedText && state.selectedText.trim().length > 0) {
+        bookmarkData.description = state.selectedText.trim()
+      }
+
+      console.log('Sending bookmark data:', bookmarkData)
+
+      const result = await addBookmark(bookmarkData)
 
       if (result) {
         addBookmarkHighlight(bookmarkPosition)
         alert('✓ Bookmark berhasil ditambahkan!')
+
         clearSelection()
         setState(prev => ({
           ...prev,
@@ -531,6 +551,7 @@ const EpubReader = ({ bookData }) => {
         }))
       }
     } catch (error) {
+      console.error('Error adding bookmark:', error)
       alert('Gagal menambahkan bookmark.')
     }
   }
@@ -681,7 +702,6 @@ const EpubReader = ({ bookData }) => {
                         <div key={bookmark.id} className="bookmark-item card">
                           <div className="bookmark-header">
                             <h4>{bookmark.title}</h4>
-                            <span className="bookmark-page">Hal. {bookmark.page}</span>
                           </div>
                           {bookmark.description && <p className="bookmark-description">{bookmark.description}</p>}
                           <div className="bookmark-actions">
@@ -715,7 +735,7 @@ const EpubReader = ({ bookData }) => {
           <div className="reader-navigation-bar">
             <button className="nav-corner-button" onClick={() => handleNavigation('prev')} title="Halaman Sebelumnya">‹</button>
             <div className="page-info-center">
-              {isMobile ? `${state.currentPage}/${state.totalPages}` : `Halaman ${state.currentPage} dari ${state.totalPages}`}
+              {state.currentChapterTitle || (isMobile ? `${state.currentPage}/${state.totalPages}` : `Halaman ${state.currentPage} dari ${state.totalPages}`)}
             </div>
             <button className="nav-corner-button" onClick={() => handleNavigation('next')} title="Halaman Selanjutnya">›</button>
           </div>
