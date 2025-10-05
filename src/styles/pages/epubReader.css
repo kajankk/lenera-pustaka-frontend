@@ -1,4 +1,6 @@
-/* EPUB READER PAGE STYLES */
+/* ============================================ */
+/* EPUB READER PAGE STYLES - COMPLETE */
+/* ============================================ */
 
 .epub-reader {
   max-width: 1200px;
@@ -81,7 +83,10 @@
   flex-wrap: wrap;
 }
 
-/* EPUB Reader Viewport */
+/* ============================================ */
+/* EPUB READER VIEWPORT */
+/* ============================================ */
+
 .epub-reader-content {
   padding: 0;
   border-radius: var(--border-radius-lg) !important;
@@ -110,7 +115,56 @@
   background: rgba(15, 23, 42, 0.95) !important;
 }
 
-/* Navigation Bar */
+/* Ensure iframe can be interacted with */
+.epub-reader-viewport iframe {
+  pointer-events: auto !important;
+}
+
+/* ============================================ */
+/* BOOKMARK HIGHLIGHTS - CRITICAL STYLES */
+/* ============================================ */
+
+/* These styles are injected into the iframe dynamically,
+   but defining them here as reference */
+
+mark.bookmark-highlight {
+  background-color: #ff69b4 !important;
+  opacity: 0.6 !important;
+  mix-blend-mode: multiply !important;
+  padding: 2px 0 !important;
+  border-radius: 2px !important;
+  color: inherit !important;
+  font-style: inherit !important;
+  font-weight: inherit !important;
+  line-height: inherit !important;
+  transition: opacity 0.2s ease !important;
+  cursor: pointer !important;
+}
+
+/* Dark theme adjustments for highlights */
+.dark mark.bookmark-highlight {
+  opacity: 0.8 !important;
+  mix-blend-mode: screen !important;
+}
+
+/* Hover effect for highlights */
+mark.bookmark-highlight:hover {
+  opacity: 0.8 !important;
+}
+
+.dark mark.bookmark-highlight:hover {
+  opacity: 1 !important;
+}
+
+/* Text selection within highlights */
+mark.bookmark-highlight::selection {
+  background-color: rgba(0, 123, 255, 0.3) !important;
+}
+
+/* ============================================ */
+/* NAVIGATION BAR */
+/* ============================================ */
+
 .reader-navigation-bar {
   display: flex;
   align-items: center;
@@ -189,46 +243,10 @@
   color: var(--primary-pink);
 }
 
-/* Progress Section */
-.progress-section {
-  text-align: center;
-  margin: 2rem 0;
-  padding: 1.5rem;
-  border-radius: var(--border-radius);
-  border: 1px solid;
-}
+/* ============================================ */
+/* TOC DROPDOWN */
+/* ============================================ */
 
-.progress-bar {
-  width: 100%;
-  height: 8px;
-  border-radius: 4px;
-  overflow: hidden;
-  margin: 1rem 0;
-}
-
-.light .progress-bar {
-  background: rgba(34, 83, 48, 0.1);
-}
-
-.dark .progress-bar {
-  background: rgba(222, 150, 190, 0.2);
-}
-
-.progress-fill {
-  height: 100%;
-  border-radius: 4px;
-  transition: width 0.3s ease;
-}
-
-.light .progress-fill {
-  background: linear-gradient(90deg, var(--primary-green), #16a34a);
-}
-
-.dark .progress-fill {
-  background: linear-gradient(90deg, var(--primary-pink), #f472b6);
-}
-
-/* TOC Dropdown */
 .toc-dropdown {
   position: relative;
   z-index: 9999;
@@ -378,76 +396,10 @@
   background: rgba(255, 255, 255, 0.2);
 }
 
-/* Reader Settings */
-.reader-settings {
-  display: flex;
-  gap: 1rem;
-  align-items: center;
-  flex-wrap: wrap;
-}
+/* ============================================ */
+/* FLOATING TOOLBAR */
+/* ============================================ */
 
-.setting-group {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.setting-label {
-  font-size: 0.9rem;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.setting-control {
-  padding: 0.5rem 0.75rem;
-  border: 2px solid;
-  border-radius: var(--border-radius);
-  font-size: 0.85rem;
-  min-width: 60px;
-  text-align: center;
-}
-
-.light .setting-control {
-  background: rgba(255, 255, 255, 0.9);
-  border-color: rgba(34, 83, 48, 0.2);
-  color: var(--primary-green);
-}
-
-.dark .setting-control {
-  background: rgba(30, 41, 59, 0.9);
-  border-color: rgba(222, 150, 190, 0.3);
-  color: var(--primary-pink);
-}
-
-/* Fullscreen Mode */
-.epub-reader.fullscreen {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 9999;
-  background: inherit;
-  max-width: none;
-  padding: 0.5rem;
-}
-
-.epub-reader.fullscreen .reader-wrapper {
-  height: calc(100vh - 60px);
-  padding: 1rem;
-  padding-bottom: 0.5rem;
-}
-
-.epub-reader.fullscreen .epub-reader-viewport {
-  height: calc(100% - 70px) !important;
-  max-height: none !important;
-}
-
-.epub-reader.fullscreen .reader-navigation-bar {
-  padding: 1rem 1.5rem;
-}
-
-/* Floating Toolbar Styles */
 .floating-toolbar {
   position: fixed;
   z-index: 10000;
@@ -462,7 +414,42 @@
   transform: translateX(-50%);
 }
 
-/* Panel Styles */
+.toolbar-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.toolbar-text {
+  font-size: 0.85rem;
+  padding: 0.5rem;
+  border-radius: var(--border-radius);
+  word-wrap: break-word;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.light .toolbar-text {
+  background: rgba(34, 83, 48, 0.05);
+  color: var(--text-primary);
+}
+
+.dark .toolbar-text {
+  background: rgba(222, 150, 190, 0.1);
+  color: var(--text-primary);
+}
+
+.toolbar-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+/* ============================================ */
+/* PANELS */
+/* ============================================ */
+
 .reader-panels {
   position: relative;
   z-index: 100;
@@ -482,30 +469,100 @@
   border-bottom: 1px solid;
 }
 
+.light .panel-header {
+  border-color: rgba(34, 83, 48, 0.2);
+}
+
+.dark .panel-header {
+  border-color: rgba(222, 150, 190, 0.2);
+}
+
 .panel-content {
   line-height: 1.6;
 }
 
-.search-input {
+/* ============================================ */
+/* BOOKMARKS PANEL */
+/* ============================================ */
+
+.bookmarks-list {
   width: 100%;
-  padding: 0.75rem;
-  border: 2px solid;
+}
+
+.bookmark-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.bookmark-item {
+  padding: 1rem;
   border-radius: var(--border-radius);
-  font-size: 0.9rem;
+  border: 1px solid;
+  transition: all 0.2s ease;
 }
 
-.light .search-input {
+.bookmark-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.light .bookmark-item {
+  background: rgba(255, 255, 255, 0.5);
   border-color: rgba(34, 83, 48, 0.2);
-  background: rgba(255, 255, 255, 0.9);
 }
 
-.dark .search-input {
-  border-color: rgba(222, 150, 190, 0.3);
-  background: rgba(30, 41, 59, 0.9);
-  color: white;
+.dark .bookmark-item {
+  background: rgba(30, 41, 59, 0.5);
+  border-color: rgba(222, 150, 190, 0.2);
 }
 
-/* Loading State */
+.bookmark-header h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.light .bookmark-header h4 {
+  color: var(--primary-green);
+}
+
+.dark .bookmark-header h4 {
+  color: var(--primary-pink);
+}
+
+.bookmark-description {
+  font-size: 0.85rem;
+  margin: 0.5rem 0;
+  line-height: 1.5;
+  opacity: 0.8;
+  font-style: italic;
+}
+
+.bookmark-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.bookmark-date {
+  display: block;
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  opacity: 0.6;
+}
+
+.info-message {
+  text-align: center;
+  padding: 2rem 1rem;
+  opacity: 0.7;
+  font-style: italic;
+}
+
+/* ============================================ */
+/* LOADING STATE */
+/* ============================================ */
+
 .loading {
   display: flex;
   align-items: center;
@@ -523,7 +580,10 @@
   color: var(--primary-pink);
 }
 
-/* Animasi untuk dropdown */
+/* ============================================ */
+/* ANIMATIONS */
+/* ============================================ */
+
 @keyframes slideUp {
   from {
     opacity: 0;
@@ -536,8 +596,9 @@
 }
 
 /* ============================================ */
-/* RESPONSIVE STYLES - TABLET */
+/* RESPONSIVE - TABLET */
 /* ============================================ */
+
 @media (min-width: 640px) {
   .reader-control-group {
     flex-direction: row;
@@ -564,8 +625,9 @@
 }
 
 /* ============================================ */
-/* RESPONSIVE STYLES - MOBILE LANDSCAPE & SMALL TABLETS */
+/* RESPONSIVE - MOBILE LANDSCAPE */
 /* ============================================ */
+
 @media (max-width: 768px) {
   .epub-reader {
     padding: 0 0.5rem;
@@ -622,8 +684,9 @@
 }
 
 /* ============================================ */
-/* RESPONSIVE STYLES - MOBILE PORTRAIT */
+/* RESPONSIVE - MOBILE PORTRAIT */
 /* ============================================ */
+
 @media (max-width: 480px) {
   .epub-reader {
     padding: 0 0.25rem;
@@ -708,22 +771,6 @@
     font-size: 0.85rem;
   }
 
-  .progress-section {
-    padding: 1rem;
-  }
-
-  .epub-reader.fullscreen {
-    padding: 0.25rem;
-  }
-
-  .epub-reader.fullscreen .epub-reader-viewport {
-    height: calc(100vh - 150px) !important;
-  }
-
-  .epub-reader.fullscreen .reader-navigation-bar {
-    padding: 0.75rem 0.15rem;
-  }
-
   .floating-toolbar {
     padding: 0.4rem;
     gap: 0.4rem;
@@ -740,8 +787,9 @@
 }
 
 /* ============================================ */
-/* RESPONSIVE STYLES - EXTRA SMALL MOBILE */
+/* RESPONSIVE - EXTRA SMALL MOBILE */
 /* ============================================ */
+
 @media (max-width: 360px) {
   .reader-controls {
     padding: 0.5rem;
@@ -780,8 +828,8 @@
 /* ============================================ */
 /* TOUCH DEVICE OPTIMIZATIONS */
 /* ============================================ */
+
 @media (hover: none) and (pointer: coarse) {
-  /* Increase touch targets */
   .btn {
     min-height: 44px;
     min-width: 44px;
@@ -797,7 +845,6 @@
     min-height: 44px;
   }
 
-  /* Remove hover effects on touch devices */
   .nav-corner-button:hover {
     transform: none;
   }
@@ -806,7 +853,6 @@
     transform: none;
   }
 
-  /* Add active states for touch feedback */
   .nav-corner-button:active {
     transform: scale(0.95);
     opacity: 0.8;
@@ -821,103 +867,31 @@
   }
 }
 
-/* Bookmarks Panel Styles */
-.bookmarks-list {
-  width: 100%;
+/* ============================================ */
+/* ACCESSIBILITY */
+/* ============================================ */
+
+@media (prefers-contrast: high) {
+  mark.bookmark-highlight {
+    opacity: 0.7 !important;
+    outline: 2px solid currentColor;
+  }
 }
 
-.bookmark-items {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
+/* ============================================ */
+/* PRINT STYLES */
+/* ============================================ */
 
-.bookmark-item {
-  padding: 1rem;
-  border-radius: var(--border-radius);
-  border: 1px solid;
-}
+@media print {
+  mark.bookmark-highlight {
+    background-color: #ffccdd !important;
+    opacity: 0.3 !important;
+    mix-blend-mode: normal !important;
+  }
 
-.light .bookmark-item {
-  background: rgba(255, 255, 255, 0.5);
-  border-color: rgba(34, 83, 48, 0.2);
-}
-
-.dark .bookmark-item {
-  background: rgba(30, 41, 59, 0.5);
-  border-color: rgba(222, 150, 190, 0.2);
-}
-
-.bookmark-header h4 {
-  margin: 0 0 0.5rem 0;
-  font-size: 0.95rem;
-  font-weight: 600;
-}
-
-.light .bookmark-header h4 {
-  color: var(--primary-green);
-}
-
-.dark .bookmark-header h4 {
-  color: var(--primary-pink);
-}
-
-.bookmark-description {
-  font-size: 0.85rem;
-  margin: 0.5rem 0;
-  line-height: 1.5;
-  opacity: 0.8;
-}
-
-.bookmark-actions {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
-}
-
-.bookmark-date {
-  display: block;
-  margin-top: 0.5rem;
-  font-size: 0.75rem;
-  opacity: 0.6;
-}
-
-.info-message {
-  text-align: center;
-  padding: 2rem 1rem;
-  opacity: 0.7;
-  font-style: italic;
-}
-
-/* Toolbar Styles */
-.toolbar-content {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  width: 100%;
-}
-
-.toolbar-text {
-  font-size: 0.85rem;
-  padding: 0.5rem;
-  border-radius: var(--border-radius);
-  word-wrap: break-word;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.light .toolbar-text {
-  background: rgba(34, 83, 48, 0.05);
-  color: var(--text-primary);
-}
-
-.dark .toolbar-text {
-  background: rgba(222, 150, 190, 0.1);
-  color: var(--text-primary);
-}
-
-.toolbar-actions {
-  display: flex;
-  gap: 0.5rem;
-  justify-content: center;
+  .reader-controls,
+  .floating-toolbar,
+  .reader-panels {
+    display: none !important;
+  }
 }
