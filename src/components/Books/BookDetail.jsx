@@ -46,7 +46,7 @@ const BookDetail = ({ book, onBookUpdate }) => {
     isDownloading: false,
     activeTab: 'description',
     modals: { share: false, rating: false, review: false, editReview: false, reply: false, editReply: false },
-    newRating: 5,
+    newRating: 5.0,
     newReview: { comment: '', title: '' },
     editReview: { comment: '', title: '' },
     newReply: '',
@@ -95,7 +95,7 @@ const BookDetail = ({ book, onBookUpdate }) => {
     return rootReviews
   }
 
-  const handleStartReading = () => navigate(`/${book.slug}/${getFileFormat() === 'pdf' ? 'read-pdf' : 'read'}`)
+  const handleStartReading = () => navigate(`/books/${book.slug}/${getFileFormat() === 'pdf' ? 'read-pdf' : 'read'}`)
 
   const handleDownload = async () => {
     if (state.isDownloading) return
@@ -105,6 +105,7 @@ const BookDetail = ({ book, onBookUpdate }) => {
       const ext = format === 'pdf' ? 'pdf' : 'epub'
       await bookService.downloadBook(book.slug, `${book.title.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_')}.${ext}`)
       showNotification(`Buku berhasil diunduh dalam format ${ext.toUpperCase()}!`, 'success')
+      if (onBookUpdate) await onBookUpdate()
     } catch (error) {
       showNotification(error.message || 'Gagal mengunduh ebook. Silakan coba lagi.', 'error')
     } finally {
@@ -124,7 +125,7 @@ const BookDetail = ({ book, onBookUpdate }) => {
     try {
       await bookService.addOrUpdateRating(book.slug, state.newRating)
       setModal('rating', false)
-      setState(prev => ({ ...prev, newRating: 5 }))
+      setState(prev => ({ ...prev, newRating: 5.0 }))
       showNotification(state.userRating ? 'Rating berhasil diupdate!' : 'Rating berhasil ditambahkan!', 'success')
       await loadReviews()
       if (onBookUpdate) await onBookUpdate()
@@ -137,6 +138,7 @@ const BookDetail = ({ book, onBookUpdate }) => {
     if (!state.userRating || !window.confirm('Hapus rating Anda?')) return
     try {
       await bookService.deleteRating(book.slug)
+      setState(prev => ({ ...prev, userRating: null }))
       showNotification('Rating berhasil dihapus!', 'success')
       await loadReviews()
       if (onBookUpdate) await onBookUpdate()
@@ -178,6 +180,7 @@ const BookDetail = ({ book, onBookUpdate }) => {
     if (!window.confirm('Apakah Anda yakin ingin menghapus review ini?')) return
     try {
       await bookService.deleteReview(book.slug)
+      setState(prev => ({ ...prev, userReview: null }))
       showNotification('Review berhasil dihapus!', 'success')
       await loadReviews()
       if (onBookUpdate) await onBookUpdate()
@@ -326,6 +329,8 @@ const BookDetail = ({ book, onBookUpdate }) => {
       const userReview = state.reviews.find(r => r.userName === user.username && r.reactionType === 'COMMENT' && !r.parentId)
       const ratingItem = state.reviews.find(r => r.userName === user.username && r.reactionType === 'RATING')
       setState(prev => ({ ...prev, userRating: ratingItem ? { rating: ratingItem.rating, id: ratingItem.id } : null, userReview: userReview || null }))
+    } else if (!isAuthenticated) {
+      setState(prev => ({ ...prev, userRating: null, userReview: null }))
     }
   }, [isAuthenticated, user, state.reviews])
   useEffect(() => { document.title = `${book.title} - Lentera Pustaka` }, [book])
@@ -366,7 +371,7 @@ const BookDetail = ({ book, onBookUpdate }) => {
               </button>
               <div className="action-row">
                 <button className="btn btn-secondary btn-small" onClick={handleShare}>Bagikan</button>
-                <button className="btn btn-secondary btn-small" onClick={() => { setModal('rating', true); setState(prev => ({ ...prev, newRating: state.userRating?.rating || 5 })) }}>{state.userRating ? 'Edit Rating' : 'Beri Rating'}</button>
+                <button className="btn btn-secondary btn-small" onClick={() => { setModal('rating', true); setState(prev => ({ ...prev, newRating: state.userRating?.rating || 5.0 })) }}>{state.userRating ? 'Edit Rating' : 'Beri Rating'}</button>
                 <button className="btn btn-secondary btn-small" onClick={() => state.userReview ? (setModal('editReview', true), setState(prev => ({ ...prev, editingReview: state.userReview, editReview: { comment: state.userReview.comment || '', title: state.userReview.title || '' } }))) : setModal('review', true)}>{state.userReview ? 'Edit Review' : 'Tulis Review'}</button>
               </div>
 
@@ -606,15 +611,30 @@ const BookDetail = ({ book, onBookUpdate }) => {
         </Modal>
 
         <Modal show={state.modals.rating} title={state.userRating ? 'Edit Rating' : 'Beri Rating'} onClose={() => setModal('rating', false)}>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', fontSize: '2rem', marginBottom: '1rem' }}>
-            {[1, 2, 3, 4, 5].map(star => (
-              <button key={star} onClick={() => setState(prev => ({ ...prev, newRating: star }))} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '2rem', padding: '0.25rem' }}>
-                {star <= state.newRating ? '⭐' : '☆'}
-              </button>
-            ))}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '0.25rem', fontSize: '2.5rem' }}>
+              {[1, 2, 3, 4, 5].map(star => {
+                const fullStar = star <= Math.floor(state.newRating)
+                const halfStar = star === Math.ceil(state.newRating) && state.newRating % 1 !== 0
+                return (
+                  <div key={star} style={{ position: 'relative', cursor: 'pointer' }} onClick={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect()
+                    const x = e.clientX - rect.left
+                    const isLeftHalf = x < rect.width / 2
+                    setState(prev => ({ ...prev, newRating: isLeftHalf ? star - 0.5 : star }))
+                  }}>
+                    <span style={{ color: '#d1d5db' }}>☆</span>
+                    <span style={{ position: 'absolute', left: 0, top: 0, overflow: 'hidden', width: fullStar ? '100%' : halfStar ? '50%' : '0%', color: '#fbbf24' }}>⭐</span>
+                  </div>
+                )
+              })}
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '0.5rem' }}>{state.newRating.toFixed(1)}/5.0</div>
+              <div style={{ fontSize: '0.875rem', color: theme === 'light' ? '#6b7280' : '#9ca3af' }}>Klik sisi kiri bintang untuk setengah, kanan untuk penuh</div>
+            </div>
+            <button className="btn btn-primary w-full" onClick={handleAddRating}>{state.userRating ? 'Update Rating' : 'Tambah Rating'}</button>
           </div>
-          <div style={{ textAlign: 'center', marginBottom: '1rem', fontSize: '1.125rem', fontWeight: '600' }}>{state.newRating}/5</div>
-          <button className="btn btn-primary w-full" onClick={handleAddRating}>{state.userRating ? 'Update Rating' : 'Tambah Rating'}</button>
         </Modal>
 
         <ReviewModal show={state.modals.review} onClose={() => setModal('review', false)} data={state.newReview} onChange={(field, value) => setState(prev => ({ ...prev, newReview: { ...prev.newReview, [field]: value } }))} onSubmit={handleAddReview} isEdit={false} />

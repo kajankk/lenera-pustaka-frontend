@@ -26,8 +26,8 @@ function App() {
           <Route path="/login" element={<AuthPage />} />
           <Route path="/books" element={<BooksPage />} />
           <Route path="/books/:slug" element={<BookDetailPage />} />
+          <Route path="/books/:slug/read" element={<ReaderPage />} />
           <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path=":slug/read" element={<ReaderPage />} />
         </Routes>
       </main>
     </div>
