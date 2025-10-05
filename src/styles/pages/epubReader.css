@@ -459,7 +459,6 @@
   flex-wrap: wrap;
   max-width: 90vw;
   left: 50%;
-  top: 20%;
   transform: translateX(-50%);
 }
 
