@@ -35,7 +35,7 @@ const HomePage = () => {
         <h2 className="hero-title">Tentang Kami</h2>
         <div className="description-text" style={{ textAlign: 'justify' }}>
           <p style={{ marginBottom: 0 }}>Bukan Kuil Budaya, lantaran memang tak sebanding dengan perpustakaan Alexandria yang kesohor itu. Tapi di sini, siapa pun juga dapat menemukan buku-buku keren—gratis!</p>
-          <p style={{ marginBottom: 0 }}>Dorongan kekecewaan yang amat sangat di kalangan mahasiswa yang bangkrut, para pelajar melarat, dan orang-orang kalah—akibatnya—<em>Lentera Pustaka</em> didirikan sebagai tempat umum dengan semen selundupan. Kami berbagi file, mengedarkan pamflet-pamflet buatan sendiri yang kami kumpulkan dari berbagai sumber yang tersebar di <em>segara</em> internet. Kami menyuntingnya, sambil menyanyikan lagu-lagu rohani dan himne <em>Indonesia Raya</em>.</p>
+          <p style={{ marginBottom: 0 }}>Dorongan kekecewaan yang amat sangat di kalangan mahasiswa yang bangkrut, para pelajar melarat, dan orang-orang kalah—akibatnya—<em>Lentera Pustaka</em> didirikan sebagai perpustakaan umum dengan semen selundupan. Kami berbagi file, mengedarkan pamflet-pamflet buatan sendiri yang kami pungut dari <em>segara</em> internet. Kami menyuntingnya, sambil menyanyikan lagu-lagu rohani dan himne <em>Indonesia Raya</em>.</p>
           <p style={{ marginBottom: 0 }}>Pelaku vandalisme yang menggorok leher sendiri—meneror dengan hukuman yang patut dicontoh.</p>
           <p style={{ marginBottom: 0 }}>Selamat menikmati!</p>
         </div>
