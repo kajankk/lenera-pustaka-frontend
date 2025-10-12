@@ -418,8 +418,9 @@ const EpubReader = ({ bookData }) => {
         'line-height': '1.6',
         'padding': isMobile ? '0.75rem' : '1rem',
         'user-select': 'text !important'
-      }
+      },
       // Hapus override untuk <p> dan <a> agar styling original ebook tetap berlaku
+      a: { 'text-decoration': 'underline !important', 'color': 'inherit !important' }
     })
 
     rend.themes.fontSize(`${state.fontSize}px`)
