@@ -21,7 +21,7 @@ const Header = () => {
       <div className="container">
         <nav className="nav">
           <Link to={ROUTES.HOME} className="logo">
-            <img src={logo} alt="Lentera Pustaka Logo" />
+            <img src={logo} alt="Massa Silam Logo" />
           </Link>
 
           <div className="nav-links">
