@@ -414,13 +414,12 @@ const EpubReader = ({ bookData }) => {
 
     rend.themes.default({
       body: {
-        'font-family': 'inherit !important',
-        'line-height': '1.6 !important',
-        'padding': isMobile ? '0.75rem !important' : '1rem !important',
+        'font-family': 'inherit',
+        'line-height': '1.6',
+        'padding': isMobile ? '0.75rem' : '1rem',
         'user-select': 'text !important'
-      },
-      p: { 'text-align': 'justify !important' },
-      a: { 'text-decoration': 'underline !important', 'color': 'inherit !important' }
+      }
+      // Hapus override untuk <p> dan <a> agar styling original ebook tetap berlaku
     })
 
     rend.themes.fontSize(`${state.fontSize}px`)
