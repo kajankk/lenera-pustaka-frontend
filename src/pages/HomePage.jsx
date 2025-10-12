@@ -13,7 +13,7 @@ const HomePage = () => {
   return (
     <div className="home-page">
       <div className="hero-section">
-        <h1 className="hero-title">LMassa Silam</h1>
+        <h1 className="hero-title">Massa Silam</h1>
         <p className="hero-subtitle">Perpustakaan online untuk buku-buku domain publik yang terbengkalai dan terdegradasi</p>
         <div className="hero-actions">
           <Link to={ROUTES.BOOKS} className="btn btn-primary">Jelajahi Koleksi</Link>
