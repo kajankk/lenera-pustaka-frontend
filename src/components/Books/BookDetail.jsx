@@ -115,7 +115,7 @@ const BookDetail = ({ book, onBookUpdate }) => {
 
   const handleShare = () => {
     const url = window.location.href
-    if (navigator.share) navigator.share({ title: `${book.title} - Massa Silam`, text: book.description?.substring(0, 100) || `Baca "${book.title}" di Massa Silam`, url }).catch(console.error)
+    if (navigator.share) navigator.share({ title: `${book.title} - Masa Silam`, text: book.description?.substring(0, 100) || `Baca "${book.title}" di Massa Silam`, url }).catch(console.error)
     else if (navigator.clipboard) navigator.clipboard.writeText(url).then(() => showNotification('Link berhasil disalin ke clipboard!', 'success')).catch(() => setModal('share', true))
     else setModal('share', true)
   }
@@ -333,7 +333,7 @@ const BookDetail = ({ book, onBookUpdate }) => {
       setState(prev => ({ ...prev, userRating: null, userReview: null }))
     }
   }, [isAuthenticated, user, state.reviews])
-  useEffect(() => { document.title = `${book.title} - Massa Silam` }, [book])
+  useEffect(() => { document.title = `${book.title} - Masa Silam` }, [book])
 
   const tabs = [
     { id: 'description', label: 'Deskripsi', icon: '📄' },
